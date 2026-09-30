@@ -255,14 +255,67 @@ form.addEventListener('submit', (e)=>{
 });
 
 function setArchiveView(show){
-  $('#archivados').hidden = !show;
-  $('#tareas').hidden = show;
-  if(show){ $('#archivados').scrollIntoView({behavior:'smooth',block:'start'}); renderArchive(); }
-  else { $('#tareas').scrollIntoView({behavior:'smooth',block:'start'}); }
+  const archiveSection = $('#archivados');
+  const taskSection = $('#tareas');
+  if(!archiveSection || !taskSection) return;
+  archiveSection.hidden = !show;
+  taskSection.hidden = show;
+  if(show){ renderArchive(); archiveSection.scrollIntoView({behavior:'smooth',block:'start'}); }
+  else { taskSection.scrollIntoView({behavior:'smooth',block:'start'}); }
 }
-$('#archiveNav').onclick=()=>setArchiveView(true);
-$('#closeArchive').onclick=()=>setArchiveView(false);
-$('#archiveSearchInput').addEventListener('input', renderArchive);
+
+function setTheme(theme, persist=true){
+  const next = theme === 'dark' ? 'dark' : 'light';
+  document.documentElement.setAttribute('data-theme', next);
+  const icon = $('#themeIcon');
+  const label = $('#themeLabel');
+  const btn = $('#themeToggle');
+  if(icon) icon.textContent = next === 'dark' ? '☀' : '☾';
+  if(label) label.textContent = next === 'dark' ? 'Claro' : 'Oscuro';
+  if(btn){
+    btn.setAttribute('aria-pressed', String(next === 'dark'));
+    btn.setAttribute('aria-label', next === 'dark' ? 'Cambiar a tema claro' : 'Cambiar a tema oscuro');
+    btn.title = next === 'dark' ? 'Cambiar a tema claro' : 'Cambiar a tema oscuro';
+  }
+  if(persist){
+    const settings = loadSettings();
+    settings.theme = next;
+    saveSettings(settings);
+  }
+}
+function toggleTheme(){
+  const current = document.documentElement.getAttribute('data-theme') || 'light';
+  setTheme(current === 'dark' ? 'light' : 'dark');
+}
+
+function applySiteIcon(dataUrl){
+  const wrap = document.querySelector('.brand-icon-wrap');
+  const previewBox = document.querySelector('.icon-preview-box');
+  if(dataUrl){
+    $('#brandIcon').src = dataUrl; wrap?.classList.add('has-icon');
+    $('#siteIconPreview').src = dataUrl; previewBox?.classList.add('has-icon');
+    $('#dynamicFavicon').href = dataUrl;
+  } else {
+    $('#brandIcon').removeAttribute('src'); wrap?.classList.remove('has-icon');
+    $('#siteIconPreview').removeAttribute('src'); previewBox?.classList.remove('has-icon');
+    $('#dynamicFavicon').href = "data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 64 64'%3E%3Crect width='64' height='64' rx='16' fill='%23b9ff39'/%3E%3Cpath d='M18 33l9 9 19-22' fill='none' stroke='%23111' stroke-width='7' stroke-linecap='round' stroke-linejoin='round'/%3E%3C/svg%3E";
+  }
+}
+
+function on(id, event, handler){ const el=$('#'+id); if(el) el.addEventListener(event, handler); }
+
+on('archiveNav','click',()=>setArchiveView(true));
+on('closeArchive','click',()=>setArchiveView(false));
+on('archiveSearchInput','input',renderArchive);
+on('themeToggle','click',toggleTheme);
+on('customizeBtn','click',()=>customizeDialog?.showModal());
+on('closeCustomize','click',()=>customizeDialog?.close());
+on('cancelCustomize','click',()=>customizeDialog?.close());
+on('resetIcon','click',()=>{const settings=loadSettings();delete settings.siteIcon;saveSettings(settings);applySiteIcon('');$('#siteIconInput').value='';});
+on('closeDialog','click',()=>dialog?.close());
+on('cancelDialog','click',()=>dialog?.close());
+on('searchInput','input',render);
+['newTaskTop','newTaskHero','newTaskEmpty'].forEach(id=>on(id,'click',openNew));
 
 $$('.filter-chip').forEach(btn=>btn.addEventListener('click',()=>{
   activeStatus = btn.dataset.status;
@@ -270,44 +323,19 @@ $$('.filter-chip').forEach(btn=>btn.addEventListener('click',()=>{
   render();
 }));
 
-function applyTheme(theme){
-  document.documentElement.dataset.theme = theme;
-  $('#themeIcon').textContent = theme === 'dark' ? '☀' : '☾';
-  const settings = loadSettings(); settings.theme = theme; saveSettings(settings);
-}
-$('#themeToggle').onclick=()=>applyTheme(document.documentElement.dataset.theme === 'dark' ? 'light' : 'dark');
+$$('.nav a[href="#inicio"]').forEach(a=>a.addEventListener('click',()=>setArchiveView(false)));
+$$('.nav a[href="#tareas"]').forEach(a=>a.addEventListener('click',()=>setArchiveView(false)));
 
-function applySiteIcon(dataUrl){
-  const wrap = document.querySelector('.brand-icon-wrap');
-  const previewBox = document.querySelector('.icon-preview-box');
-  if(dataUrl){
-    $('#brandIcon').src = dataUrl; wrap.classList.add('has-icon');
-    $('#siteIconPreview').src = dataUrl; previewBox.classList.add('has-icon');
-    $('#dynamicFavicon').href = dataUrl;
-  } else {
-    $('#brandIcon').removeAttribute('src'); wrap.classList.remove('has-icon');
-    $('#siteIconPreview').removeAttribute('src'); previewBox.classList.remove('has-icon');
-    $('#dynamicFavicon').href = "data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 64 64'%3E%3Crect width='64' height='64' rx='16' fill='%23b9ff39'/%3E%3Cpath d='M18 33l9 9 19-22' fill='none' stroke='%23111' stroke-width='7' stroke-linecap='round' stroke-linejoin='round'/%3E%3C/svg%3E";
-  }
-}
-$('#customizeBtn').onclick=()=>customizeDialog.showModal();
-$('#closeCustomize').onclick=()=>customizeDialog.close();
-$('#cancelCustomize').onclick=()=>customizeDialog.close();
-$('#siteIconInput').addEventListener('change',(e)=>{
+on('siteIconInput','change',(e)=>{
   const file=e.target.files?.[0]; if(!file) return;
   if(file.size > 600_000) return alert('Usa un icono menor a 600 KB.');
   const reader=new FileReader();
   reader.onload=()=>{const settings=loadSettings();settings.siteIcon=reader.result;saveSettings(settings);applySiteIcon(reader.result);};
   reader.readAsDataURL(file);
 });
-$('#resetIcon').onclick=()=>{const settings=loadSettings();delete settings.siteIcon;saveSettings(settings);applySiteIcon('');$('#siteIconInput').value='';};
-
-['newTaskTop','newTaskHero','newTaskEmpty'].forEach(id=>$('#'+id).onclick=openNew);
-$('#closeDialog').onclick=()=>dialog.close();
-$('#cancelDialog').onclick=()=>dialog.close();
-$('#searchInput').addEventListener('input',render);
 
 const initialSettings = loadSettings();
-applyTheme(initialSettings.theme || (window.matchMedia?.('(prefers-color-scheme: dark)').matches ? 'dark' : 'light'));
+const preferredTheme = initialSettings.theme || (window.matchMedia && window.matchMedia('(prefers-color-scheme: dark)').matches ? 'dark' : 'light');
+setTheme(preferredTheme, false);
 applySiteIcon(initialSettings.siteIcon || '');
 render();

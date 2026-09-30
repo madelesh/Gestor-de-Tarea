@@ -19,12 +19,12 @@
       <nav class="nav" aria-label="Navegación principal">
         <a href="#inicio">Inicio</a>
         <a href="#tareas">Tareas</a>
-        <button class="nav-link" id="archiveNav" type="button">Archivados <span id="archiveCount" class="nav-count">0</span></button>
-        <button class="nav-link" id="customizeBtn" type="button">Personalizar</button>
+        <button class="nav-link nav-button" id="archiveNav" type="button">Archivados <span id="archiveCount" class="nav-count">0</span></button>
+        <button class="nav-link nav-button" id="customizeBtn" type="button">Personalizar</button>
       </nav>
 
-      <button class="theme-toggle" id="themeToggle" type="button" aria-label="Cambiar tema" title="Cambiar tema">
-        <span id="themeIcon">☾</span>
+      <button class="theme-toggle" id="themeToggle" type="button" aria-label="Cambiar a tema oscuro" title="Cambiar tema" aria-pressed="false">
+        <span class="theme-symbol" id="themeIcon" aria-hidden="true">☾</span><span class="theme-label" id="themeLabel">Oscuro</span>
       </button>
       <button class="btn btn-outline" id="newTaskTop">+ Nueva tarea</button>
     </header>
@@ -216,7 +216,7 @@
             <span class="client"></span>
             <h3 class="task-name"></h3>
           </div>
-          <button class="menu-btn" aria-label="Editar">•••</button>
+          <button type="button" class="menu-btn" aria-label="Editar">•••</button>
         </div>
         <p class="description"></p>
         <div class="people-row">
@@ -238,11 +238,11 @@
           <span>30% pedido <b class="taker-share"></b></span>
         </div>
         <div class="card-actions">
-          <button class="btn btn-outline small edit-btn">Editar</button>
-          <button class="btn btn-light small pay-btn">+ Abono</button>
-          <button class="btn btn-dark small deliver-btn">Entregado</button>
-          <button class="btn btn-outline small archive-btn">Archivar</button>
-          <button class="btn btn-danger small delete-btn">Eliminar</button>
+          <button type="button" class="btn btn-outline small edit-btn">Editar</button>
+          <button type="button" class="btn btn-light small pay-btn">+ Abono</button>
+          <button type="button" class="btn btn-dark small deliver-btn">Entregado</button>
+          <button type="button" class="btn btn-outline small archive-btn">Archivar</button>
+          <button type="button" class="btn btn-danger small delete-btn">Eliminar</button>
         </div>
       </div>
     </article>
