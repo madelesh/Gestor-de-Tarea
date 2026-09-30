@@ -1,4 +1,4 @@
-const APP_VERSION = '10.3.1';
+const APP_VERSION = '10.4';
 const API_BASE = 'https://gestor-tareas-api.detodoec.workers.dev';
 const STORAGE_KEY = 'detodoec_tasks_v1';
 const SETTINGS_KEY = 'detodoec_tasks_settings_v3';
@@ -372,6 +372,31 @@ async function refreshTasks({ silent = false } = {}) {
   try {
     const data = await apiFetch('/api/tareas');
     tasks = (Array.isArray(data) ? data : []).map(fromApi);
+
+    // V10.4: si una tarea está totalmente pagada y en estado final,
+    // se archiva automáticamente en la nube para que ocurra en todas las PCs.
+    const autoArchive = tasks.filter((t) =>
+      !t.archived &&
+      (t.status === 'terminado' || t.status === 'entregado') &&
+      balance(t) <= 0.0001
+    );
+
+    if (autoArchive.length) {
+      await Promise.all(autoArchive.map((task) =>
+        apiFetch(`/api/tareas/${task.id}`, {
+          method: 'PUT',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ ...toApi(task), archivada: true })
+        }).catch((error) => {
+          console.error('No se pudo archivar automáticamente', task.id, error);
+          return null;
+        })
+      ));
+
+      const refreshed = await apiFetch('/api/tareas');
+      tasks = (Array.isArray(refreshed) ? refreshed : []).map(fromApi);
+    }
+
     render();
     setSyncState('ok');
   } catch (err) {
@@ -432,8 +457,31 @@ function render() {
     const haystack = `${t.clientName} ${t.taskName} ${t.description || ''} ${t.workerName || ''} ${t.orderTaker || ''}`.toLowerCase();
     return haystack.includes(query) && (activeStatus === 'all' || t.status === activeStatus) && (employeeFilter === 'all' || t.workerName === employeeFilter);
   });
+
   taskGrid.innerHTML = '';
-  filtered.sort((a, b) => (a.deliveryDate || '').localeCompare(b.deliveryDate || '')).forEach((t) => taskGrid.appendChild(createTaskCard(t)));
+  const sortByDate = (a, b) => (a.deliveryDate || '').localeCompare(b.deliveryDate || '');
+
+  if (activeStatus === 'all') {
+    const groups = [
+      { key: 'pendiente', label: 'Pendientes' },
+      { key: 'proceso', label: 'En proceso' },
+      { key: 'terminado', label: 'Terminados' },
+      { key: 'entregado', label: 'Entregados' }
+    ];
+
+    groups.forEach((group) => {
+      const items = filtered.filter((t) => t.status === group.key).sort(sortByDate);
+      if (!items.length) return;
+      const heading = document.createElement('div');
+      heading.className = `task-group-heading task-group-${group.key}`;
+      heading.innerHTML = `<strong>${group.label}</strong><span>${items.length}</span>`;
+      taskGrid.appendChild(heading);
+      items.forEach((t) => taskGrid.appendChild(createTaskCard(t)));
+    });
+  } else {
+    filtered.sort(sortByDate).forEach((t) => taskGrid.appendChild(createTaskCard(t)));
+  }
+
   emptyState.style.display = filtered.length ? 'none' : 'block';
   updateStats();
   renderArchive();
@@ -1242,28 +1290,7 @@ render();
 refreshTasks();
 refreshEmployees();
 const searchBox = $('#searchInput');
-let searchTouched = false;
-if (searchBox) {
-  const clearAutofill = () => {
-    if (!searchTouched && /@/.test(searchBox.value || '')) {
-      searchBox.value = '';
-      render();
-    }
-  };
-  searchBox.value = '';
-  searchBox.addEventListener('pointerdown', () => {
-    searchTouched = true;
-    searchBox.readOnly = false;
-    if (/@/.test(searchBox.value || '')) searchBox.value = '';
-  }, { once: true });
-  searchBox.addEventListener('focus', () => {
-    searchTouched = true;
-    searchBox.readOnly = false;
-    if (/@/.test(searchBox.value || '')) searchBox.value = '';
-  }, { once: true });
-  window.addEventListener('pageshow', clearAutofill);
-  [100, 300, 700, 1200, 2000].forEach((ms) => setTimeout(clearAutofill, ms));
-}
+if (searchBox) { searchBox.value = ''; setTimeout(() => { if (searchBox.value.includes('@')) { searchBox.value=''; render(); } }, 300); }
 
 function escapeHtml(value) {
   return String(value)
