@@ -1,4 +1,4 @@
-const APP_VERSION = '9.1';
+const APP_VERSION = '10.0';
 const API_BASE = 'https://gestor-tareas-api.detodoec.workers.dev';
 const STORAGE_KEY = 'detodoec_tasks_v1';
 const SETTINGS_KEY = 'detodoec_tasks_settings_v3';
@@ -112,8 +112,18 @@ function placeholderSvg() {
 }
 function initials(name) {
   const parts = String(name || '').trim().split(/\s+/).filter(Boolean);
-  if (!parts.length) return '👤';
+  if (!parts.length) return 'DT';
   return parts.slice(0, 2).map((p) => p[0].toUpperCase()).join('');
+}
+
+function iconUse(id) {
+  return `<svg class="icon" aria-hidden="true"><use href="#${id}"></use></svg>`;
+}
+
+function renderThemeIcon(theme) {
+  const slot = $('#themeIconSlot');
+  if (!slot) return;
+  slot.innerHTML = theme === 'dark' ? iconUse('icon-sun') : iconUse('icon-moon');
 }
 
 function setSyncState(state = 'loading') {
@@ -202,6 +212,13 @@ function setMiniAvatar(el, name) {
 function setEmployeeAvatarBox(el, photo, name = '') {
   el.style.backgroundImage = photo ? `url(${photo})` : 'none';
   el.innerHTML = photo ? '' : `<span>${initials(name)}</span>`;
+}
+
+function findPayment(taskId, paymentId) {
+  const task = tasks.find((x) => x.id === String(taskId));
+  if (!task) return { task: null, item: null };
+  const item = (task.paymentHistory || []).find((entry) => String(entry.id) === String(paymentId)) || null;
+  return { task, item };
 }
 
 function renderEmployeeOptions(selectedWorker = '', selectedTaker = '') {
@@ -432,15 +449,15 @@ function openDetail(id) {
   $('#detailTotal').textContent = money(task.totalAmount);
   $('#detailDeposit').textContent = money(task.depositAmount);
   $('#detailBalance').textContent = money(balance(task));
-  $('#detailWorkerShareMini').textContent = `70% ${money(distributable(task) * 0.70)}`;
-  $('#detailTakerShareMini').textContent = `30% ${money(distributable(task) * 0.30)}`;
+  $('#detailWorkerShareMini').textContent = `70% · ${money(distributable(task) * 0.70)}`;
+  $('#detailTakerShareMini').textContent = `30% · ${money(distributable(task) * 0.30)}`;
   $('#detailDescription').textContent = task.description || 'Sin descripción';
   setMiniAvatar($('#detailWorkerAvatar'), task.workerName || '');
   setMiniAvatar($('#detailTakerAvatar'), task.orderTaker || '');
 
   const list = $('#paymentHistoryList');
   list.innerHTML = '';
-  const history = [...(task.paymentHistory || [])].sort((a, b) => (b.date || '').localeCompare(a.date || ''));
+  const history = [...(task.paymentHistory || [])].sort((a, b) => ((b.date || '') + (b.createdAt || '')).localeCompare((a.date || '') + (a.createdAt || '')));
   $('#paymentHistoryCount').textContent = `${history.length} registro(s)`;
   if (!history.length) {
     list.innerHTML = '<div class="history-empty">Aún no hay abonos registrados.</div>';
@@ -449,11 +466,14 @@ function openDetail(id) {
       const row = document.createElement('div');
       row.className = 'history-item';
       row.innerHTML = `
-        <div>
+        <div class="history-main">
           <strong class="history-amount">${money(item.amount)}</strong>
-          <div class="history-date">${prettyDate(item.date)}${item.createdAt ? ` · ${String(item.createdAt).slice(11, 16)}` : ''}</div>
+          <div class="history-meta">
+            <span class="history-tag">Abono</span>
+            <span class="history-date">${prettyDate(item.date)}${item.createdAt ? ` · ${String(item.createdAt).slice(11, 16)}` : ''}</span>
+          </div>
         </div>
-        <div class="history-tag">Abono</div>
+        <button type="button" class="history-edit" data-edit-payment="${escapeHtml(String(item.id))}" title="Editar abono" aria-label="Editar abono">${iconUse('icon-edit')}</button>
       `;
       list.appendChild(row);
     });
@@ -468,6 +488,55 @@ async function createInitialDeposit(taskId, amount, date) {
     headers: { 'Content-Type': 'application/json' },
     body: JSON.stringify({ valor: Number(amount), fecha: date || todayLocal() })
   });
+}
+
+function openPaymentDialog(task, mode = 'create', entry = null) {
+  if (!task) return;
+  if (detailDialog?.open) detailDialog.close();
+  $('#paymentTaskId').value = task.id;
+  $('#paymentEntryId').value = entry?.id ? String(entry.id) : '';
+  $('#paymentDialogTitle').textContent = mode === 'edit' ? 'Editar abono' : 'Registrar abono';
+  $('#paymentAmountLabel').textContent = mode === 'edit' ? 'Nuevo valor del abono' : '¿Cuánto deseas agregar?';
+  $('#paymentSubmitBtn').textContent = mode === 'edit' ? 'Guardar cambios' : 'Guardar abono';
+  $('#paymentCurrent').textContent = money(task.depositAmount);
+  $('#paymentPending').textContent = money(balance(task));
+  $('#paymentAmount').value = entry ? Number(entry.amount || 0) : '';
+  $('#paymentEntryDate').value = entry?.date || todayLocal();
+  paymentDialog.showModal();
+  setTimeout(() => $('#paymentAmount').focus(), 60);
+}
+
+function addPayment(id) {
+  const task = tasks.find((x) => x.id === String(id));
+  if (!task) return;
+  openPaymentDialog(task, 'create');
+}
+
+function editPayment(taskId, paymentId) {
+  const { task, item } = findPayment(taskId, paymentId);
+  if (!task || !item) {
+    showToast('No se encontró el abono seleccionado.', 'Abono no disponible');
+    return;
+  }
+  openPaymentDialog(task, 'edit', item);
+}
+
+async function updatePaymentEntry(taskId, paymentId, amount, date) {
+  const body = JSON.stringify({ valor: amount, fecha: date || todayLocal() });
+  const headers = { 'Content-Type': 'application/json' };
+  const candidates = [
+    `/api/abonos/${paymentId}`,
+    `/api/tareas/${taskId}/abonos/${paymentId}`
+  ];
+  let lastError = null;
+  for (const url of candidates) {
+    try {
+      return await apiFetch(url, { method: 'PUT', headers, body });
+    } catch (error) {
+      lastError = error;
+    }
+  }
+  throw lastError || new Error('No se pudo editar el abono.');
 }
 
 async function saveTask(e) {
@@ -539,22 +608,10 @@ async function saveTask(e) {
   }
 }
 
-function addPayment(id) {
-  const task = tasks.find((x) => x.id === String(id));
-  if (!task) return;
-  $('#paymentTaskId').value = String(id);
-  $('#paymentCurrent').textContent = money(task.depositAmount);
-  $('#paymentPending').textContent = money(balance(task));
-  $('#paymentAmount').value = '';
-  $('#paymentEntryDate').value = todayLocal();
-  detailDialog.close();
-  paymentDialog.showModal();
-  setTimeout(() => $('#paymentAmount').focus(), 50);
-}
-
 paymentForm.addEventListener('submit', async (e) => {
   e.preventDefault();
   const id = $('#paymentTaskId').value;
+  const paymentId = $('#paymentEntryId').value;
   const task = tasks.find((x) => x.id === String(id));
   if (!task) return;
   const amount = Number(String($('#paymentAmount').value || '').replace(',', '.'));
@@ -563,23 +620,33 @@ paymentForm.addEventListener('submit', async (e) => {
     $('#paymentAmount').focus();
     return;
   }
-  const submit = paymentForm.querySelector('[type="submit"]');
+  const submit = $('#paymentSubmitBtn');
+  const originalText = submit.textContent;
   submit.disabled = true;
-  submit.textContent = 'Guardando…';
+  submit.textContent = paymentId ? 'Guardando cambios…' : 'Guardando…';
   try {
-    await apiFetch(`/api/tareas/${id}/abonos`, {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ valor: amount, fecha: date })
-    });
-    paymentDialog.close();
-    await refreshTasks({ silent: true });
-    showToast(`Se registró ${money(amount)} para ${task.clientName}.`, 'Abono guardado correctamente');
+    if (paymentId) {
+      await updatePaymentEntry(id, paymentId, amount, date);
+      paymentDialog.close();
+      await refreshTasks({ silent: true });
+      if (detailTaskId) openDetail(detailTaskId);
+      showToast(`Se actualizó el abono a ${money(amount)}.`, 'Abono editado correctamente');
+    } else {
+      await apiFetch(`/api/tareas/${id}/abonos`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ valor: amount, fecha: date })
+      });
+      paymentDialog.close();
+      await refreshTasks({ silent: true });
+      if (detailTaskId) openDetail(detailTaskId);
+      showToast(`Se registró ${money(amount)} para ${task.clientName}.`, 'Abono guardado correctamente');
+    }
   } catch (err) {
-    showToast(err.message, 'No se pudo guardar el abono');
+    showToast(err.message, paymentId ? 'No se pudo editar el abono' : 'No se pudo guardar el abono');
   } finally {
     submit.disabled = false;
-    submit.textContent = 'Guardar abono';
+    submit.textContent = originalText;
   }
 });
 
@@ -736,7 +803,7 @@ function setArchiveView(show) {
 function setTheme(theme, persist = true) {
   const next = theme === 'dark' ? 'dark' : 'light';
   document.documentElement.setAttribute('data-theme', next);
-  $('#themeIcon').textContent = next === 'dark' ? '☀' : '☾';
+  renderThemeIcon(next);
   if (persist) {
     const settings = loadSettings();
     settings.theme = next;
@@ -829,6 +896,12 @@ on('detailPay', 'click', () => addPayment(detailTaskId));
 on('detailDeliver', 'click', () => markDelivered(detailTaskId));
 on('detailArchive', 'click', () => archiveTask(detailTaskId));
 on('detailDelete', 'click', () => requestDelete(detailTaskId));
+
+$('#paymentHistoryList').addEventListener('click', (e) => {
+  const btn = e.target.closest('[data-edit-payment]');
+  if (!btn) return;
+  editPayment(detailTaskId, btn.dataset.editPayment);
+});
 
 $$('.filter-chip').forEach((btn) => btn.addEventListener('click', () => {
   activeStatus = btn.dataset.status;
