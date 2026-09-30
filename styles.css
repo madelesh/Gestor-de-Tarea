@@ -50,3 +50,11 @@ dialog{width:min(940px,calc(100% - 28px));max-height:92vh;overflow:auto;border:1
 @media(max-width:1024px){.stats{grid-template-columns:repeat(2,minmax(0,1fr))}.detail-top{grid-template-columns:1fr}.customize-grid{grid-template-columns:1fr}.employee-form-grid{grid-template-columns:1fr}}
 @media(max-width:760px){.topbar{padding:14px 16px}.page-content{padding:0 16px 30px}.section-head{flex-direction:column;align-items:stretch}.section-head h1,.section-head h2{font-size:34px}.section-tools{justify-content:flex-start}.section-tools input{min-width:0;width:100%}.task-grid{grid-template-columns:repeat(2,minmax(0,1fr));gap:12px}.stats{gap:12px}.detail-grid,.split-preview,.form-grid,.payment-summary{grid-template-columns:1fr}.detail-item dd{font-size:18px}.employee-list{grid-template-columns:1fr}}
 @media(max-width:520px){.brand{font-size:24px}.topbar-actions{gap:8px}.admin-access{padding:0 12px;height:42px}.task-grid{grid-template-columns:1fr}.stats{grid-template-columns:1fr 1fr}.stats strong{font-size:32px}.task-card-body{padding-inline:2px}.card-client{font-size:19px}.toast{left:14px;right:14px;bottom:14px;min-width:0}}
+
+
+/* V9.1.1 - Forzar actualización de GitHub/Pages */
+.history-list{scrollbar-width:thin;scrollbar-color:var(--accent) transparent}
+.history-list::-webkit-scrollbar{width:7px}
+.history-list::-webkit-scrollbar-thumb{background:var(--accent);border-radius:999px}
+.history-list::-webkit-scrollbar-track{background:transparent}
+.detail-item-icon{filter:saturate(1.08)}
