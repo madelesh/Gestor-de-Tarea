@@ -1,4 +1,4 @@
-const APP_VERSION = '10.5';
+const APP_VERSION = '10.6';
 const API_BASE = 'https://gestor-tareas-api.detodoec.workers.dev';
 const STORAGE_KEY = 'detodoec_tasks_v1';
 const SETTINGS_KEY = 'detodoec_tasks_settings_v3';
@@ -33,6 +33,7 @@ const QUOTE_DEFAULTS = [
   { clave:'lapida', nombre:'Lapidas', precio:65.00, activo:1, orden:7 }
 ];
 let quoteMaterials = QUOTE_DEFAULTS.map((x) => ({...x}));
+let quoteItems = [];
 
 const $ = (s) => document.querySelector(s);
 const $$ = (s) => [...document.querySelectorAll(s)];
@@ -272,7 +273,7 @@ function currentQuoteMaterial() {
   return quoteMaterials.find((x) => x.clave === key) || quoteMaterials.find((x) => x.activo && Number.isFinite(x.precio)) || null;
 }
 
-function calculateQuote() {
+function getQuoteDraft() {
   const material = currentQuoteMaterial();
   const width = Math.max(0, Number($('#quoteWidth')?.value || 0));
   const height = Math.max(0, Number($('#quoteHeight')?.value || 0));
@@ -280,14 +281,72 @@ function calculateQuote() {
   const area = width * height * qty;
   const price = material && material.activo && Number.isFinite(material.precio) ? Number(material.precio) : null;
   const total = price === null ? 0 : area * price;
-  if ($('#quoteArea')) $('#quoteArea').textContent = `${area.toFixed(2)} m²`;
-  if ($('#quoteMaterialName')) $('#quoteMaterialName').textContent = material?.nombre || 'Material';
-  if ($('#quoteUnitPrice')) $('#quoteUnitPrice').textContent = price === null ? 'No disponible' : `${money(price)}/m²`;
-  if ($('#quoteFormula')) $('#quoteFormula').textContent = price === null ? 'Precio pendiente de configurar' : `${area.toFixed(2)} m² × ${money(price)}`;
-  if ($('#quoteSubtotal')) $('#quoteSubtotal').textContent = price === null ? '—' : money(total);
-  if ($('#quoteTotal')) $('#quoteTotal').textContent = price === null ? '—' : money(total);
-  if ($('#quoteNote')) $('#quoteNote').textContent = price === null ? 'Este material está deshabilitado hasta que se configure su precio real.' : 'Cálculo por metro cuadrado. Precio provisional según la tarifa configurada.';
-  $('#copyQuote')?.toggleAttribute('disabled', price === null);
+  return { material, width, height, qty, area, price, total };
+}
+
+function calculateQuote() {
+  const draft = getQuoteDraft();
+  if ($('#quoteArea')) $('#quoteArea').textContent = `${draft.area.toFixed(2)} m²`;
+  if ($('#quoteMaterialName')) $('#quoteMaterialName').textContent = draft.material?.nombre || 'Material';
+  if ($('#quoteUnitPrice')) $('#quoteUnitPrice').textContent = draft.price === null ? 'No disponible' : `${money(draft.price)}/m²`;
+  if ($('#quoteSubtotal')) $('#quoteSubtotal').textContent = draft.price === null ? '—' : money(draft.total);
+  if ($('#quoteNote')) $('#quoteNote').textContent = draft.price === null ? 'Este material está deshabilitado hasta que se configure su precio real.' : 'Listo para agregar a la cotización.';
+  $('#addQuoteItem')?.toggleAttribute('disabled', draft.price === null || draft.area <= 0);
+}
+
+function addQuoteItem() {
+  const draft = getQuoteDraft();
+  if (!draft.material || draft.price === null || draft.area <= 0) return;
+  quoteItems.push({
+    id: crypto.randomUUID(),
+    clave: draft.material.clave,
+    nombre: draft.material.nombre,
+    width: draft.width,
+    height: draft.height,
+    qty: draft.qty,
+    area: draft.area,
+    price: draft.price,
+    total: draft.total
+  });
+  renderQuoteItems();
+  showToast(`${draft.material.nombre} agregado a la cotización.`, 'Material agregado');
+}
+
+function renderQuoteItems() {
+  const box = $('#quoteItems');
+  const empty = $('#quoteEmpty');
+  if (!box || !empty) return;
+  box.innerHTML = '';
+  quoteItems.forEach((item, index) => {
+    const row = document.createElement('div');
+    row.className = 'quote-item';
+    row.innerHTML = `
+      <div class="quote-item-index">${index + 1}</div>
+      <div class="quote-item-main">
+        <strong>${escapeHtml(item.nombre)}</strong>
+        <small>${item.width.toFixed(2)} m × ${item.height.toFixed(2)} m · ${item.qty} ${item.qty === 1 ? 'pieza' : 'piezas'} · ${item.area.toFixed(2)} m²</small>
+        <span>${money(item.price)}/m²</span>
+      </div>
+      <strong class="quote-item-total">${money(item.total)}</strong>
+      <button type="button" class="quote-item-remove" data-remove-quote="${item.id}" title="Quitar material" aria-label="Quitar material">×</button>
+    `;
+    box.appendChild(row);
+  });
+  empty.hidden = quoteItems.length > 0;
+  const total = quoteItems.reduce((sum, item) => sum + Number(item.total || 0), 0);
+  $('#quoteTotal').textContent = money(total);
+  $('#copyQuote')?.toggleAttribute('disabled', quoteItems.length === 0);
+  $('#clearQuote')?.toggleAttribute('disabled', quoteItems.length === 0);
+}
+
+function removeQuoteItem(id) {
+  quoteItems = quoteItems.filter((item) => item.id !== id);
+  renderQuoteItems();
+}
+
+function clearQuote() {
+  quoteItems = [];
+  renderQuoteItems();
 }
 
 function renderQuotePriceAdmin() {
@@ -351,27 +410,29 @@ function showMainView(view) {
 }
 
 function copyQuoteSummary() {
-  const material = currentQuoteMaterial();
-  if (!material || !material.activo || !Number.isFinite(material.precio)) return;
-  const width = Math.max(0, Number($('#quoteWidth').value || 0));
-  const height = Math.max(0, Number($('#quoteHeight').value || 0));
-  const qty = Math.max(1, Math.floor(Number($('#quoteQty').value || 1)));
-  const area = width * height * qty;
-  const total = area * Number(material.precio);
-  const client = $('#quoteClient').value.trim();
-  const delivery = $('#quoteDelivery').value;
-  const lines = [
-    `Cotización DeTodoEc`,
-    client ? `Cliente: ${client}` : null,
-    `Material: ${material.nombre}`,
-    `Medidas: ${width.toFixed(2)} m × ${height.toFixed(2)} m`,
-    `Cantidad: ${qty}`,
-    `Área total: ${area.toFixed(2)} m²`,
-    `Precio: ${money(material.precio)}/m²`,
-    `Total: ${money(total)}`,
-    delivery ? `Entrega: ${prettyDate(delivery)}` : null
-  ].filter(Boolean).join('\n');
-  navigator.clipboard?.writeText(lines).then(() => showToast('La cotización fue copiada.', 'Cotización copiada')).catch(() => showToast('No se pudo copiar automáticamente.', 'Cotización lista'));
+  if (!quoteItems.length) return;
+  const total = quoteItems.reduce((sum, item) => sum + Number(item.total || 0), 0);
+  const lines = ['Cotización DeTodoEc', ''];
+  quoteItems.forEach((item, index) => {
+    lines.push(`${index + 1}. ${item.nombre}`);
+    lines.push(`   ${item.width.toFixed(2)} m × ${item.height.toFixed(2)} m × ${item.qty} = ${item.area.toFixed(2)} m²`);
+    lines.push(`   ${money(item.price)}/m² → ${money(item.total)}`);
+  });
+  lines.push('', `TOTAL: ${money(total)}`);
+  const content = lines.join('\n');
+  navigator.clipboard?.writeText(content)
+    .then(() => showToast('La cotización fue copiada y está lista para enviarla al cliente.', 'Cotización copiada'))
+    .catch(() => showToast(content, 'Cotización lista'));
+}
+
+function showAdminSection(section) {
+  const target = section || 'apariencia';
+  $$('.admin-view').forEach((view) => {
+    const active = view.dataset.adminView === target;
+    view.hidden = !active;
+    view.classList.toggle('active', active);
+  });
+  $$('.admin-nav-btn').forEach((btn) => btn.classList.toggle('active', btn.dataset.adminTarget === target));
 }
 
 function fromApi(t) {
@@ -1213,6 +1274,7 @@ function openAdminPanel() {
   renderEmployeeList();
   renderQuotePriceAdmin();
   clearEmployeeForm();
+  showAdminSection('apariencia');
   adminDialog.showModal();
 }
 
@@ -1292,7 +1354,15 @@ on('navTasks', 'click', () => showMainView('tasks'));
 ['quoteMaterial','quoteWidth','quoteHeight','quoteQty'].forEach((id) => on(id, 'input', calculateQuote));
 on('quoteMaterial', 'change', calculateQuote);
 on('copyQuote', 'click', copyQuoteSummary);
+on('addQuoteItem', 'click', addQuoteItem);
+on('clearQuote', 'click', clearQuote);
 on('saveQuotePrices', 'click', saveQuotePrices);
+$('#quoteItems')?.addEventListener('click', (e) => {
+  const btn = e.target.closest('[data-remove-quote]');
+  if (btn) removeQuoteItem(btn.dataset.removeQuote);
+});
+$$('.admin-nav-btn').forEach((btn) => btn.addEventListener('click', () => showAdminSection(btn.dataset.adminTarget)));
+
 
 $$('.filter-chip').forEach((btn) => btn.addEventListener('click', () => {
   activeStatus = btn.dataset.status;
