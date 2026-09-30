@@ -728,3 +728,62 @@ body{font-family:var(--font-ui)}
     max-width:40px!important;
   }
 }
+
+/* =========================================================
+   V10.5 — Cotizador por m²
+   ========================================================= */
+.section-copy{margin:10px 0 0;color:var(--muted);max-width:760px;line-height:1.55}
+.quote-section{padding-top:26px}
+.quote-head{align-items:flex-start}
+.quote-layout{display:grid;grid-template-columns:minmax(0,1.35fr) minmax(320px,.65fr);gap:20px;align-items:start}
+.quote-card{background:var(--surface);border:1px solid var(--line);border-radius:24px;padding:22px;box-shadow:var(--shadow)}
+.quote-card-head{display:flex;align-items:center;gap:12px;margin-bottom:20px}
+.quote-card-head>div{display:flex;flex-direction:column;gap:3px}
+.quote-card-head strong{font-size:18px;font-weight:800}
+.quote-card-head small{font-size:12px;color:var(--muted)}
+.quote-form-grid{display:grid;grid-template-columns:2fr repeat(3,1fr) 1.15fr;gap:12px;align-items:end}
+.quote-field{display:flex;flex-direction:column;gap:7px;font-size:12px;font-weight:800;text-transform:uppercase;letter-spacing:.06em;color:var(--muted)}
+.quote-field input,.quote-field select{width:100%;min-width:0;text-transform:none;letter-spacing:0;font-weight:600;color:var(--ink)}
+.quote-field-wide{grid-column:auto}
+.optional{font-weight:600;text-transform:none;letter-spacing:0;opacity:.7}
+.quote-area-box{min-height:48px;border-radius:14px;border:1px solid color-mix(in srgb,var(--accent) 35%,var(--line));background:color-mix(in srgb,var(--accent) 12%,var(--surface));padding:10px 12px;display:flex;flex-direction:column;justify-content:center;gap:4px}
+.quote-area-box span{font-size:10px;text-transform:uppercase;letter-spacing:.07em;color:var(--muted);font-weight:800}
+.quote-area-box strong{font-size:18px;color:var(--ink)}
+.quote-client-grid{display:grid;grid-template-columns:1fr 1fr;gap:12px;margin-top:18px;padding-top:18px;border-top:1px solid var(--line)}
+.quote-summary-card{position:sticky;top:94px}
+.quote-summary-row{display:flex;align-items:center;justify-content:space-between;gap:18px;padding:9px 0;font-size:14px}
+.quote-summary-row strong{font-size:16px}
+.quote-summary-row.main-row span{font-weight:800;font-size:17px}
+.quote-summary-row.main-row strong{font-size:18px}
+.quote-formula{font-family:ui-monospace,SFMono-Regular,Menlo,Consolas,monospace;font-size:13px;color:var(--muted);padding:6px 0 10px;line-height:1.5}
+.quote-divider{height:1px;background:var(--line);margin:5px 0}
+.quote-summary-row.total-row{padding-top:14px}
+.quote-summary-row.total-row span{font-weight:800}
+.quote-summary-row.total-row strong{font-size:24px;letter-spacing:-.03em}
+.quote-note{margin:4px 0 16px;color:var(--muted);font-size:12px;line-height:1.45}
+.quote-copy-btn{width:100%}
+.quote-disabled-message{padding:14px;border-radius:14px;background:var(--danger-bg);color:var(--danger);border:1px solid color-mix(in srgb,var(--danger) 30%,transparent);font-size:13px;font-weight:700}
+.quote-price-admin{display:grid;gap:10px}
+.quote-price-row{display:grid;grid-template-columns:minmax(180px,1fr) 170px 120px;gap:12px;align-items:center;padding:12px 14px;border:1px solid var(--line);border-radius:16px;background:var(--surface)}
+.quote-price-name{display:flex;flex-direction:column;gap:3px;min-width:0}
+.quote-price-name strong{font-size:14px}
+.quote-price-name small{font-size:11px;color:var(--muted)}
+.quote-price-input{display:flex;align-items:center;gap:8px}
+.quote-price-input span{font-weight:800;color:var(--muted)}
+.quote-price-input input{min-width:0;width:100%}
+.quote-toggle{display:flex;align-items:center;justify-content:flex-end;gap:8px;font-size:12px;font-weight:800;color:var(--muted)}
+.quote-toggle input{width:18px;height:18px;accent-color:var(--accent);padding:0}
+.quote-field select option:disabled{color:#8c919c}
+
+@media(max-width:1100px){
+  .quote-layout{grid-template-columns:1fr}
+  .quote-summary-card{position:static}
+  .quote-form-grid{grid-template-columns:repeat(2,minmax(0,1fr))}
+  .quote-field-wide{grid-column:1/-1}
+}
+@media(max-width:720px){
+  .quote-form-grid,.quote-client-grid{grid-template-columns:1fr}
+  .quote-price-row{grid-template-columns:1fr}
+  .quote-toggle{justify-content:flex-start}
+  .quote-card{padding:16px}
+}

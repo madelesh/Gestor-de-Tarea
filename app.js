@@ -1,4 +1,4 @@
-const APP_VERSION = '10.4';
+const APP_VERSION = '10.5';
 const API_BASE = 'https://gestor-tareas-api.detodoec.workers.dev';
 const STORAGE_KEY = 'detodoec_tasks_v1';
 const SETTINGS_KEY = 'detodoec_tasks_settings_v3';
@@ -22,6 +22,17 @@ let detailImageIndex = 0;
 let isLoading = false;
 let employeeEditingPhoto = '';
 let employeeEditingPhotoFile = null;
+
+const QUOTE_DEFAULTS = [
+  { clave:'lona', nombre:'Lona', precio:7.25, activo:1, orden:1 },
+  { clave:'lona_microperforada', nombre:'Lona Microperforada', precio:null, activo:0, orden:2 },
+  { clave:'lona_translucida', nombre:'Lona Translucida', precio:12.00, activo:1, orden:3 },
+  { clave:'vinil_blanco', nombre:'Vinil Blanco', precio:8.50, activo:1, orden:4 },
+  { clave:'vinil_transparente', nombre:'Vinil Transparente', precio:null, activo:0, orden:5 },
+  { clave:'pvc', nombre:'PVC', precio:25.00, activo:1, orden:6 },
+  { clave:'lapida', nombre:'Lapidas', precio:65.00, activo:1, orden:7 }
+];
+let quoteMaterials = QUOTE_DEFAULTS.map((x) => ({...x}));
 
 const $ = (s) => document.querySelector(s);
 const $$ = (s) => [...document.querySelectorAll(s)];
@@ -211,6 +222,156 @@ async function refreshEmployees({ migrateLocal = true } = {}) {
     renderEmployeeList();
     renderEmployeeFilter();
   }
+}
+
+function normalizeQuoteMaterial(item) {
+  return {
+    clave: String(item?.clave || ''),
+    nombre: String(item?.nombre || ''),
+    precio: item?.precio === null || item?.precio === undefined || item?.precio === '' ? null : Number(item.precio),
+    activo: Number(item?.activo ?? 0) ? 1 : 0,
+    orden: Number(item?.orden || 999)
+  };
+}
+
+async function refreshQuoteMaterials({ silent = true } = {}) {
+  try {
+    const data = await apiFetch('/api/cotizador/materiales');
+    if (Array.isArray(data) && data.length) quoteMaterials = data.map(normalizeQuoteMaterial).sort((a,b) => a.orden-b.orden);
+  } catch (err) {
+    console.error('No se pudieron cargar los precios del cotizador', err);
+    quoteMaterials = QUOTE_DEFAULTS.map((x) => ({...x}));
+    if (!silent) showToast('Se usaron precios locales de respaldo.', 'Cotizador sin sincronizar');
+  }
+  renderQuoteMaterialSelect();
+  renderQuotePriceAdmin();
+  calculateQuote();
+}
+
+function renderQuoteMaterialSelect() {
+  const select = $('#quoteMaterial');
+  if (!select) return;
+  const previous = select.value;
+  select.innerHTML = '';
+  quoteMaterials.forEach((item) => {
+    const option = document.createElement('option');
+    option.value = item.clave;
+    option.textContent = item.activo && Number.isFinite(item.precio)
+      ? `${item.nombre} — ${money(item.precio)}/m²`
+      : `${item.nombre} — No disponible por el momento`;
+    option.disabled = !(item.activo && Number.isFinite(item.precio));
+    select.appendChild(option);
+  });
+  const available = quoteMaterials.find((x) => x.activo && Number.isFinite(x.precio));
+  if (previous && [...select.options].some((o) => o.value === previous && !o.disabled)) select.value = previous;
+  else if (available) select.value = available.clave;
+}
+
+function currentQuoteMaterial() {
+  const key = $('#quoteMaterial')?.value;
+  return quoteMaterials.find((x) => x.clave === key) || quoteMaterials.find((x) => x.activo && Number.isFinite(x.precio)) || null;
+}
+
+function calculateQuote() {
+  const material = currentQuoteMaterial();
+  const width = Math.max(0, Number($('#quoteWidth')?.value || 0));
+  const height = Math.max(0, Number($('#quoteHeight')?.value || 0));
+  const qty = Math.max(1, Math.floor(Number($('#quoteQty')?.value || 1)));
+  const area = width * height * qty;
+  const price = material && material.activo && Number.isFinite(material.precio) ? Number(material.precio) : null;
+  const total = price === null ? 0 : area * price;
+  if ($('#quoteArea')) $('#quoteArea').textContent = `${area.toFixed(2)} m²`;
+  if ($('#quoteMaterialName')) $('#quoteMaterialName').textContent = material?.nombre || 'Material';
+  if ($('#quoteUnitPrice')) $('#quoteUnitPrice').textContent = price === null ? 'No disponible' : `${money(price)}/m²`;
+  if ($('#quoteFormula')) $('#quoteFormula').textContent = price === null ? 'Precio pendiente de configurar' : `${area.toFixed(2)} m² × ${money(price)}`;
+  if ($('#quoteSubtotal')) $('#quoteSubtotal').textContent = price === null ? '—' : money(total);
+  if ($('#quoteTotal')) $('#quoteTotal').textContent = price === null ? '—' : money(total);
+  if ($('#quoteNote')) $('#quoteNote').textContent = price === null ? 'Este material está deshabilitado hasta que se configure su precio real.' : 'Cálculo por metro cuadrado. Precio provisional según la tarifa configurada.';
+  $('#copyQuote')?.toggleAttribute('disabled', price === null);
+}
+
+function renderQuotePriceAdmin() {
+  const box = $('#quotePriceAdmin');
+  if (!box) return;
+  box.innerHTML = '';
+  quoteMaterials.forEach((item) => {
+    const row = document.createElement('div');
+    row.className = 'quote-price-row';
+    row.dataset.key = item.clave;
+    row.innerHTML = `
+      <div class="quote-price-name"><strong>${escapeHtml(item.nombre)}</strong><small>Precio por metro cuadrado</small></div>
+      <label class="quote-price-input"><span>$</span><input type="number" min="0" step="0.01" data-quote-price="${escapeHtml(item.clave)}" value="${item.precio ?? ''}" placeholder="Sin precio" /></label>
+      <label class="quote-toggle"><input type="checkbox" data-quote-active="${escapeHtml(item.clave)}" ${item.activo ? 'checked' : ''} /> Disponible</label>
+    `;
+    box.appendChild(row);
+  });
+}
+
+async function saveQuotePrices() {
+  const btn = $('#saveQuotePrices');
+  if (!btn) return;
+  const old = btn.textContent;
+  btn.disabled = true;
+  btn.textContent = 'Guardando…';
+  try {
+    for (const item of quoteMaterials) {
+      const input = document.querySelector(`[data-quote-price="${item.clave}"]`);
+      const toggle = document.querySelector(`[data-quote-active="${item.clave}"]`);
+      const raw = input?.value?.trim() ?? '';
+      const precio = raw === '' ? null : Number(raw);
+      const activo = Boolean(toggle?.checked && Number.isFinite(precio) && precio >= 0);
+      await apiFetch(`/api/cotizador/materiales/${encodeURIComponent(item.clave)}`, {
+        method:'PUT',
+        headers:{'Content-Type':'application/json'},
+        body:JSON.stringify({ precio, activo })
+      });
+    }
+    await refreshQuoteMaterials({ silent:true });
+    showToast('Los precios del cotizador se actualizaron en la nube.', 'Precios guardados');
+  } catch (err) {
+    showToast(err.message, 'No se pudieron guardar los precios');
+  } finally {
+    btn.disabled = false;
+    btn.textContent = old;
+  }
+}
+
+function showMainView(view) {
+  const isQuote = view === 'quote';
+  $('#resumen').hidden = isQuote;
+  $('#tareas').hidden = isQuote;
+  $('#archivados').hidden = true;
+  $('#cotizador').hidden = !isQuote;
+  $('#navTasks')?.classList.toggle('active', !isQuote);
+  $('#navQuote')?.classList.toggle('active', isQuote);
+  if (isQuote) {
+    renderQuoteMaterialSelect();
+    calculateQuote();
+  }
+}
+
+function copyQuoteSummary() {
+  const material = currentQuoteMaterial();
+  if (!material || !material.activo || !Number.isFinite(material.precio)) return;
+  const width = Math.max(0, Number($('#quoteWidth').value || 0));
+  const height = Math.max(0, Number($('#quoteHeight').value || 0));
+  const qty = Math.max(1, Math.floor(Number($('#quoteQty').value || 1)));
+  const area = width * height * qty;
+  const total = area * Number(material.precio);
+  const client = $('#quoteClient').value.trim();
+  const delivery = $('#quoteDelivery').value;
+  const lines = [
+    `Cotización DeTodoEc`,
+    client ? `Cliente: ${client}` : null,
+    `Material: ${material.nombre}`,
+    `Medidas: ${width.toFixed(2)} m × ${height.toFixed(2)} m`,
+    `Cantidad: ${qty}`,
+    `Área total: ${area.toFixed(2)} m²`,
+    `Precio: ${money(material.precio)}/m²`,
+    `Total: ${money(total)}`,
+    delivery ? `Entrega: ${prettyDate(delivery)}` : null
+  ].filter(Boolean).join('\n');
+  navigator.clipboard?.writeText(lines).then(() => showToast('La cotización fue copiada.', 'Cotización copiada')).catch(() => showToast('No se pudo copiar automáticamente.', 'Cotización lista'));
 }
 
 function fromApi(t) {
@@ -1050,6 +1211,7 @@ function openAdminPanel() {
   $('#customUser').value = settings.adminUser || 'admin';
   $('#customPass').value = '';
   renderEmployeeList();
+  renderQuotePriceAdmin();
   clearEmployeeForm();
   adminDialog.showModal();
 }
@@ -1125,7 +1287,12 @@ on('detailImageNext', 'click', () => {
   detailImageIndex = (detailImageIndex + 1) % images.length;
   renderDetailImage(task);
 });
-on('navQuote', 'click', () => showToast('El cotizador se agregará en una próxima versión.', 'Cotizador próximamente'));
+on('navQuote', 'click', () => showMainView('quote'));
+on('navTasks', 'click', () => showMainView('tasks'));
+['quoteMaterial','quoteWidth','quoteHeight','quoteQty'].forEach((id) => on(id, 'input', calculateQuote));
+on('quoteMaterial', 'change', calculateQuote);
+on('copyQuote', 'click', copyQuoteSummary);
+on('saveQuotePrices', 'click', saveQuotePrices);
 
 $$('.filter-chip').forEach((btn) => btn.addEventListener('click', () => {
   activeStatus = btn.dataset.status;
@@ -1289,6 +1456,7 @@ renderEmployeeFilter();
 render();
 refreshTasks();
 refreshEmployees();
+refreshQuoteMaterials();
 const searchBox = $('#searchInput');
 if (searchBox) { searchBox.value = ''; setTimeout(() => { if (searchBox.value.includes('@')) { searchBox.value=''; render(); } }, 300); }
 
