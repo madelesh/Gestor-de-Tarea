@@ -1,4 +1,4 @@
-const APP_VERSION = '10.0';
+const APP_VERSION = '10.1';
 const API_BASE = 'https://gestor-tareas-api.detodoec.workers.dev';
 const STORAGE_KEY = 'detodoec_tasks_v1';
 const SETTINGS_KEY = 'detodoec_tasks_settings_v3';
@@ -35,6 +35,12 @@ const taskForm = $('#taskForm');
 const employeeForm = $('#employeeForm');
 const imagePreview = $('#imagePreview');
 const imageWrap = document.querySelector('.image-preview-wrap');
+
+function syncEditorImageStage(hasImage) {
+  const stage = document.querySelector('.editor-image-stage');
+  if (!stage) return;
+  stage.classList.toggle('has-image', Boolean(hasImage));
+}
 
 function loadSettings() {
   try { return JSON.parse(localStorage.getItem(SETTINGS_KEY)) || {}; } catch { return {}; }
@@ -382,7 +388,8 @@ function clearForm() {
   removeExistingImage = false;
   currentImageUrl = '';
   imagePreview.removeAttribute('src');
-  imageWrap.classList.remove('active');
+  imageWrap?.classList.remove('active');
+  syncEditorImageStage(false);
   $('#dialogTitle').textContent = 'Nueva tarea';
   $('#initialDepositWrap').hidden = false;
   $('#initialPaymentDateWrap').hidden = false;
@@ -421,7 +428,8 @@ function openEdit(id) {
   currentImageUrl = task.image || '';
   if (editingImage) {
     imagePreview.src = editingImage;
-    imageWrap.classList.add('active');
+    imageWrap?.classList.add('active');
+    syncEditorImageStage(true);
   }
   updateSplitPreview();
   dialog.showModal();
@@ -960,7 +968,8 @@ $('#taskImage').addEventListener('change', (e) => {
   const reader = new FileReader();
   reader.onload = () => {
     imagePreview.src = reader.result;
-    imageWrap.classList.add('active');
+    imageWrap?.classList.add('active');
+    syncEditorImageStage(true);
   };
   reader.readAsDataURL(file);
 });
@@ -971,7 +980,8 @@ on('removeImage', 'click', () => {
   currentImageUrl = '';
   $('#taskImage').value = '';
   imagePreview.removeAttribute('src');
-  imageWrap.classList.remove('active');
+  imageWrap?.classList.remove('active');
+  syncEditorImageStage(false);
 });
 $('#totalAmount').addEventListener('input', updateSplitPreview);
 taskForm.addEventListener('submit', saveTask);

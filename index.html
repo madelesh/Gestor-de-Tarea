@@ -9,7 +9,7 @@
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700;800&display=swap" rel="stylesheet">
   <link id="dynamicFavicon" rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 64 64'%3E%3Crect width='64' height='64' rx='16' fill='%23b9ff39'/%3E%3Cpath d='M18 33l9 9 19-22' fill='none' stroke='%23111' stroke-width='7' stroke-linecap='round' stroke-linejoin='round'/%3E%3C/svg%3E" />
-  <link rel="stylesheet" href="styles.css?v=10.0" />
+  <link rel="stylesheet" href="styles.css?v=10.1" />
 </head>
 <body>
   <svg xmlns="http://www.w3.org/2000/svg" style="display:none" aria-hidden="true" focusable="false">
@@ -113,8 +113,8 @@
     </main>
   </div>
 
-  <dialog id="taskDialog">
-    <form method="dialog" id="taskForm" class="task-form">
+  <dialog id="taskDialog" class="task-editor-dialog">
+    <form method="dialog" id="taskForm" class="task-form task-editor-panel">
       <div class="dialog-head">
         <div>
           <span class="eyebrow">Registro</span>
@@ -124,45 +124,80 @@
       </div>
 
       <input type="hidden" id="taskId" />
-      <div class="form-grid">
-        <label>Nombre del cliente<input id="clientName" required placeholder="Ej. María López" /></label>
-        <label>Nombre de la tarea<input id="taskName" required placeholder="Ej. 10 tazas personalizadas" /></label>
 
-        <label>Quién realiza el trabajo
-          <select id="workerName"></select>
-        </label>
+      <div class="task-editor-layout">
+        <aside class="task-editor-media">
+          <div class="editor-media-card">
+            <div class="editor-media-head"><span class="field-icon-badge"><svg class="icon"><use href="#icon-image"></use></svg></span><strong>Imagen de la tarea</strong></div>
+            <div class="editor-image-stage">
+              <img id="imagePreview" alt="Vista previa de la tarea" />
+              <div class="editor-image-empty" id="editorImageEmpty"><svg class="icon"><use href="#icon-image"></use></svg><span>Selecciona una imagen</span></div>
+            </div>
+            <label class="file-control">Cambiar imagen<input id="taskImage" type="file" accept="image/*" /></label>
+            <button type="button" class="btn btn-outline small" id="removeImage">Quitar imagen</button>
+          </div>
+        </aside>
 
-        <label>Quién tomó el pedido
-          <select id="orderTaker"></select>
-        </label>
+        <section class="task-editor-fields">
+          <div class="editor-grid">
+            <label class="editor-field">
+              <span class="editor-label"><span class="field-icon-badge"><svg class="icon"><use href="#icon-user"></use></svg></span>Cliente</span>
+              <input id="clientName" required placeholder="Ej. María López" />
+            </label>
+            <label class="editor-field">
+              <span class="editor-label"><span class="field-icon-badge"><svg class="icon"><use href="#icon-task"></use></svg></span>Tarea</span>
+              <input id="taskName" required placeholder="Ej. 10 tazas personalizadas" />
+            </label>
+            <label class="editor-field">
+              <span class="editor-label"><span class="field-icon-badge"><svg class="icon"><use href="#icon-briefcase"></use></svg></span>Quién realiza</span>
+              <select id="workerName"></select>
+            </label>
+            <label class="editor-field">
+              <span class="editor-label"><span class="field-icon-badge"><svg class="icon"><use href="#icon-handshake"></use></svg></span>Quién tomó el pedido</span>
+              <select id="orderTaker"></select>
+            </label>
+            <label class="editor-field">
+              <span class="editor-label"><span class="field-icon-badge"><svg class="icon"><use href="#icon-calendar"></use></svg></span>Fecha de entrega</span>
+              <input id="deliveryDate" type="date" required />
+            </label>
+            <label class="editor-field">
+              <span class="editor-label"><span class="field-icon-badge"><svg class="icon"><use href="#icon-check"></use></svg></span>Estado</span>
+              <select id="status">
+                <option value="pendiente">Pendiente</option>
+                <option value="proceso">En proceso</option>
+                <option value="terminado">Terminado</option>
+                <option value="entregado">Entregado</option>
+              </select>
+            </label>
+            <label class="editor-field">
+              <span class="editor-label"><span class="field-icon-badge"><svg class="icon"><use href="#icon-dollar"></use></svg></span>Valor total ($)</span>
+              <input id="totalAmount" type="number" min="0" step="0.01" value="0" />
+            </label>
+            <label class="editor-field" id="initialDepositWrap">
+              <span class="editor-label"><span class="field-icon-badge"><svg class="icon"><use href="#icon-wallet"></use></svg></span>Abono inicial ($)</span>
+              <input id="depositAmount" type="number" min="0" step="0.01" value="0" />
+            </label>
+            <label class="editor-field" id="initialPaymentDateWrap">
+              <span class="editor-label"><span class="field-icon-badge"><svg class="icon"><use href="#icon-calendar"></use></svg></span>Fecha del abono inicial</span>
+              <input id="paymentDate" type="date" />
+            </label>
+            <label class="editor-field editor-description">
+              <span class="editor-label"><span class="field-icon-badge"><svg class="icon"><use href="#icon-task"></use></svg></span>Descripción</span>
+              <textarea id="description" rows="3" placeholder="Detalles del trabajo, colores, medidas, texto y observaciones..."></textarea>
+            </label>
+          </div>
 
-        <label>Fecha de entrega<input id="deliveryDate" type="date" required /></label>
-        <label>Estado
-          <select id="status">
-            <option value="pendiente">Pendiente</option>
-            <option value="proceso">En proceso</option>
-            <option value="terminado">Terminado</option>
-            <option value="entregado">Entregado</option>
-          </select>
-        </label>
-
-        <label>Valor total ($)<input id="totalAmount" type="number" min="0" step="0.01" value="0" /></label>
-        <label id="initialDepositWrap">Abono inicial ($)<input id="depositAmount" type="number" min="0" step="0.01" value="0" /></label>
-        <label id="initialPaymentDateWrap">Fecha del abono inicial<input id="paymentDate" type="date" /></label>
-
-        <label class="full">Imagen de la tarea<input id="taskImage" type="file" accept="image/*" /></label>
-        <label class="full">Descripción<textarea id="description" rows="4" placeholder="Detalles del trabajo, colores, medidas, texto y observaciones..."></textarea></label>
+          <div class="split-preview strong-split editor-split">
+            <div class="split-card main"><span>Valor base</span><strong id="profitTotal">$0.00</strong></div>
+            <div class="split-card worker"><span>70% quien realiza</span><strong id="profitWorker">$0.00</strong></div>
+            <div class="split-card taker"><span>30% quien tomó pedido</span><strong id="profitTaker">$0.00</strong></div>
+          </div>
+        </section>
       </div>
 
-      <div class="split-preview strong-split">
-        <div class="split-card main"><span>Valor base</span><strong id="profitTotal">$0.00</strong></div>
-        <div class="split-card worker"><span>70% para quien realiza</span><strong id="profitWorker">$0.00</strong></div>
-        <div class="split-card taker"><span>30% para quien tomó el pedido</span><strong id="profitTaker">$0.00</strong></div>
-      </div>
+      <div class="image-preview-wrap" aria-hidden="true"></div>
 
-      <div class="image-preview-wrap"><img id="imagePreview" alt="Vista previa de la tarea" /><button type="button" class="btn btn-outline small" id="removeImage">Quitar imagen</button></div>
-
-      <div class="dialog-actions">
+      <div class="dialog-actions editor-actions">
         <button type="button" class="btn btn-outline" id="cancelDialog">Cancelar</button>
         <button type="submit" class="btn btn-dark">Guardar tarea</button>
       </div>
@@ -377,6 +412,6 @@
     </article>
   </template>
 
-  <script src="app.js?v=10.0"></script>
+  <script src="app.js?v=10.1"></script>
 </body>
 </html>
