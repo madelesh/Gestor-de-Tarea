@@ -9,7 +9,7 @@
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700;800&display=swap" rel="stylesheet">
   <link id="dynamicFavicon" rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 64 64'%3E%3Crect width='64' height='64' rx='16' fill='%23b9ff39'/%3E%3Cpath d='M18 33l9 9 19-22' fill='none' stroke='%23111' stroke-width='7' stroke-linecap='round' stroke-linejoin='round'/%3E%3C/svg%3E" />
-  <link rel="stylesheet" href="styles.css?v=10.1" />
+  <link rel="stylesheet" href="styles.css?v=10.2" />
 </head>
 <body>
   <svg xmlns="http://www.w3.org/2000/svg" style="display:none" aria-hidden="true" focusable="false">
@@ -33,6 +33,9 @@
     <symbol id="icon-plus" viewBox="0 0 24 24"><path fill="currentColor" d="M19 11H13V5h-2v6H5v2h6v6h2v-6h6z"/></symbol>
     <symbol id="icon-image" viewBox="0 0 24 24"><path fill="currentColor" d="M5 3h14a2 2 0 0 1 2 2v14a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2Zm1 14 3.5-4.5 2.5 3 3.5-4.5L18 17H6Zm2-9.5A1.5 1.5 0 1 0 8 10a1.5 1.5 0 0 0 0-3Z"/></symbol>
     <symbol id="icon-lock" viewBox="0 0 24 24"><path fill="currentColor" d="M7 10V8a5 5 0 0 1 10 0v2h1a2 2 0 0 1 2 2v8a2 2 0 0 1-2 2H6a2 2 0 0 1-2-2v-8a2 2 0 0 1 2-2h1Zm2 0h6V8a3 3 0 0 0-6 0v2Z"/></symbol>
+    <symbol id="icon-calculator" viewBox="0 0 24 24"><path fill="currentColor" d="M6 2h12a2 2 0 0 1 2 2v16a2 2 0 0 1-2 2H6a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2Zm1 3v4h10V5H7Zm0 7v2h2v-2H7Zm4 0v2h2v-2h-2Zm4 0v2h2v-2h-2Zm-8 4v2h2v-2H7Zm4 0v2h2v-2h-2Zm4 0v2h2v-2h-2Z"/></symbol>
+    <symbol id="icon-chevron-left" viewBox="0 0 24 24"><path fill="currentColor" d="m15.5 5-7 7 7 7 1.5-1.5-5.5-5.5L17 6.5 15.5 5Z"/></symbol>
+    <symbol id="icon-chevron-right" viewBox="0 0 24 24"><path fill="currentColor" d="m8.5 5 7 7-7 7L7 17.5l5.5-5.5L7 6.5 8.5 5Z"/></symbol>
   </svg>
 
   <div class="app-shell">
@@ -44,6 +47,11 @@
         </span>
         <span class="brand-text">DeTodoEc</span>
       </a>
+
+      <nav class="main-nav" aria-label="Navegación principal">
+        <button type="button" class="main-nav-btn active" id="navTasks"><svg class="icon"><use href="#icon-task"></use></svg><span>Tareas</span></button>
+        <button type="button" class="main-nav-btn" id="navQuote" title="Próximamente"><svg class="icon"><use href="#icon-calculator"></use></svg><span>Cotizador</span><small>Próximamente</small></button>
+      </nav>
 
       <div class="topbar-actions">
         <button type="button" class="cloud-indicator" id="syncStatus" data-state="loading" title="Conectando a la nube" aria-label="Estado de sincronización">
@@ -128,13 +136,22 @@
       <div class="task-editor-layout">
         <aside class="task-editor-media">
           <div class="editor-media-card">
-            <div class="editor-media-head"><span class="field-icon-badge"><svg class="icon"><use href="#icon-image"></use></svg></span><strong>Imagen de la tarea</strong></div>
+            <div class="editor-media-head"><span class="field-icon-badge"><svg class="icon"><use href="#icon-image"></use></svg></span><strong>1. Trabajo a realizar</strong></div>
             <div class="editor-image-stage">
-              <img id="imagePreview" alt="Vista previa de la tarea" />
+              <img id="imagePreview" alt="Vista previa del trabajo a realizar" />
               <div class="editor-image-empty" id="editorImageEmpty"><svg class="icon"><use href="#icon-image"></use></svg><span>Selecciona una imagen</span></div>
             </div>
             <label class="file-control">Cambiar imagen<input id="taskImage" type="file" accept="image/*" /></label>
             <button type="button" class="btn btn-outline small" id="removeImage">Quitar imagen</button>
+          </div>
+          <div class="editor-media-card">
+            <div class="editor-media-head"><span class="field-icon-badge"><svg class="icon"><use href="#icon-check"></use></svg></span><strong>2. Trabajo terminado</strong></div>
+            <div class="editor-image-stage">
+              <img id="finishedImagePreview" alt="Vista previa del trabajo terminado" />
+              <div class="editor-image-empty" id="finishedImageEmpty"><svg class="icon"><use href="#icon-image"></use></svg><span>Agrega la foto al terminar</span></div>
+            </div>
+            <label class="file-control">Cambiar imagen<input id="finishedTaskImage" type="file" accept="image/*" /></label>
+            <button type="button" class="btn btn-outline small" id="removeFinishedImage">Quitar imagen</button>
           </div>
         </aside>
 
@@ -222,7 +239,12 @@
 
         <section class="detail-main">
           <div class="detail-top compact-layout">
-            <div class="detail-image-box"><img id="detailImage" alt="Imagen de la tarea" /></div>
+            <div class="detail-image-box detail-carousel">
+              <img id="detailImage" alt="Imagen de la tarea" />
+              <button type="button" class="image-arrow image-arrow-left" id="detailImagePrev" aria-label="Imagen anterior"><svg class="icon"><use href="#icon-chevron-left"></use></svg></button>
+              <button type="button" class="image-arrow image-arrow-right" id="detailImageNext" aria-label="Imagen siguiente"><svg class="icon"><use href="#icon-chevron-right"></use></svg></button>
+              <div class="image-counter" id="detailImageCounter">1 / 1</div>
+            </div>
             <div class="detail-summary">
               <div class="detail-status" id="detailStatus"></div>
               <div class="detail-grid compact-detail-grid">
@@ -255,7 +277,7 @@
                   <dd id="detailDeposit"></dd>
                 </div>
                 <div class="detail-item">
-                  <div class="detail-item-head"><span class="field-icon-badge"><svg class="icon"><use href="#icon-wallet"></use></svg></span><dt>Saldo</dt></div>
+                  <div class="detail-item-head"><span class="field-icon-badge"><svg class="icon"><use href="#icon-wallet"></use></svg></span><dt>Saldo pendiente</dt></div>
                   <dd id="detailBalance"></dd>
                 </div>
               </div>
@@ -400,7 +422,12 @@
   <template id="taskTemplate">
     <article class="task-card" tabindex="0" role="button" aria-label="Ver detalle de tarea">
       <div class="card-status-badge"></div>
-      <div class="task-image-wrap"><img class="task-image" alt="Imagen de la tarea" /></div>
+      <div class="task-image-wrap task-card-carousel">
+        <img class="task-image" alt="Imagen de la tarea" />
+        <button type="button" class="card-image-arrow card-image-prev" aria-label="Imagen anterior"><svg class="icon"><use href="#icon-chevron-left"></use></svg></button>
+        <button type="button" class="card-image-arrow card-image-next" aria-label="Imagen siguiente"><svg class="icon"><use href="#icon-chevron-right"></use></svg></button>
+        <div class="card-image-dots"><span></span><span></span></div>
+      </div>
       <div class="task-card-body">
         <strong class="card-client"></strong>
         <span class="card-taskname"></span>
@@ -412,6 +439,6 @@
     </article>
   </template>
 
-  <script src="app.js?v=10.1"></script>
+  <script src="app.js?v=10.2"></script>
 </body>
 </html>

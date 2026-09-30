@@ -1,4 +1,4 @@
-const APP_VERSION = '10.1';
+const APP_VERSION = '10.2';
 const API_BASE = 'https://gestor-tareas-api.detodoec.workers.dev';
 const STORAGE_KEY = 'detodoec_tasks_v1';
 const SETTINGS_KEY = 'detodoec_tasks_settings_v3';
@@ -14,6 +14,11 @@ let editingImage = '';
 let editingImageFile = null;
 let removeExistingImage = false;
 let currentImageUrl = '';
+let editingFinishedImage = '';
+let editingFinishedImageFile = null;
+let removeExistingFinishedImage = false;
+let currentFinishedImageUrl = '';
+let detailImageIndex = 0;
 let isLoading = false;
 let employeeEditingPhoto = '';
 
@@ -34,10 +39,11 @@ const paymentForm = $('#paymentForm');
 const taskForm = $('#taskForm');
 const employeeForm = $('#employeeForm');
 const imagePreview = $('#imagePreview');
+const finishedImagePreview = $('#finishedImagePreview');
 const imageWrap = document.querySelector('.image-preview-wrap');
 
-function syncEditorImageStage(hasImage) {
-  const stage = document.querySelector('.editor-image-stage');
+function syncEditorImageStage(hasImage, selector = '.editor-image-stage') {
+  const stage = document.querySelector(selector);
   if (!stage) return;
   stage.classList.toggle('has-image', Boolean(hasImage));
 }
@@ -186,6 +192,7 @@ function fromApi(t) {
     orderTaker: t.tomo_pedido || '',
     status: t.estado || 'pendiente',
     image: t.imagen_url || '',
+    finishedImage: t.imagen_terminada_url || '',
     archived: Boolean(t.archivada),
     paymentHistory: history,
     depositAmount: deposit,
@@ -203,6 +210,7 @@ function toApi(task) {
     tomo_pedido: task.orderTaker || '',
     estado: task.status || 'pendiente',
     imagen_url: task.image || '',
+    imagen_terminada_url: task.finishedImage || '',
     archivada: Boolean(task.archived)
   };
 }
@@ -325,7 +333,24 @@ function createTaskCard(task) {
   const node = $('#taskTemplate').content.cloneNode(true);
   const card = node.querySelector('.task-card');
   node.querySelector('.card-status-badge').textContent = statusLabel(task.status);
-  node.querySelector('.task-image').src = task.image || placeholderSvg();
+  const cardImage = node.querySelector('.task-image');
+  const cardImages = [task.image, task.finishedImage].filter(Boolean);
+  if (!cardImages.length) cardImages.push(placeholderSvg());
+  let cardImageIndex = 0;
+  const prevBtn = node.querySelector('.card-image-prev');
+  const nextBtn = node.querySelector('.card-image-next');
+  const dots = [...node.querySelectorAll('.card-image-dots span')];
+  const updateCardImage = () => {
+    cardImage.src = cardImages[cardImageIndex];
+    dots.forEach((dot, i) => dot.classList.toggle('active', i === cardImageIndex && i < cardImages.length));
+    const showControls = cardImages.length > 1;
+    prevBtn.hidden = !showControls;
+    nextBtn.hidden = !showControls;
+    node.querySelector('.card-image-dots').hidden = !showControls;
+  };
+  prevBtn.addEventListener('click', (e) => { e.stopPropagation(); cardImageIndex = (cardImageIndex - 1 + cardImages.length) % cardImages.length; updateCardImage(); });
+  nextBtn.addEventListener('click', (e) => { e.stopPropagation(); cardImageIndex = (cardImageIndex + 1) % cardImages.length; updateCardImage(); });
+  updateCardImage();
   node.querySelector('.card-client').textContent = task.clientName || 'Sin cliente';
   node.querySelector('.card-taskname').textContent = task.taskName || 'Sin nombre de tarea';
   node.querySelector('.card-delivery').textContent = prettyDate(task.deliveryDate);
@@ -387,9 +412,15 @@ function clearForm() {
   editingImageFile = null;
   removeExistingImage = false;
   currentImageUrl = '';
+  editingFinishedImage = '';
+  editingFinishedImageFile = null;
+  removeExistingFinishedImage = false;
+  currentFinishedImageUrl = '';
   imagePreview.removeAttribute('src');
+  finishedImagePreview?.removeAttribute('src');
   imageWrap?.classList.remove('active');
-  syncEditorImageStage(false);
+  syncEditorImageStage(false, '.editor-media-card:first-child .editor-image-stage');
+  syncEditorImageStage(false, '.editor-media-card:nth-child(2) .editor-image-stage');
   $('#dialogTitle').textContent = 'Nueva tarea';
   $('#initialDepositWrap').hidden = false;
   $('#initialPaymentDateWrap').hidden = false;
@@ -429,7 +460,13 @@ function openEdit(id) {
   if (editingImage) {
     imagePreview.src = editingImage;
     imageWrap?.classList.add('active');
-    syncEditorImageStage(true);
+    syncEditorImageStage(true, '.editor-media-card:first-child .editor-image-stage');
+  }
+  editingFinishedImage = task.finishedImage || '';
+  currentFinishedImageUrl = task.finishedImage || '';
+  if (editingFinishedImage) {
+    finishedImagePreview.src = editingFinishedImage;
+    syncEditorImageStage(true, '.editor-media-card:nth-child(2) .editor-image-stage');
   }
   updateSplitPreview();
   dialog.showModal();
@@ -442,12 +479,23 @@ function updateSplitPreview() {
   $('#profitTaker').textContent = money(amount * 0.30);
 }
 
+function renderDetailImage(task) {
+  const images = [task.image, task.finishedImage].filter(Boolean);
+  if (!images.length) images.push(placeholderSvg());
+  detailImageIndex = Math.max(0, Math.min(detailImageIndex, images.length - 1));
+  $('#detailImage').src = images[detailImageIndex];
+  $('#detailImageCounter').textContent = `${detailImageIndex + 1} / ${images.length}`;
+  $('#detailImagePrev').hidden = images.length < 2;
+  $('#detailImageNext').hidden = images.length < 2;
+}
+
 function openDetail(id) {
   const task = tasks.find((x) => x.id === String(id));
   if (!task) return;
   detailTaskId = String(id);
   $('#detailTitle').textContent = task.taskName || 'Información de la tarea';
-  $('#detailImage').src = task.image || placeholderSvg();
+  detailImageIndex = 0;
+  renderDetailImage(task);
   $('#detailStatus').textContent = statusLabel(task.status);
   $('#detailClient').textContent = task.clientName || '—';
   $('#detailTask').textContent = task.taskName || '—';
@@ -481,7 +529,10 @@ function openDetail(id) {
             <span class="history-date">${prettyDate(item.date)}${item.createdAt ? ` · ${String(item.createdAt).slice(11, 16)}` : ''}</span>
           </div>
         </div>
-        <button type="button" class="history-edit" data-edit-payment="${escapeHtml(String(item.id))}" title="Editar abono" aria-label="Editar abono">${iconUse('icon-edit')}</button>
+        <div class="history-actions">
+          <button type="button" class="history-edit" data-edit-payment="${escapeHtml(String(item.id))}" title="Editar abono" aria-label="Editar abono">${iconUse('icon-edit')}</button>
+          <button type="button" class="history-delete" data-delete-payment="${escapeHtml(String(item.id))}" title="Eliminar abono" aria-label="Eliminar abono">${iconUse('icon-trash')}</button>
+        </div>
       `;
       list.appendChild(row);
     });
@@ -547,6 +598,36 @@ async function updatePaymentEntry(taskId, paymentId, amount, date) {
   throw lastError || new Error('No se pudo editar el abono.');
 }
 
+async function deletePaymentEntry(taskId, paymentId) {
+  const candidates = [
+    `/api/abonos/${paymentId}`,
+    `/api/tareas/${taskId}/abonos/${paymentId}`
+  ];
+  let lastError = null;
+  for (const url of candidates) {
+    try {
+      return await apiFetch(url, { method: 'DELETE' });
+    } catch (error) {
+      lastError = error;
+    }
+  }
+  throw lastError || new Error('No se pudo eliminar el abono.');
+}
+
+async function removePayment(taskId, paymentId) {
+  const { item } = findPayment(taskId, paymentId);
+  if (!item) return;
+  if (!window.confirm(`¿Eliminar el abono de ${money(item.amount)} del ${prettyDate(item.date)}?`)) return;
+  try {
+    await deletePaymentEntry(taskId, paymentId);
+    await refreshTasks({ silent: true });
+    if (detailTaskId) openDetail(detailTaskId);
+    showToast('El abono fue eliminado correctamente.', 'Abono eliminado');
+  } catch (err) {
+    showToast(err.message, 'No se pudo eliminar el abono');
+  }
+}
+
 async function saveTask(e) {
   e.preventDefault();
   const id = $('#taskId').value.trim();
@@ -575,6 +656,10 @@ async function saveTask(e) {
     if (removeExistingImage) imageUrl = '';
     if (editingImageFile) imageUrl = await uploadImage(editingImageFile);
 
+    let finishedImageUrl = currentFinishedImageUrl || editingFinishedImage || '';
+    if (removeExistingFinishedImage) finishedImageUrl = '';
+    if (editingFinishedImageFile) finishedImageUrl = await uploadImage(editingFinishedImageFile);
+
     const payload = {
       cliente: clientName,
       titulo: taskName,
@@ -585,6 +670,7 @@ async function saveTask(e) {
       tomo_pedido: orderTaker,
       estado: status,
       imagen_url: imageUrl,
+      imagen_terminada_url: finishedImageUrl,
       archivada: false
     };
 
@@ -906,10 +992,32 @@ on('detailArchive', 'click', () => archiveTask(detailTaskId));
 on('detailDelete', 'click', () => requestDelete(detailTaskId));
 
 $('#paymentHistoryList').addEventListener('click', (e) => {
-  const btn = e.target.closest('[data-edit-payment]');
-  if (!btn) return;
-  editPayment(detailTaskId, btn.dataset.editPayment);
+  const editBtn = e.target.closest('[data-edit-payment]');
+  if (editBtn) {
+    editPayment(detailTaskId, editBtn.dataset.editPayment);
+    return;
+  }
+  const deleteBtn = e.target.closest('[data-delete-payment]');
+  if (deleteBtn) removePayment(detailTaskId, deleteBtn.dataset.deletePayment);
 });
+
+on('detailImagePrev', 'click', () => {
+  const task = tasks.find((x) => x.id === String(detailTaskId));
+  if (!task) return;
+  const images = [task.image, task.finishedImage].filter(Boolean);
+  if (images.length < 2) return;
+  detailImageIndex = (detailImageIndex - 1 + images.length) % images.length;
+  renderDetailImage(task);
+});
+on('detailImageNext', 'click', () => {
+  const task = tasks.find((x) => x.id === String(detailTaskId));
+  if (!task) return;
+  const images = [task.image, task.finishedImage].filter(Boolean);
+  if (images.length < 2) return;
+  detailImageIndex = (detailImageIndex + 1) % images.length;
+  renderDetailImage(task);
+});
+on('navQuote', 'click', () => showToast('El cotizador se agregará en una próxima versión.', 'Cotizador próximamente'));
 
 $$('.filter-chip').forEach((btn) => btn.addEventListener('click', () => {
   activeStatus = btn.dataset.status;
@@ -969,7 +1077,7 @@ $('#taskImage').addEventListener('change', (e) => {
   reader.onload = () => {
     imagePreview.src = reader.result;
     imageWrap?.classList.add('active');
-    syncEditorImageStage(true);
+    syncEditorImageStage(true, '.editor-media-card:first-child .editor-image-stage');
   };
   reader.readAsDataURL(file);
 });
@@ -981,7 +1089,29 @@ on('removeImage', 'click', () => {
   $('#taskImage').value = '';
   imagePreview.removeAttribute('src');
   imageWrap?.classList.remove('active');
-  syncEditorImageStage(false);
+  syncEditorImageStage(false, '.editor-media-card:first-child .editor-image-stage');
+});
+
+$('#finishedTaskImage').addEventListener('change', (e) => {
+  const file = e.target.files?.[0];
+  if (!file) return;
+  editingFinishedImageFile = file;
+  removeExistingFinishedImage = false;
+  const reader = new FileReader();
+  reader.onload = () => {
+    finishedImagePreview.src = reader.result;
+    syncEditorImageStage(true, '.editor-media-card:nth-child(2) .editor-image-stage');
+  };
+  reader.readAsDataURL(file);
+});
+
+on('removeFinishedImage', 'click', () => {
+  editingFinishedImageFile = null;
+  removeExistingFinishedImage = true;
+  currentFinishedImageUrl = '';
+  $('#finishedTaskImage').value = '';
+  finishedImagePreview.removeAttribute('src');
+  syncEditorImageStage(false, '.editor-media-card:nth-child(2) .editor-image-stage');
 });
 $('#totalAmount').addEventListener('input', updateSplitPreview);
 taskForm.addEventListener('submit', saveTask);

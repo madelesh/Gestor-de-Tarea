@@ -402,3 +402,78 @@ body{font-family:var(--font-ui)}
   .detail-actions,.editor-actions{gap:8px}
   .detail-actions .btn,.editor-actions .btn{flex:1 1 auto}
 }
+
+/* ==========================
+   V10.2 - Navegación, 2 imágenes y abonos
+   ========================== */
+.topbar{
+  display:grid!important;
+  grid-template-columns:minmax(180px,1fr) auto minmax(180px,1fr)!important;
+  align-items:center!important;
+}
+.brand{justify-self:start}
+.main-nav{justify-self:center;display:flex;align-items:center;gap:8px;padding:5px;border:1px solid var(--line);border-radius:16px;background:color-mix(in srgb,var(--surface) 82%,transparent);box-shadow:var(--shadow)}
+.main-nav-btn{border:0;background:transparent;color:var(--muted);display:flex;align-items:center;gap:8px;min-height:38px;padding:0 13px;border-radius:12px;font-weight:800;cursor:pointer;position:relative}
+.main-nav-btn.active{background:var(--accent);color:#111}
+.main-nav-btn small{font-size:9px;font-weight:800;opacity:.66;margin-left:2px;text-transform:uppercase;letter-spacing:.06em}
+.topbar-actions{justify-self:end}
+
+/* Corrige el choque entre iconos y texto en las cajas */
+.meta-pill{min-width:0!important;align-items:center!important;padding:11px!important}
+.meta-pill>.field-icon-badge{position:static!important;flex:0 0 30px!important}
+.meta-pill>span:last-child{min-width:0!important;display:block!important}
+.meta-pill small,.meta-pill b{overflow-wrap:anywhere!important;word-break:normal!important}
+.card-meta.compact{grid-template-columns:minmax(0,1fr) minmax(0,1fr)!important}
+.detail-item-head{min-width:0}
+.detail-item-head dt{min-width:0;padding:0!important;margin:0!important}
+.detail-item .field-icon-badge{position:static!important}
+
+/* Historial: editar + eliminar */
+.history-actions{display:flex;align-items:center;gap:7px;flex:0 0 auto}
+.history-delete{width:40px;height:40px;border-radius:14px;border:1px solid color-mix(in srgb,var(--danger) 45%,var(--line));background:transparent;color:var(--danger);display:grid;place-items:center;cursor:pointer;transition:.18s ease}
+.history-delete:hover{transform:translateY(-1px);background:var(--danger-bg);border-color:var(--danger)}
+
+/* Carrusel de 2 imágenes en la tarjeta */
+.task-image-wrap,.detail-image-box{position:relative}
+.card-image-arrow,.image-arrow{position:absolute;z-index:4;top:50%;transform:translateY(-50%);width:34px;height:34px;border:none;border-radius:50%;display:grid;place-items:center;cursor:pointer;background:rgba(10,14,22,.72);color:#fff;backdrop-filter:blur(7px);box-shadow:0 6px 18px rgba(0,0,0,.22)}
+.card-image-arrow:hover,.image-arrow:hover{background:var(--accent);color:#111}
+.card-image-prev,.image-arrow-left{left:10px}
+.card-image-next,.image-arrow-right{right:10px}
+.card-image-dots{position:absolute;z-index:4;bottom:10px;left:50%;transform:translateX(-50%);display:flex;gap:6px;padding:5px 7px;border-radius:999px;background:rgba(10,14,22,.55);backdrop-filter:blur(6px)}
+.card-image-dots span{width:6px;height:6px;border-radius:50%;background:rgba(255,255,255,.48)}
+.card-image-dots span.active{background:var(--accent)}
+.image-counter{position:absolute;z-index:4;left:50%;bottom:12px;transform:translateX(-50%);padding:6px 10px;border-radius:999px;background:rgba(10,14,22,.62);color:#fff;font-size:11px;font-weight:800;backdrop-filter:blur(6px)}
+
+/* Editor de tarea: dos imágenes sin hacerlo excesivamente alto */
+.task-editor-layout{grid-template-columns:340px minmax(0,1fr)!important}
+.task-editor-media{display:grid!important;grid-template-columns:1fr 1fr!important;gap:12px!important;align-content:start!important}
+.task-editor-media .editor-media-card{min-width:0!important;padding:12px!important}
+.task-editor-media .editor-media-head{font-size:12px!important}
+.task-editor-media .editor-image-stage{aspect-ratio:1/1!important;min-height:0!important}
+.task-editor-media .file-control,.task-editor-media .btn{width:100%!important;margin-top:8px!important}
+.task-editor-fields{min-width:0}
+
+/* El lateral de imágenes toma dos tarjetas y los campos conservan espacio */
+.task-editor-dialog{width:min(1240px,calc(100vw - 24px))!important}
+.task-editor-panel{width:100%!important}
+
+@media(min-width:1050px){
+  .task-editor-layout{grid-template-columns:460px minmax(0,1fr)!important}
+}
+
+@media(max-width:980px){
+  .topbar{grid-template-columns:1fr auto!important}
+  .main-nav{grid-column:1/-1;grid-row:2;justify-self:center;margin-top:6px}
+  .brand{grid-column:1;grid-row:1}
+  .topbar-actions{grid-column:2;grid-row:1}
+  .task-editor-layout{grid-template-columns:1fr!important}
+  .task-editor-media{grid-template-columns:1fr 1fr!important}
+}
+@media(max-width:620px){
+  .main-nav-btn{padding:0 10px}
+  .main-nav-btn small{display:none}
+  .task-editor-media{grid-template-columns:1fr!important}
+  .card-meta.compact{grid-template-columns:1fr 1fr!important}
+  .history-actions{gap:5px}
+  .history-edit,.history-delete{width:36px;height:36px}
+}
