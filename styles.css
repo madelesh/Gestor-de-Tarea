@@ -478,141 +478,78 @@ body{font-family:var(--font-ui)}
   .history-edit,.history-delete{width:36px;height:36px}
 }
 
-/* =====================================================
-   V10.2.1 - Corrección tarjetas principales + header
-   ===================================================== */
-
-/* Evita restos del indicador antiguo y unifica iconos del header */
-.cloud-indicator::after{content:none!important;display:none!important}
-.cloud-indicator{
-  width:48px!important;
-  min-width:48px!important;
-  height:42px!important;
-  padding:0!important;
-  gap:0!important;
-  position:relative!important;
-  display:grid!important;
-  place-items:center!important;
-  border-radius:13px!important;
-  background:var(--surface-2)!important;
-  color:var(--ink)!important;
+/* ==========================
+   V10.3 - Empleados nube + filtros + tarjeta
+   ========================== */
+.employee-filter{
+  min-width:190px;
+  height:44px;
+  padding:0 38px 0 14px;
+  border:1px solid var(--line);
+  border-radius:14px;
+  background:var(--surface);
+  color:var(--ink);
+  font-weight:700;
 }
-.cloud-indicator .icon{width:19px!important;height:19px!important}
-.cloud-indicator .status-dot{
-  position:absolute!important;
-  top:7px!important;
-  right:7px!important;
-  width:8px!important;
-  height:8px!important;
-  border-radius:50%!important;
-  box-shadow:0 0 0 2px var(--surface-2)!important;
+#searchInput{
+  min-width:240px;
+  autocomplete:off;
 }
-.icon-btn.square,
-.admin-access{
-  width:48px!important;
-  min-width:48px!important;
-  height:42px!important;
-  padding:0!important;
-  display:grid!important;
-  place-items:center!important;
-  border-radius:13px!important;
-  background:var(--surface-2)!important;
-  color:var(--ink)!important;
-  border:1px solid var(--line)!important;
+.card-worker-row{
+  display:flex;
+  align-items:center;
+  gap:10px;
+  margin-top:13px;
+  padding:10px 12px;
+  border-radius:15px;
+  border:1px solid var(--line);
+  background:var(--surface-2);
 }
-.icon-btn.square .icon,
-.admin-access .icon,
-#themeIconSlot .icon{width:19px!important;height:19px!important}
-#themeIconSlot{display:grid!important;place-items:center!important;width:100%;height:100%}
-.topbar-actions{gap:8px!important}
-
-/* Tarjeta principal: evita que fecha y precio se apilen letra por letra */
-.card-meta.compact{
-  display:grid!important;
-  grid-template-columns:minmax(0,1fr) minmax(0,1fr)!important;
-  gap:10px!important;
-  width:100%!important;
+.card-worker-avatar{
+  width:34px;
+  height:34px;
+  flex:0 0 34px;
+  border-radius:50%;
+  display:grid;
+  place-items:center;
+  background:var(--surface);
+  border:1px solid var(--line);
+  background-size:cover;
+  background-position:center;
+  font-size:11px;
+  font-weight:800;
+  color:var(--muted);
 }
-.meta-pill{
-  display:grid!important;
-  grid-template-columns:32px minmax(0,1fr)!important;
-  align-items:center!important;
-  gap:9px!important;
-  min-width:0!important;
-  padding:11px 12px!important;
-  border-radius:16px!important;
+.card-worker-row>span:last-child{min-width:0;display:block}
+.card-worker-row small{
+  display:block;
+  color:var(--muted);
+  font-size:10px;
+  line-height:1.1;
+  margin-bottom:4px;
+  text-transform:uppercase;
+  letter-spacing:.06em;
+  font-weight:700;
 }
-.meta-pill>.field-icon-badge{
-  position:static!important;
-  width:30px!important;
-  height:30px!important;
-  min-width:30px!important;
-  flex:none!important;
-}
-.meta-pill>span:last-child{
-  display:flex!important;
-  flex-direction:column!important;
-  justify-content:center!important;
-  min-width:0!important;
-  width:100%!important;
-}
-.meta-pill small{
-  display:block!important;
-  margin:0 0 4px!important;
-  font-size:10px!important;
-  line-height:1.15!important;
-  letter-spacing:.04em!important;
-  text-transform:uppercase!important;
-  white-space:nowrap!important;
-  overflow:hidden!important;
-  text-overflow:ellipsis!important;
-  word-break:normal!important;
-  overflow-wrap:normal!important;
-}
-.meta-pill b{
-  display:block!important;
-  margin:0!important;
-  font-size:14px!important;
-  line-height:1.2!important;
-  font-weight:800!important;
-  white-space:normal!important;
-  word-break:keep-all!important;
-  overflow-wrap:normal!important;
-}
-.card-delivery,.card-total{word-break:keep-all!important;overflow-wrap:normal!important}
-
-/* Un poco más de ancho útil dentro de las tarjetas */
-.task-card-body{padding-left:8px!important;padding-right:8px!important}
-.task-card{min-width:0!important}
-
-@media(max-width:620px){
-  .card-meta.compact{grid-template-columns:1fr!important}
-  .meta-pill small{white-space:normal!important}
+.card-worker-row b{
+  display:block;
+  overflow:hidden;
+  text-overflow:ellipsis;
+  white-space:nowrap;
+  font-size:14px;
+  font-weight:800;
 }
 
-
-/* =========================================================
-   V10.2.2 — Tarjeta principal corregida
-   Fecha arriba / Valor total abajo
-   ========================================================= */
-
-.task-card{
-  width:100%!important;
-  max-width:340px!important;
-}
-
-.task-card-body{
-  padding:16px 10px 8px!important;
-}
-
+/* Fecha arriba, valor total abajo para impedir textos partidos */
+.task-card{width:100%!important;max-width:340px!important}
+.task-card-body{padding:16px 10px 8px!important}
 .card-meta.compact{
   display:flex!important;
   flex-direction:column!important;
   gap:10px!important;
   width:100%!important;
-  margin-top:16px!important;
+  margin-top:12px!important;
 }
-
 .card-meta.compact .meta-pill{
   width:100%!important;
   min-width:0!important;
@@ -624,75 +561,24 @@ body{font-family:var(--font-ui)}
   border-radius:16px!important;
   overflow:hidden!important;
 }
-
 .card-meta.compact .meta-pill>.field-icon-badge{
   position:static!important;
-  width:34px!important;
-  height:34px!important;
-  min-width:34px!important;
-  flex:0 0 34px!important;
-  border-radius:11px!important;
+  width:34px!important;height:34px!important;min-width:34px!important;flex:0 0 34px!important;
 }
-
-.card-meta.compact .meta-pill>span:last-child{
-  display:block!important;
-  width:100%!important;
-  min-width:0!important;
-  overflow:hidden!important;
-}
-
+.card-meta.compact .meta-pill>span:last-child{display:block!important;width:100%!important;min-width:0!important;overflow:hidden!important}
 .card-meta.compact .meta-pill small{
-  display:block!important;
-  margin:0 0 5px!important;
-  padding:0!important;
-  font-size:10px!important;
-  line-height:1.2!important;
-  font-weight:700!important;
-  letter-spacing:.06em!important;
-  text-transform:uppercase!important;
-  white-space:nowrap!important;
-  overflow:hidden!important;
-  text-overflow:ellipsis!important;
+  display:block!important;margin:0 0 5px!important;padding:0!important;
+  font-size:10px!important;line-height:1.2!important;font-weight:700!important;
+  letter-spacing:.06em!important;text-transform:uppercase!important;white-space:nowrap!important;
+  overflow:hidden!important;text-overflow:ellipsis!important;
 }
-
-.card-meta.compact .meta-pill b{
-  display:block!important;
-  margin:0!important;
-  padding:0!important;
-  width:100%!important;
-  font-size:16px!important;
-  line-height:1.2!important;
-  font-weight:800!important;
-  white-space:nowrap!important;
-  overflow:hidden!important;
-  text-overflow:ellipsis!important;
-  word-break:normal!important;
-  overflow-wrap:normal!important;
+.card-meta.compact .meta-pill b,.card-delivery,.card-total{
+  display:block!important;margin:0!important;padding:0!important;width:100%!important;
+  font-size:16px!important;line-height:1.2!important;font-weight:800!important;
+  white-space:nowrap!important;overflow:hidden!important;text-overflow:ellipsis!important;
+  word-break:normal!important;overflow-wrap:normal!important;
 }
-
-.card-delivery,
-.card-total{
-  white-space:nowrap!important;
-  word-break:normal!important;
-  overflow-wrap:normal!important;
-}
-
-@media(max-width:620px){
-  .task-card{
-    max-width:100%!important;
-  }
-
-  .card-meta.compact{
-    display:flex!important;
-    flex-direction:column!important;
-  }
-
-  .card-meta.compact .meta-pill{
-    grid-template-columns:38px minmax(0,1fr)!important;
-  }
-
-  .card-meta.compact .meta-pill small,
-  .card-meta.compact .meta-pill b{
-    white-space:nowrap!important;
-  }
+@media(max-width:760px){
+  .employee-filter,#searchInput{width:100%;min-width:0}
+  .task-card{max-width:100%!important}
 }

@@ -1,4 +1,4 @@
-const APP_VERSION = '10.2';
+const APP_VERSION = '10.3';
 const API_BASE = 'https://gestor-tareas-api.detodoec.workers.dev';
 const STORAGE_KEY = 'detodoec_tasks_v1';
 const SETTINGS_KEY = 'detodoec_tasks_settings_v3';
@@ -21,6 +21,7 @@ let currentFinishedImageUrl = '';
 let detailImageIndex = 0;
 let isLoading = false;
 let employeeEditingPhoto = '';
+let employeeEditingPhotoFile = null;
 
 const $ = (s) => document.querySelector(s);
 const $$ = (s) => [...document.querySelectorAll(s)];
@@ -173,6 +174,45 @@ async function uploadImage(file) {
   return data.url || '';
 }
 
+function fromEmployeeApi(emp) {
+  return { id: String(emp.id), name: emp.nombre || '', photo: emp.foto_url || '' };
+}
+
+async function refreshEmployees({ migrateLocal = true } = {}) {
+  const local = loadEmployees();
+  try {
+    let cloud = await apiFetch('/api/empleados');
+    cloud = (Array.isArray(cloud) ? cloud : []).map(fromEmployeeApi);
+    if (migrateLocal && local.length) {
+      const names = new Set(cloud.map((e) => e.name.toLowerCase()));
+      for (const emp of local) {
+        if (!emp?.name || names.has(String(emp.name).toLowerCase())) continue;
+        try {
+          let photoUrl = emp.photo || '';
+          if (photoUrl.startsWith('data:image/')) {
+            const blob = await (await fetch(photoUrl)).blob();
+            const ext = (blob.type.split('/')[1] || 'png').replace('jpeg','jpg');
+            const file = new File([blob], `empleado-${Date.now()}.${ext}`, { type: blob.type });
+            photoUrl = await uploadImage(file);
+          }
+          await apiFetch('/api/empleados', { method:'POST', headers:{'Content-Type':'application/json'}, body:JSON.stringify({ nombre: emp.name, foto_url: photoUrl }) });
+          names.add(String(emp.name).toLowerCase());
+        } catch (err) { console.warn('No se pudo migrar empleado local', emp?.name, err); }
+      }
+      cloud = (await apiFetch('/api/empleados')).map(fromEmployeeApi);
+    }
+    employees = cloud;
+    saveEmployees(cloud);
+    renderEmployeeList();
+    renderEmployeeFilter();
+  } catch (err) {
+    console.error(err);
+    employees = local;
+    renderEmployeeList();
+    renderEmployeeFilter();
+  }
+}
+
 function fromApi(t) {
   const history = (t.abonos || []).map((a) => ({
     id: String(a.id),
@@ -256,6 +296,14 @@ function renderEmployeeOptions(selectedWorker = '', selectedTaker = '') {
   takerSelect.value = selectedTaker || '';
 }
 
+function renderEmployeeFilter() {
+  const select = $('#employeeFilter');
+  if (!select) return;
+  const current = select.value || 'all';
+  select.innerHTML = '<option value="all">Todos los empleados</option>' + employees.map((emp) => `<option value="${escapeHtml(emp.name)}">${escapeHtml(emp.name)}</option>`).join('');
+  select.value = employees.some((e) => e.name === current) ? current : 'all';
+}
+
 function renderEmployeeList() {
   const list = $('#employeeList');
   if (!list) return;
@@ -289,6 +337,7 @@ function clearEmployeeForm() {
   employeeForm.reset();
   $('#employeeId').value = '';
   employeeEditingPhoto = '';
+  employeeEditingPhotoFile = null;
   setEmployeeAvatarBox($('#employeePhotoPreview'), '', '');
   $('#employeeSaveBtn').textContent = 'Guardar empleado';
 }
@@ -298,17 +347,22 @@ function editEmployee(id) {
   $('#employeeId').value = emp.id;
   $('#employeeName').value = emp.name;
   employeeEditingPhoto = emp.photo || '';
+  employeeEditingPhotoFile = null;
   setEmployeeAvatarBox($('#employeePhotoPreview'), emp.photo || '', emp.name);
   $('#employeeSaveBtn').textContent = 'Actualizar empleado';
 }
-function removeEmployee(id) {
-  const emp = employees.find((item) => item.id === id);
+async function removeEmployee(id) {
+  const emp = employees.find((item) => item.id === String(id));
   if (!emp) return;
   if (!window.confirm(`¿Eliminar al empleado "${emp.name}"?`)) return;
-  const next = employees.filter((item) => item.id !== id);
-  saveEmployees(next);
-  renderEmployeeList();
-  showToast(`Se eliminó a ${emp.name}.`, 'Empleado eliminado');
+  try {
+    await apiFetch(`/api/empleados/${id}`, { method:'DELETE' });
+    await refreshEmployees({ migrateLocal:false });
+    render();
+    showToast(`Se eliminó a ${emp.name}.`, 'Empleado eliminado');
+  } catch (err) {
+    showToast(err.message, 'No se pudo eliminar el empleado');
+  }
 }
 
 async function refreshTasks({ silent = false } = {}) {
@@ -353,6 +407,10 @@ function createTaskCard(task) {
   updateCardImage();
   node.querySelector('.card-client').textContent = task.clientName || 'Sin cliente';
   node.querySelector('.card-taskname').textContent = task.taskName || 'Sin nombre de tarea';
+  const cardWorker = node.querySelector('.card-worker-name');
+  const cardWorkerAvatar = node.querySelector('.card-worker-avatar');
+  if (cardWorker) cardWorker.textContent = task.workerName || 'Sin asignar';
+  if (cardWorkerAvatar) { const emp = findEmployeeByName(task.workerName || ''); cardWorkerAvatar.textContent = emp?.photo ? '' : initials(task.workerName || ''); cardWorkerAvatar.style.backgroundImage = emp?.photo ? `url(${emp.photo})` : 'none'; }
   node.querySelector('.card-delivery').textContent = prettyDate(task.deliveryDate);
   node.querySelector('.card-total').textContent = money(task.totalAmount);
   card.dataset.id = task.id;
@@ -369,9 +427,10 @@ function createTaskCard(task) {
 function render() {
   const query = $('#searchInput').value.trim().toLowerCase();
   const active = tasks.filter((t) => !t.archived);
+  const employeeFilter = $('#employeeFilter')?.value || 'all';
   const filtered = active.filter((t) => {
     const haystack = `${t.clientName} ${t.taskName} ${t.description || ''} ${t.workerName || ''} ${t.orderTaker || ''}`.toLowerCase();
-    return haystack.includes(query) && (activeStatus === 'all' || t.status === activeStatus);
+    return haystack.includes(query) && (activeStatus === 'all' || t.status === activeStatus) && (employeeFilter === 'all' || t.workerName === employeeFilter);
   });
   taskGrid.innerHTML = '';
   filtered.sort((a, b) => (a.deliveryDate || '').localeCompare(b.deliveryDate || '')).forEach((t) => taskGrid.appendChild(createTaskCard(t)));
@@ -981,6 +1040,7 @@ on('closeDetail', 'click', () => detailDialog.close());
 on('cancelDelete', 'click', () => deleteDialog.close());
 on('confirmDelete', 'click', confirmDelete);
 on('searchInput', 'input', render);
+on('employeeFilter', 'change', render);
 on('migrateLocal', 'click', migrateLocalTasks);
 on('refreshCloud', 'click', () => refreshTasks());
 ['newTaskAction', 'newTaskEmpty'].forEach((id) => on(id, 'click', openNew));
@@ -1122,6 +1182,7 @@ $('#employeePhoto').addEventListener('change', (e) => {
   const reader = new FileReader();
   reader.onload = () => {
     employeeEditingPhoto = reader.result;
+    employeeEditingPhotoFile = file;
     setEmployeeAvatarBox($('#employeePhotoPreview'), employeeEditingPhoto, $('#employeeName').value.trim());
   };
   reader.readAsDataURL(file);
@@ -1131,30 +1192,27 @@ $('#employeeName').addEventListener('input', () => {
 });
 on('employeeCancelBtn', 'click', clearEmployeeForm);
 
-employeeForm.addEventListener('submit', (e) => {
+employeeForm.addEventListener('submit', async (e) => {
   e.preventDefault();
   const id = $('#employeeId').value.trim();
   const name = $('#employeeName').value.trim();
-  if (!name) {
-    showToast('Escribe el nombre del empleado.', 'Faltan datos');
-    return;
-  }
-  const duplicated = employees.find((emp) => emp.name.toLowerCase() === name.toLowerCase() && emp.id !== id);
-  if (duplicated) {
-    showToast('Ya existe un empleado con ese nombre.', 'Nombre duplicado');
-    return;
-  }
-  if (id) {
-    const next = employees.map((emp) => emp.id === id ? { ...emp, name, photo: employeeEditingPhoto || emp.photo || '' } : emp);
-    saveEmployees(next);
-    showToast(`Se actualizó a ${name}.`, 'Empleado actualizado');
-  } else {
-    const next = [{ id: crypto.randomUUID(), name, photo: employeeEditingPhoto || '' }, ...employees];
-    saveEmployees(next);
-    showToast(`Se creó a ${name}.`, 'Empleado guardado');
-  }
-  clearEmployeeForm();
-  renderEmployeeList();
+  if (!name) { showToast('Escribe el nombre del empleado.', 'Faltan datos'); return; }
+  const duplicated = employees.find((emp) => emp.name.toLowerCase() === name.toLowerCase() && String(emp.id) !== id);
+  if (duplicated) { showToast('Ya existe un empleado con ese nombre.', 'Nombre duplicado'); return; }
+  const btn = $('#employeeSaveBtn');
+  const original = btn.textContent;
+  btn.disabled = true; btn.textContent = 'Guardando…';
+  try {
+    let photoUrl = employeeEditingPhoto || '';
+    if (employeeEditingPhotoFile) photoUrl = await uploadImage(employeeEditingPhotoFile);
+    const payload = { nombre:name, foto_url:photoUrl };
+    await apiFetch(id ? `/api/empleados/${id}` : '/api/empleados', { method:id ? 'PUT':'POST', headers:{'Content-Type':'application/json'}, body:JSON.stringify(payload) });
+    await refreshEmployees({ migrateLocal:false });
+    clearEmployeeForm();
+    render();
+    showToast(id ? `Se actualizó a ${name}.` : `Se creó a ${name}.`, id ? 'Empleado actualizado' : 'Empleado guardado');
+  } catch (err) { showToast(err.message, 'No se pudo guardar el empleado'); }
+  finally { btn.disabled=false; btn.textContent=original; }
 });
 
 $('#employeeList').addEventListener('click', (e) => {
@@ -1179,8 +1237,12 @@ const preferredTheme = initialSettings.theme || ((window.matchMedia && window.ma
 setTheme(preferredTheme, false);
 applySiteIcon(initialSettings.siteIcon || '');
 renderEmployeeList();
+renderEmployeeFilter();
 render();
 refreshTasks();
+refreshEmployees();
+const searchBox = $('#searchInput');
+if (searchBox) { searchBox.value = ''; setTimeout(() => { if (searchBox.value.includes('@')) { searchBox.value=''; render(); } }, 300); }
 
 function escapeHtml(value) {
   return String(value)
