@@ -582,3 +582,83 @@ body{font-family:var(--font-ui)}
   .employee-filter,#searchInput{width:100%;min-width:0}
   .task-card{max-width:100%!important}
 }
+
+
+/* =========================================================
+   V10.3.1 — Buscador sin autofill + tarjeta más compacta
+   ========================================================= */
+#searchInput[readonly]{
+  cursor:text;
+}
+
+.task-card{
+  max-width:320px!important;
+  border-radius:22px!important;
+}
+.task-card-body{
+  padding:13px 9px 7px!important;
+}
+.card-client{
+  font-size:19px!important;
+  line-height:1.1!important;
+}
+.card-taskname{
+  font-size:13px!important;
+  margin-top:4px!important;
+}
+.card-worker-row{
+  min-height:48px!important;
+  padding:9px 11px!important;
+  margin-top:11px!important;
+  border-radius:14px!important;
+}
+.card-worker-avatar{
+  width:32px!important;
+  height:32px!important;
+  min-width:32px!important;
+}
+.card-worker-row small{
+  font-size:9px!important;
+  margin-bottom:2px!important;
+}
+.card-worker-row b{
+  font-size:13px!important;
+}
+.card-meta.compact{
+  gap:8px!important;
+  margin-top:9px!important;
+}
+.card-meta.compact .meta-pill{
+  min-height:50px!important;
+  grid-template-columns:30px minmax(0,1fr)!important;
+  gap:10px!important;
+  padding:8px 11px!important;
+  border-radius:14px!important;
+}
+.card-meta.compact .meta-pill>.field-icon-badge{
+  width:28px!important;
+  height:28px!important;
+  min-width:28px!important;
+  flex-basis:28px!important;
+  border-radius:9px!important;
+}
+.card-meta.compact .meta-pill>.field-icon-badge .icon{
+  width:15px!important;
+  height:15px!important;
+}
+.card-meta.compact .meta-pill small{
+  font-size:9px!important;
+  line-height:1.05!important;
+  margin-bottom:3px!important;
+  letter-spacing:.05em!important;
+}
+.card-meta.compact .meta-pill b,
+.card-delivery,
+.card-total{
+  font-size:14px!important;
+  line-height:1.1!important;
+  font-weight:800!important;
+}
+@media(max-width:760px){
+  .task-card{max-width:320px!important;margin-inline:auto!important}
+}

@@ -1,4 +1,4 @@
-const APP_VERSION = '10.3';
+const APP_VERSION = '10.3.1';
 const API_BASE = 'https://gestor-tareas-api.detodoec.workers.dev';
 const STORAGE_KEY = 'detodoec_tasks_v1';
 const SETTINGS_KEY = 'detodoec_tasks_settings_v3';
@@ -1242,7 +1242,28 @@ render();
 refreshTasks();
 refreshEmployees();
 const searchBox = $('#searchInput');
-if (searchBox) { searchBox.value = ''; setTimeout(() => { if (searchBox.value.includes('@')) { searchBox.value=''; render(); } }, 300); }
+let searchTouched = false;
+if (searchBox) {
+  const clearAutofill = () => {
+    if (!searchTouched && /@/.test(searchBox.value || '')) {
+      searchBox.value = '';
+      render();
+    }
+  };
+  searchBox.value = '';
+  searchBox.addEventListener('pointerdown', () => {
+    searchTouched = true;
+    searchBox.readOnly = false;
+    if (/@/.test(searchBox.value || '')) searchBox.value = '';
+  }, { once: true });
+  searchBox.addEventListener('focus', () => {
+    searchTouched = true;
+    searchBox.readOnly = false;
+    if (/@/.test(searchBox.value || '')) searchBox.value = '';
+  }, { once: true });
+  window.addEventListener('pageshow', clearAutofill);
+  [100, 300, 700, 1200, 2000].forEach((ms) => setTimeout(clearAutofill, ms));
+}
 
 function escapeHtml(value) {
   return String(value)
