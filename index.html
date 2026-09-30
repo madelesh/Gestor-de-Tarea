@@ -1,0 +1,174 @@
+<!doctype html>
+<html lang="es">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>Gestor de Tareas - DeTodoEc</title>
+  <meta name="description" content="Gestor de tareas, clientes, abonos, pagos, entregas e imágenes." />
+  <link rel="stylesheet" href="styles.css" />
+</head>
+<body>
+  <div class="app-shell">
+    <header class="topbar">
+      <a class="brand" href="#inicio" aria-label="Inicio">
+        <span class="brand-mark">◆</span>
+        <span>DeTodoEc <b>Tasks</b></span>
+      </a>
+      <nav class="nav">
+        <a href="#inicio">Inicio</a>
+        <a href="#tareas">Tareas</a>
+        <a href="#resumen">Resumen</a>
+      </nav>
+      <button class="btn btn-outline" id="newTaskTop">+ Nueva tarea</button>
+    </header>
+
+    <main>
+      <section class="hero" id="inicio">
+        <div>
+          <span class="eyebrow">Organiza tus pedidos</span>
+          <h1>Gestiona tareas, clientes, abonos y entregas en un solo lugar.</h1>
+          <p>Registra cada trabajo con foto, fecha de entrega, pagos, saldo pendiente y estado.</p>
+          <button class="btn btn-dark" id="newTaskHero">Crear tarea</button>
+        </div>
+        <div class="hero-visual" aria-hidden="true">
+          <div class="orb orb-a"></div>
+          <div class="orb orb-b"></div>
+          <div class="paper">✓</div>
+          <div class="tag">PAGO</div>
+          <div class="tag tag-2">ENTREGA</div>
+        </div>
+      </section>
+
+      <section class="stats" id="resumen">
+        <article><span>Total tareas</span><strong id="statTotal">0</strong></article>
+        <article><span>Pendientes</span><strong id="statPending">0</strong></article>
+        <article><span>Entregadas</span><strong id="statDone">0</strong></article>
+        <article><span>Saldo por cobrar</span><strong id="statBalance">$0.00</strong></article>
+      </section>
+
+      <section class="section" id="tareas">
+        <div class="section-head">
+          <div>
+            <span class="eyebrow">Tareas</span>
+            <h2>Trabajos registrados</h2>
+          </div>
+          <div class="filters">
+            <input id="searchInput" type="search" placeholder="Buscar cliente o tarea..." />
+            <select id="statusFilter">
+              <option value="all">Todos los estados</option>
+              <option value="pendiente">Pendiente</option>
+              <option value="proceso">En proceso</option>
+              <option value="listo">Listo</option>
+              <option value="entregado">Entregado</option>
+            </select>
+          </div>
+        </div>
+
+        <div id="taskGrid" class="task-grid"></div>
+        <div id="emptyState" class="empty-state">
+          <div class="empty-icon">＋</div>
+          <h3>No hay tareas todavía</h3>
+          <p>Crea tu primera tarea para empezar a organizar tus pedidos.</p>
+          <button class="btn btn-dark" id="newTaskEmpty">Crear primera tarea</button>
+        </div>
+      </section>
+    </main>
+
+    <footer>DeTodoEc Tasks · Guardado en este navegador</footer>
+  </div>
+
+  <dialog id="taskDialog">
+    <form method="dialog" id="taskForm" class="task-form">
+      <div class="dialog-head">
+        <div>
+          <span class="eyebrow">Registro</span>
+          <h2 id="dialogTitle">Nueva tarea</h2>
+        </div>
+        <button type="button" class="icon-btn" id="closeDialog" aria-label="Cerrar">✕</button>
+      </div>
+
+      <input type="hidden" id="taskId" />
+
+      <div class="form-grid">
+        <label>Nombre del cliente
+          <input id="clientName" required placeholder="Ej. María López" />
+        </label>
+        <label>Nombre de la tarea
+          <input id="taskName" required placeholder="Ej. 10 tazas personalizadas" />
+        </label>
+        <label>Fecha de entrega
+          <input id="deliveryDate" type="date" required />
+        </label>
+        <label>Estado
+          <select id="status">
+            <option value="pendiente">Pendiente</option>
+            <option value="proceso">En proceso</option>
+            <option value="listo">Listo</option>
+            <option value="entregado">Entregado</option>
+          </select>
+        </label>
+        <label>Valor total ($)
+          <input id="totalAmount" type="number" min="0" step="0.01" value="0" />
+        </label>
+        <label>Abono recibido ($)
+          <input id="depositAmount" type="number" min="0" step="0.01" value="0" />
+        </label>
+        <label>Fecha del pago / abono
+          <input id="paymentDate" type="date" />
+        </label>
+        <label>Imagen de la tarea
+          <input id="taskImage" type="file" accept="image/*" />
+        </label>
+        <label class="full">Descripción
+          <textarea id="description" rows="4" placeholder="Detalles del trabajo, colores, medidas, texto, observaciones..."></textarea>
+        </label>
+      </div>
+
+      <div class="image-preview-wrap">
+        <img id="imagePreview" alt="Vista previa de la tarea" />
+        <button type="button" class="btn btn-outline small" id="removeImage">Quitar imagen</button>
+      </div>
+
+      <div class="dialog-actions">
+        <button type="button" class="btn btn-outline" id="cancelDialog">Cancelar</button>
+        <button type="submit" class="btn btn-dark">Guardar tarea</button>
+      </div>
+    </form>
+  </dialog>
+
+  <template id="taskTemplate">
+    <article class="task-card">
+      <div class="task-image-wrap">
+        <img class="task-image" alt="Imagen de la tarea" />
+        <span class="status-pill"></span>
+      </div>
+      <div class="task-content">
+        <div class="task-title-row">
+          <div>
+            <span class="client"></span>
+            <h3 class="task-name"></h3>
+          </div>
+          <button class="menu-btn" aria-label="Opciones">•••</button>
+        </div>
+        <p class="description"></p>
+        <div class="task-meta">
+          <span>Entrega <b class="delivery"></b></span>
+          <span>Último pago <b class="payment"></b></span>
+        </div>
+        <div class="money-row">
+          <span>Total <b class="total"></b></span>
+          <span>Abono <b class="deposit"></b></span>
+          <span>Saldo <b class="balance"></b></span>
+        </div>
+        <div class="card-actions">
+          <button class="btn btn-outline small edit-btn">Editar</button>
+          <button class="btn btn-light small pay-btn">+ Abono</button>
+          <button class="btn btn-danger small delete-btn">Eliminar</button>
+        </div>
+      </div>
+    </article>
+  </template>
+
+  <script src="app.js"></script>
+</body>
+</html>
