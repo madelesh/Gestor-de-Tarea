@@ -4,9 +4,9 @@
   <meta charset="utf-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1" />
   <title>Gestor de Tareas - DeTodoEc</title>
-  <meta name="description" content="Gestor de tareas, clientes, abonos, pagos, entregas, trabajadores y ganancias." />
+  <meta name="description" content="Gestor de tareas, clientes, abonos, pagos, entregas y trabajadores." />
   <link id="dynamicFavicon" rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 64 64'%3E%3Crect width='64' height='64' rx='16' fill='%23b9ff39'/%3E%3Cpath d='M18 33l9 9 19-22' fill='none' stroke='%23111' stroke-width='7' stroke-linecap='round' stroke-linejoin='round'/%3E%3C/svg%3E" />
-  <link rel="stylesheet" href="styles.css" />
+  <link rel="stylesheet" href="styles.css?v=6" />
 </head>
 <body>
   <div class="app-shell">
@@ -15,35 +15,23 @@
         <span class="brand-icon-wrap"><img id="brandIcon" alt="" /><span id="brandFallback">◆</span></span>
         <span>DeTodoEc <b>Tasks</b></span>
       </a>
-
       <nav class="nav" aria-label="Navegación principal">
         <a href="#inicio">Inicio</a>
         <a href="#tareas">Tareas</a>
         <button class="nav-link nav-button" id="archiveNav" type="button">Archivados <span id="archiveCount" class="nav-count">0</span></button>
         <button class="nav-link nav-button" id="customizeBtn" type="button">Personalizar</button>
       </nav>
-
       <button class="theme-toggle" id="themeToggle" type="button" aria-label="Cambiar a tema oscuro" title="Cambiar tema" aria-pressed="false">
         <span class="theme-symbol" id="themeIcon" aria-hidden="true">☾</span><span class="theme-label" id="themeLabel">Oscuro</span>
       </button>
-      <button class="btn btn-outline" id="newTaskTop">+ Nueva tarea</button>
     </header>
 
     <main>
       <section class="hero" id="inicio">
-        <div>
-          <span class="eyebrow">Organiza tus pedidos</span>
-          <h1>Gestiona tareas, pagos y entregas en un solo lugar.</h1>
-          <p>Registra cada trabajo con foto, cliente, responsable, fecha de entrega, abonos y reparto de ganancias.</p>
-          <button class="btn btn-dark" id="newTaskHero">Crear tarea</button>
-        </div>
-        <div class="hero-visual" aria-hidden="true">
-          <div class="orb orb-a"></div>
-          <div class="orb orb-b"></div>
-          <div class="paper">✓</div>
-          <div class="tag">PAGO</div>
-          <div class="tag tag-2">ENTREGA</div>
-        </div>
+        <span class="eyebrow">Organiza tus pedidos</span>
+        <h1>Gestiona tareas, pagos y entregas en un solo lugar.</h1>
+        <p>Registra cada trabajo con foto, cliente, responsable, fecha de entrega, abonos y reparto 70/30.</p>
+        <button class="btn btn-dark" id="newTaskHero">Crear tarea</button>
       </section>
 
       <section class="stats" id="resumen">
@@ -55,10 +43,7 @@
 
       <section class="section" id="tareas">
         <div class="section-head">
-          <div>
-            <span class="eyebrow">Tareas</span>
-            <h2>Trabajos registrados</h2>
-          </div>
+          <div><span class="eyebrow">Tareas</span><h2>Trabajos registrados</h2></div>
           <div class="filters">
             <div class="status-tabs" id="statusTabs" aria-label="Filtros de estado">
               <button type="button" class="filter-chip active" data-status="all">Todas</button>
@@ -69,214 +54,145 @@
             <input id="searchInput" type="search" placeholder="Buscar cliente, tarea o trabajador..." />
           </div>
         </div>
-
         <div id="taskGrid" class="task-grid"></div>
         <div id="emptyState" class="empty-state">
-          <div class="empty-icon">＋</div>
-          <h3>No hay tareas aquí</h3>
-          <p>Crea una nueva tarea o cambia el filtro seleccionado.</p>
+          <div class="empty-icon">＋</div><h3>No hay tareas aquí</h3><p>Crea una nueva tarea o cambia el filtro seleccionado.</p>
           <button class="btn btn-dark" id="newTaskEmpty">Crear primera tarea</button>
         </div>
       </section>
 
       <section class="section archive-section" id="archivados" hidden>
         <div class="section-head">
-          <div>
-            <span class="eyebrow">Archivo</span>
-            <h2>Pedidos archivados</h2>
-            <p class="section-copy">Aquí quedan los trabajos ya entregados que decidiste archivar.</p>
-          </div>
-          <div class="filters">
-            <input id="archiveSearchInput" type="search" placeholder="Buscar en archivados..." />
-            <button type="button" class="btn btn-outline" id="closeArchive">Volver a tareas</button>
-          </div>
+          <div><span class="eyebrow">Archivo</span><h2>Pedidos archivados</h2><p class="section-copy">Trabajos entregados y archivados.</p></div>
+          <div class="filters"><input id="archiveSearchInput" type="search" placeholder="Buscar en archivados..." /><button type="button" class="btn btn-outline" id="closeArchive">Volver a tareas</button></div>
         </div>
         <div id="archiveGrid" class="task-grid"></div>
-        <div id="archiveEmpty" class="empty-state">
-          <div class="empty-icon">✓</div>
-          <h3>No hay pedidos archivados</h3>
-          <p>Cuando entregues un trabajo podrás archivarlo desde su tarjeta.</p>
-        </div>
+        <div id="archiveEmpty" class="empty-state"><div class="empty-icon">✓</div><h3>No hay pedidos archivados</h3><p>Los pedidos archivados aparecerán aquí.</p></div>
       </section>
     </main>
-
     <footer>DeTodoEc Tasks · Guardado en este navegador</footer>
   </div>
 
+  <!-- Crear / editar -->
   <dialog id="taskDialog">
     <form method="dialog" id="taskForm" class="task-form">
-      <div class="dialog-head">
-        <div>
-          <span class="eyebrow">Registro</span>
-          <h2 id="dialogTitle">Nueva tarea</h2>
-        </div>
-        <button type="button" class="icon-btn" id="closeDialog" aria-label="Cerrar">✕</button>
-      </div>
-
+      <div class="dialog-head"><div><span class="eyebrow">Registro</span><h2 id="dialogTitle">Nueva tarea</h2></div><button type="button" class="icon-btn" id="closeDialog" aria-label="Cerrar">✕</button></div>
       <input type="hidden" id="taskId" />
-
       <div class="form-grid">
-        <label>Nombre del cliente
-          <input id="clientName" required placeholder="Ej. María López" />
-        </label>
-        <label>Nombre de la tarea
-          <input id="taskName" required placeholder="Ej. 10 tazas personalizadas" />
-        </label>
-        <label>Quién realiza el trabajo
-          <input id="workerName" required placeholder="Ej. Kevin" />
-        </label>
-        <label>Quién tomó el pedido
-          <input id="orderTaker" placeholder="Ej. Luis" />
-        </label>
-        <label>Fecha de entrega
-          <input id="deliveryDate" type="date" required />
-        </label>
-        <label>Estado
-          <select id="status">
-            <option value="pendiente">Pendiente</option>
-            <option value="proceso">En proceso</option>
-            <option value="terminado">Terminado</option>
-            <option value="entregado">Entregado</option>
-          </select>
-        </label>
-        <label>Valor total cobrado ($)
-          <input id="totalAmount" type="number" min="0" step="0.01" value="0" />
-        </label>
-        <label>Costo / materiales ($)
-          <input id="costAmount" type="number" min="0" step="0.01" value="0" />
-        </label>
-        <label>Abono recibido ($)
-          <input id="depositAmount" type="number" min="0" step="0.01" value="0" />
-        </label>
-        <label>Fecha del pago / abono
-          <input id="paymentDate" type="date" />
-        </label>
-        <label class="full">Imagen de la tarea
-          <input id="taskImage" type="file" accept="image/*" />
-        </label>
-        <label class="full">Descripción
-          <textarea id="description" rows="4" placeholder="Detalles del trabajo, colores, medidas, texto, observaciones..."></textarea>
-        </label>
+        <label>Nombre del cliente<input id="clientName" required placeholder="Ej. María López" /></label>
+        <label>Nombre de la tarea<input id="taskName" required placeholder="Ej. 10 tazas personalizadas" /></label>
+        <label>Quién realiza el trabajo<input id="workerName" required placeholder="Ej. Kevin" /></label>
+        <label>Quién tomó el pedido<input id="orderTaker" placeholder="Ej. Luis" /></label>
+        <label>Fecha de entrega<input id="deliveryDate" type="date" required /></label>
+        <label>Estado<select id="status"><option value="pendiente">Pendiente</option><option value="proceso">En proceso</option><option value="terminado">Terminado</option><option value="entregado">Entregado</option></select></label>
+        <label>Valor total ($)<input id="totalAmount" type="number" min="0" step="0.01" value="0" /></label>
+        <label id="initialDepositWrap">Abono inicial ($)<input id="depositAmount" type="number" min="0" step="0.01" value="0" /></label>
+        <label id="initialPaymentDateWrap">Fecha del abono inicial<input id="paymentDate" type="date" /></label>
+        <label class="full">Imagen de la tarea<input id="taskImage" type="file" accept="image/*" /></label>
+        <label class="full">Descripción<textarea id="description" rows="4" placeholder="Detalles del trabajo, colores, medidas, texto, observaciones..."></textarea></label>
       </div>
-
-      <div class="profit-preview" id="profitPreview">
-        <div><span>Ganancia estimada</span><strong id="profitTotal">$0.00</strong></div>
+      <div class="split-preview">
+        <div><span>Valor para repartir</span><strong id="profitTotal">$0.00</strong></div>
         <div><span>70% · realiza el trabajo</span><strong id="profitWorker">$0.00</strong></div>
         <div><span>30% · tomó el pedido</span><strong id="profitTaker">$0.00</strong></div>
       </div>
-      <p class="help-text">La ganancia se calcula como: valor total − costo/materiales. Luego se divide 70% para quien realiza el trabajo y 30% para quien tomó el pedido.</p>
-
-      <div class="image-preview-wrap">
-        <img id="imagePreview" alt="Vista previa de la tarea" />
-        <button type="button" class="btn btn-outline small" id="removeImage">Quitar imagen</button>
-      </div>
-
-      <div class="dialog-actions">
-        <button type="button" class="btn btn-outline" id="cancelDialog">Cancelar</button>
-        <button type="submit" class="btn btn-dark">Guardar tarea</button>
-      </div>
+      <p class="help-text">Como eliminamos el campo de costo/materiales, el reparto 70/30 se calcula sobre el valor total de la tarea.</p>
+      <div class="image-preview-wrap"><img id="imagePreview" alt="Vista previa de la tarea" /><button type="button" class="btn btn-outline small" id="removeImage">Quitar imagen</button></div>
+      <div class="dialog-actions"><button type="button" class="btn btn-outline" id="cancelDialog">Cancelar</button><button type="submit" class="btn btn-dark">Guardar tarea</button></div>
     </form>
   </dialog>
 
-  <dialog id="customizeDialog">
-    <form method="dialog" class="task-form" id="customizeForm">
-      <div class="dialog-head">
-        <div>
-          <span class="eyebrow">Apariencia</span>
-          <h2>Personalizar página</h2>
+  <!-- Detalle solo lectura -->
+  <dialog id="detailDialog" class="detail-dialog">
+    <div class="detail-panel">
+      <div class="dialog-head"><div><span class="eyebrow">Detalle</span><h2 id="detailTitle">Información de la tarea</h2></div><button type="button" class="icon-btn" id="closeDetail" aria-label="Cerrar">✕</button></div>
+      <div class="detail-layout">
+        <div class="detail-image-box"><img id="detailImage" alt="Imagen de la tarea" /></div>
+        <div class="detail-info">
+          <div class="detail-status" id="detailStatus"></div>
+          <dl class="detail-grid">
+            <div><dt>Cliente</dt><dd id="detailClient"></dd></div><div><dt>Tarea</dt><dd id="detailTask"></dd></div>
+            <div><dt>Realiza</dt><dd id="detailWorker"></dd></div><div><dt>Tomó pedido</dt><dd id="detailTaker"></dd></div>
+            <div><dt>Fecha de entrega</dt><dd id="detailDelivery"></dd></div><div><dt>Valor total</dt><dd id="detailTotal"></dd></div>
+            <div><dt>Abonado</dt><dd id="detailDeposit"></dd></div><div><dt>Saldo</dt><dd id="detailBalance"></dd></div>
+            <div><dt>70% trabajador</dt><dd id="detailWorkerShare"></dd></div><div><dt>30% pedido</dt><dd id="detailTakerShare"></dd></div>
+          </dl>
+          <div class="detail-description"><span>Descripción</span><p id="detailDescription"></p></div>
         </div>
-        <button type="button" class="icon-btn" id="closeCustomize" aria-label="Cerrar">✕</button>
       </div>
-      <div class="customize-grid">
-        <label>Icono / logo de la página
-          <input id="siteIconInput" type="file" accept="image/png,image/jpeg,image/webp,image/svg+xml" />
-        </label>
-        <div class="custom-icon-preview">
-          <span>Vista previa</span>
-          <div class="icon-preview-box"><img id="siteIconPreview" alt="Icono actual" /><span id="siteIconPreviewFallback">◆</span></div>
-        </div>
+      <section class="payment-history"><div class="subhead"><h3>Historial de abonos</h3><span id="paymentHistoryCount"></span></div><div id="paymentHistoryList" class="history-list"></div></section>
+      <div class="detail-actions">
+        <button type="button" class="btn btn-outline" id="detailEdit">Editar</button>
+        <button type="button" class="btn btn-light" id="detailPay">+ Abono</button>
+        <button type="button" class="btn btn-dark" id="detailDeliver">Entregado</button>
+        <button type="button" class="btn btn-outline" id="detailArchive">Archivar</button>
+        <button type="button" class="btn btn-danger" id="detailDelete">Eliminar tarea</button>
       </div>
-      <p class="help-text">Este icono se usa en el encabezado y también como icono de la pestaña del navegador. Se guarda en este dispositivo.</p>
-      <div class="dialog-actions">
-        <button type="button" class="btn btn-danger" id="resetIcon">Restablecer icono</button>
-        <button type="button" class="btn btn-outline" id="cancelCustomize">Cerrar</button>
-      </div>
-    </form>
+    </div>
   </dialog>
 
+  <!-- Abono -->
   <dialog id="paymentDialog" class="payment-dialog">
     <form method="dialog" id="paymentForm" class="payment-form">
-      <div class="dialog-head">
-        <div>
-          <span class="eyebrow">Abono</span>
-          <h2>Registrar abono</h2>
-        </div>
-        <button type="button" class="icon-btn" id="closePaymentDialog" aria-label="Cerrar">✕</button>
-      </div>
+      <div class="dialog-head"><div><span class="eyebrow">Abono</span><h2>Registrar abono</h2></div><button type="button" class="icon-btn" id="closePaymentDialog" aria-label="Cerrar">✕</button></div>
       <input type="hidden" id="paymentTaskId" />
-      <div class="payment-summary">
-        <div><span>Abono actual</span><strong id="paymentCurrent">$0.00</strong></div>
-        <div><span>Saldo pendiente</span><strong id="paymentPending">$0.00</strong></div>
-      </div>
-      <label class="payment-label">¿Cuánto deseas agregar?
-        <input id="paymentAmount" type="number" min="0.01" step="0.01" inputmode="decimal" required placeholder="0.00" />
-      </label>
-      <div class="dialog-actions">
-        <button type="button" class="btn btn-outline" id="cancelPaymentDialog">Cancelar</button>
-        <button type="submit" class="btn btn-accent">Guardar abono</button>
-      </div>
+      <div class="payment-summary"><div><span>Abono actual</span><strong id="paymentCurrent">$0.00</strong></div><div><span>Saldo pendiente</span><strong id="paymentPending">$0.00</strong></div></div>
+      <label class="payment-label">¿Cuánto deseas agregar?<input id="paymentAmount" type="number" min="0.01" step="0.01" inputmode="decimal" required placeholder="0.00" /></label>
+      <label class="payment-label">Fecha del abono<input id="paymentEntryDate" type="date" required /></label>
+      <div class="dialog-actions"><button type="button" class="btn btn-outline" id="cancelPaymentDialog">Cancelar</button><button type="submit" class="btn btn-accent">Guardar abono</button></div>
     </form>
   </dialog>
 
-  <div id="toast" class="toast" role="status" aria-live="polite" aria-atomic="true">
-    <span class="toast-icon">✓</span>
-    <div><strong id="toastTitle">Guardado correctamente</strong><span id="toastMessage"></span></div>
-  </div>
+  <!-- Acceso a personalizar -->
+  <dialog id="loginDialog" class="login-dialog">
+    <form method="dialog" id="loginForm" class="login-form">
+      <div class="dialog-head"><div><span class="eyebrow">Acceso</span><h2>Personalizar página</h2></div><button type="button" class="icon-btn" id="closeLogin" aria-label="Cerrar">✕</button></div>
+      <p class="help-text login-help">Ingresa el usuario y contraseña para entrar a Personalizar.</p>
+      <label>Usuario<input id="loginUser" autocomplete="username" required /></label>
+      <label>Contraseña<input id="loginPass" type="password" autocomplete="current-password" required /></label>
+      <p id="loginError" class="form-error" hidden>Usuario o contraseña incorrectos.</p>
+      <div class="dialog-actions"><button type="button" class="btn btn-outline" id="cancelLogin">Cancelar</button><button type="submit" class="btn btn-dark">Ingresar</button></div>
+    </form>
+  </dialog>
+
+  <!-- Personalizar -->
+  <dialog id="customizeDialog">
+    <form method="dialog" class="task-form" id="customizeForm">
+      <div class="dialog-head"><div><span class="eyebrow">Apariencia</span><h2>Personalizar página</h2></div><button type="button" class="icon-btn" id="closeCustomize" aria-label="Cerrar">✕</button></div>
+      <div class="customize-grid">
+        <label>Icono / logo de la página<input id="siteIconInput" type="file" accept="image/png,image/jpeg,image/webp,image/svg+xml" /></label>
+        <div class="custom-icon-preview"><span>Vista previa</span><div class="icon-preview-box"><img id="siteIconPreview" alt="Icono actual" /><span id="siteIconPreviewFallback">◆</span></div></div>
+      </div>
+      <div class="access-settings">
+        <h3>Acceso a Personalizar</h3>
+        <div class="form-grid"><label>Usuario<input id="customUser" /></label><label>Nueva contraseña<input id="customPass" type="password" placeholder="Dejar vacío para conservar" /></label></div>
+        <button type="button" class="btn btn-outline small" id="saveAccess">Guardar acceso</button>
+      </div>
+      <p class="help-text">El acceso funciona como bloqueo local del navegador. En un sitio estático de GitHub Pages no reemplaza una autenticación segura con servidor.</p>
+      <div class="dialog-actions"><button type="button" class="btn btn-danger" id="resetIcon">Restablecer icono</button><button type="button" class="btn btn-outline" id="cancelCustomize">Cerrar</button></div>
+    </form>
+  </dialog>
+
+  <!-- Confirmar eliminación -->
+  <dialog id="deleteDialog" class="confirm-dialog">
+    <div class="confirm-box">
+      <div class="confirm-icon">!</div><h2>¿Eliminar esta tarea?</h2><p id="deleteMessage">Esta acción no se puede deshacer.</p>
+      <div class="dialog-actions"><button type="button" class="btn btn-outline" id="cancelDelete">Cancelar</button><button type="button" class="btn btn-danger" id="confirmDelete">Sí, eliminar</button></div>
+    </div>
+  </dialog>
+
+  <div id="toast" class="toast" role="status" aria-live="polite" aria-atomic="true"><span class="toast-icon">✓</span><div><strong id="toastTitle">Guardado correctamente</strong><span id="toastMessage"></span></div></div>
 
   <template id="taskTemplate">
-    <article class="task-card">
-      <div class="task-image-wrap">
-        <img class="task-image" alt="Imagen de la tarea" />
-        <span class="status-pill"></span>
-      </div>
-      <div class="task-content">
-        <div class="task-title-row">
-          <div>
-            <span class="client"></span>
-            <h3 class="task-name"></h3>
-          </div>
-          <button type="button" class="menu-btn" aria-label="Editar">•••</button>
-        </div>
-        <p class="description"></p>
-        <div class="people-row">
-          <span><small>Realiza</small><b class="worker"></b></span>
-          <span><small>Tomó pedido</small><b class="taker"></b></span>
-        </div>
-        <div class="task-meta">
-          <span>Entrega <b class="delivery"></b></span>
-          <span>Último pago <b class="payment"></b></span>
-        </div>
-        <div class="money-row">
-          <span>Total <b class="total"></b></span>
-          <span>Abono <b class="deposit"></b></span>
-          <span>Saldo <b class="balance"></b></span>
-        </div>
-        <div class="profit-row">
-          <span>Ganancia <b class="profit"></b></span>
-          <span>70% trabajador <b class="worker-share"></b></span>
-          <span>30% pedido <b class="taker-share"></b></span>
-        </div>
-        <div class="card-actions">
-          <button type="button" class="btn btn-outline small edit-btn">Editar</button>
-          <button type="button" class="btn btn-light small pay-btn">+ Abono</button>
-          <button type="button" class="btn btn-dark small deliver-btn">Entregado</button>
-          <button type="button" class="btn btn-outline small archive-btn">Archivar</button>
-          <button type="button" class="btn btn-danger small delete-btn">Eliminar</button>
-        </div>
+    <article class="task-card" tabindex="0" role="button" aria-label="Ver detalle de tarea">
+      <div class="task-image-wrap"><img class="task-image" alt="Imagen de la tarea" /></div>
+      <div class="task-card-body">
+        <strong class="card-client"></strong>
+        <div class="card-meta"><span><small>Entrega</small><b class="card-delivery"></b></span><span><small>Valor total</small><b class="card-total"></b></span></div>
       </div>
     </article>
   </template>
 
-  <script src="app.js"></script>
+  <script src="app.js?v=6"></script>
 </body>
 </html>
