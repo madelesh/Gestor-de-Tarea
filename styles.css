@@ -589,3 +589,110 @@ body{font-family:var(--font-ui)}
   .card-meta.compact{grid-template-columns:1fr!important}
   .meta-pill small{white-space:normal!important}
 }
+
+
+/* =========================================================
+   V10.2.2 — Tarjeta principal corregida
+   Fecha arriba / Valor total abajo
+   ========================================================= */
+
+.task-card{
+  width:100%!important;
+  max-width:340px!important;
+}
+
+.task-card-body{
+  padding:16px 10px 8px!important;
+}
+
+.card-meta.compact{
+  display:flex!important;
+  flex-direction:column!important;
+  gap:10px!important;
+  width:100%!important;
+  margin-top:16px!important;
+}
+
+.card-meta.compact .meta-pill{
+  width:100%!important;
+  min-width:0!important;
+  display:grid!important;
+  grid-template-columns:38px minmax(0,1fr)!important;
+  align-items:center!important;
+  gap:12px!important;
+  padding:12px 14px!important;
+  border-radius:16px!important;
+  overflow:hidden!important;
+}
+
+.card-meta.compact .meta-pill>.field-icon-badge{
+  position:static!important;
+  width:34px!important;
+  height:34px!important;
+  min-width:34px!important;
+  flex:0 0 34px!important;
+  border-radius:11px!important;
+}
+
+.card-meta.compact .meta-pill>span:last-child{
+  display:block!important;
+  width:100%!important;
+  min-width:0!important;
+  overflow:hidden!important;
+}
+
+.card-meta.compact .meta-pill small{
+  display:block!important;
+  margin:0 0 5px!important;
+  padding:0!important;
+  font-size:10px!important;
+  line-height:1.2!important;
+  font-weight:700!important;
+  letter-spacing:.06em!important;
+  text-transform:uppercase!important;
+  white-space:nowrap!important;
+  overflow:hidden!important;
+  text-overflow:ellipsis!important;
+}
+
+.card-meta.compact .meta-pill b{
+  display:block!important;
+  margin:0!important;
+  padding:0!important;
+  width:100%!important;
+  font-size:16px!important;
+  line-height:1.2!important;
+  font-weight:800!important;
+  white-space:nowrap!important;
+  overflow:hidden!important;
+  text-overflow:ellipsis!important;
+  word-break:normal!important;
+  overflow-wrap:normal!important;
+}
+
+.card-delivery,
+.card-total{
+  white-space:nowrap!important;
+  word-break:normal!important;
+  overflow-wrap:normal!important;
+}
+
+@media(max-width:620px){
+  .task-card{
+    max-width:100%!important;
+  }
+
+  .card-meta.compact{
+    display:flex!important;
+    flex-direction:column!important;
+  }
+
+  .card-meta.compact .meta-pill{
+    grid-template-columns:38px minmax(0,1fr)!important;
+  }
+
+  .card-meta.compact .meta-pill small,
+  .card-meta.compact .meta-pill b{
+    white-space:nowrap!important;
+  }
+}
