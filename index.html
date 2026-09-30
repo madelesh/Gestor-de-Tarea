@@ -4,9 +4,10 @@
   <meta charset="utf-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1" />
   <title>Gestor de Tareas - DeTodoEc</title>
+  <!-- Versión estable V9.1 -->
   <meta name="description" content="Gestor de tareas, abonos, entregas y panel de administración para DeTodoEc." />
   <link id="dynamicFavicon" rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 64 64'%3E%3Crect width='64' height='64' rx='16' fill='%23b9ff39'/%3E%3Cpath d='M18 33l9 9 19-22' fill='none' stroke='%23111' stroke-width='7' stroke-linecap='round' stroke-linejoin='round'/%3E%3C/svg%3E" />
-  <link rel="stylesheet" href="styles.css?v=9" />
+  <link rel="stylesheet" href="styles.css?v=9.1" />
 </head>
 <body>
   <div class="app-shell">
@@ -130,10 +131,7 @@
         <div class="split-card taker"><span>30% para quien tomó el pedido</span><strong id="profitTaker">$0.00</strong></div>
       </div>
 
-      <div class="image-preview-wrap">
-        <img id="imagePreview" alt="Vista previa de la tarea" />
-        <button type="button" class="btn btn-outline small" id="removeImage">Quitar imagen</button>
-      </div>
+      <div class="image-preview-wrap"><img id="imagePreview" alt="Vista previa de la tarea" /><button type="button" class="btn btn-outline small" id="removeImage">Quitar imagen</button></div>
 
       <div class="dialog-actions">
         <button type="button" class="btn btn-outline" id="cancelDialog">Cancelar</button>
@@ -153,79 +151,26 @@
       </div>
 
       <div class="detail-top">
-        <div class="detail-image-box">
-          <img id="detailImage" alt="Imagen de la tarea" />
-        </div>
-
+        <div class="detail-image-box"><img id="detailImage" alt="Imagen de la tarea" /></div>
         <div class="detail-summary">
           <div class="detail-status" id="detailStatus"></div>
-
           <div class="detail-grid compact-detail-grid">
-            <div class="detail-item">
-              <span class="detail-item-icon">👤</span>
-              <dt>Cliente</dt>
-              <dd id="detailClient"></dd>
-            </div>
-
-            <div class="detail-item">
-              <span class="detail-item-icon">🧾</span>
-              <dt>Tarea</dt>
-              <dd id="detailTask"></dd>
-            </div>
-
-            <div class="detail-item with-avatar">
-              <span class="detail-item-icon">🛠️</span>
-              <dt>Realiza</dt>
-              <dd id="detailWorker"></dd>
-              <div class="mini-avatar" id="detailWorkerAvatar"></div>
-              <div class="mini-share worker-mini" id="detailWorkerShareMini"></div>
-            </div>
-
-            <div class="detail-item with-avatar">
-              <span class="detail-item-icon">🤝</span>
-              <dt>Tomó pedido</dt>
-              <dd id="detailTaker"></dd>
-              <div class="mini-avatar" id="detailTakerAvatar"></div>
-              <div class="mini-share taker-mini" id="detailTakerShareMini"></div>
-            </div>
-
-            <div class="detail-item">
-              <span class="detail-item-icon">📅</span>
-              <dt>Fecha de entrega</dt>
-              <dd id="detailDelivery"></dd>
-            </div>
-
-            <div class="detail-item">
-              <span class="detail-item-icon">💵</span>
-              <dt>Valor total</dt>
-              <dd id="detailTotal"></dd>
-            </div>
-
-            <div class="detail-item">
-              <span class="detail-item-icon">✅</span>
-              <dt>Abonado</dt>
-              <dd id="detailDeposit"></dd>
-            </div>
-
-            <div class="detail-item">
-              <span class="detail-item-icon">💰</span>
-              <dt>Saldo</dt>
-              <dd id="detailBalance"></dd>
-            </div>
+            <div class="detail-item"><span class="detail-item-icon">👤</span><dt>Cliente</dt><dd id="detailClient"></dd></div>
+            <div class="detail-item"><span class="detail-item-icon">🧾</span><dt>Tarea</dt><dd id="detailTask"></dd></div>
+            <div class="detail-item with-avatar"><span class="detail-item-icon">🛠️</span><dt>Realiza</dt><dd id="detailWorker"></dd><div class="mini-avatar" id="detailWorkerAvatar"></div><div class="mini-share worker-mini" id="detailWorkerShareMini"></div></div>
+            <div class="detail-item with-avatar"><span class="detail-item-icon">🤝</span><dt>Tomó pedido</dt><dd id="detailTaker"></dd><div class="mini-avatar" id="detailTakerAvatar"></div><div class="mini-share taker-mini" id="detailTakerShareMini"></div></div>
+            <div class="detail-item"><span class="detail-item-icon">📅</span><dt>Fecha de entrega</dt><dd id="detailDelivery"></dd></div>
+            <div class="detail-item"><span class="detail-item-icon">💵</span><dt>Valor total</dt><dd id="detailTotal"></dd></div>
+            <div class="detail-item"><span class="detail-item-icon">✅</span><dt>Abonado</dt><dd id="detailDeposit"></dd></div>
+            <div class="detail-item"><span class="detail-item-icon">💰</span><dt>Saldo</dt><dd id="detailBalance"></dd></div>
           </div>
 
-          <div class="detail-description">
-            <span>Descripción</span>
-            <p id="detailDescription"></p>
-          </div>
+          <div class="detail-description"><span>Descripción</span><p id="detailDescription"></p></div>
         </div>
       </div>
 
       <section class="payment-history">
-        <div class="subhead">
-          <h3>Historial de abonos</h3>
-          <span id="paymentHistoryCount"></span>
-        </div>
+        <div class="subhead"><h3>Historial de abonos</h3><span id="paymentHistoryCount"></span></div>
         <div id="paymentHistoryList" class="history-list"></div>
       </section>
 
@@ -248,30 +193,13 @@
         </div>
         <button type="button" class="icon-btn" id="closePaymentDialog" aria-label="Cerrar">✕</button>
       </div>
-
       <input type="hidden" id="paymentTaskId" />
-
       <div class="payment-summary">
-        <div>
-          <span>Abono actual</span>
-          <strong id="paymentCurrent">$0.00</strong>
-        </div>
-        <div>
-          <span>Saldo pendiente</span>
-          <strong id="paymentPending">$0.00</strong>
-        </div>
+        <div><span>Abono actual</span><strong id="paymentCurrent">$0.00</strong></div>
+        <div><span>Saldo pendiente</span><strong id="paymentPending">$0.00</strong></div>
       </div>
-
-      <label class="payment-label">
-        ¿Cuánto deseas agregar?
-        <input id="paymentAmount" type="number" min="0.01" step="0.01" inputmode="decimal" required placeholder="0.00" />
-      </label>
-
-      <label class="payment-label">
-        Fecha del abono
-        <input id="paymentEntryDate" type="date" required />
-      </label>
-
+      <label class="payment-label">¿Cuánto deseas agregar?<input id="paymentAmount" type="number" min="0.01" step="0.01" inputmode="decimal" required placeholder="0.00" /></label>
+      <label class="payment-label">Fecha del abono<input id="paymentEntryDate" type="date" required /></label>
       <div class="dialog-actions">
         <button type="button" class="btn btn-outline" id="cancelPaymentDialog">Cancelar</button>
         <button type="submit" class="btn btn-accent">Guardar abono</button>
@@ -288,25 +216,10 @@
         </div>
         <button type="button" class="icon-btn" id="closeLogin" aria-label="Cerrar">✕</button>
       </div>
-
-      <p class="help-text login-help">
-        Ingresa tu usuario y contraseña para abrir el panel de administrador.
-      </p>
-
-      <label>
-        Usuario
-        <input id="loginUser" autocomplete="username" required />
-      </label>
-
-      <label>
-        Contraseña
-        <input id="loginPass" type="password" autocomplete="current-password" required />
-      </label>
-
-      <p id="loginError" class="form-error" hidden>
-        Usuario o contraseña incorrectos.
-      </p>
-
+      <p class="help-text login-help">Ingresa tu usuario y contraseña para abrir el panel de administrador.</p>
+      <label>Usuario<input id="loginUser" autocomplete="username" required /></label>
+      <label>Contraseña<input id="loginPass" type="password" autocomplete="current-password" required /></label>
+      <p id="loginError" class="form-error" hidden>Usuario o contraseña incorrectos.</p>
       <div class="dialog-actions">
         <button type="button" class="btn btn-outline" id="cancelLogin">Cancelar</button>
         <button type="submit" class="btn btn-dark">Ingresar</button>
@@ -325,87 +238,37 @@
       </div>
 
       <section class="admin-section">
-        <div class="admin-section-head">
-          <h3>Apariencia</h3>
-          <p>Logo e imagen del sistema.</p>
-        </div>
-
+        <div class="admin-section-head"><h3>Apariencia</h3><p>Logo e imagen del sistema.</p></div>
         <div class="customize-grid">
-          <label>
-            Logo / icono de la página
-            <input id="siteIconInput" type="file" accept="image/png,image/jpeg,image/webp,image/svg+xml" />
-          </label>
-
-          <div class="custom-icon-preview">
-            <span>Vista previa</span>
-            <div class="icon-preview-box">
-              <img id="siteIconPreview" alt="Icono actual" />
-              <span id="siteIconPreviewFallback">◀</span>
-            </div>
-          </div>
+          <label>Logo / icono de la página<input id="siteIconInput" type="file" accept="image/png,image/jpeg,image/webp,image/svg+xml" /></label>
+          <div class="custom-icon-preview"><span>Vista previa</span><div class="icon-preview-box"><img id="siteIconPreview" alt="Icono actual" /><span id="siteIconPreviewFallback">◀</span></div></div>
         </div>
-
-        <div class="inline-actions">
-          <button type="button" class="btn btn-danger small" id="resetIcon">Restablecer icono</button>
-        </div>
+        <div class="inline-actions"><button type="button" class="btn btn-danger small" id="resetIcon">Restablecer icono</button></div>
       </section>
 
       <section class="admin-section">
-        <div class="admin-section-head">
-          <h3>Acceso</h3>
-          <p>Usuario y contraseña del panel.</p>
-        </div>
-
+        <div class="admin-section-head"><h3>Acceso</h3><p>Usuario y contraseña del panel.</p></div>
         <div class="form-grid">
-          <label>
-            Usuario
-            <input id="customUser" />
-          </label>
-
-          <label>
-            Nueva contraseña
-            <input id="customPass" type="password" placeholder="Dejar vacío para conservar" />
-          </label>
+          <label>Usuario<input id="customUser" /></label>
+          <label>Nueva contraseña<input id="customPass" type="password" placeholder="Dejar vacío para conservar" /></label>
         </div>
-
-        <div class="inline-actions">
-          <button type="button" class="btn btn-outline small" id="saveAccess">Guardar acceso</button>
-        </div>
+        <div class="inline-actions"><button type="button" class="btn btn-outline small" id="saveAccess">Guardar acceso</button></div>
       </section>
 
       <section class="admin-section employee-admin">
-        <div class="admin-section-head">
-          <h3>Empleados</h3>
-          <p>Crea, edita o elimina empleados. Aparecerán al crear tareas.</p>
-        </div>
+        <div class="admin-section-head"><h3>Empleados</h3><p>Crea, edita o elimina empleados. Aparecerán al crear tareas.</p></div>
 
         <form id="employeeForm" class="employee-form">
           <input type="hidden" id="employeeId" />
-
           <div class="employee-form-grid">
-            <label>
-              Nombre del empleado
-              <input id="employeeName" required placeholder="Ej. Luis Segura" />
-            </label>
-
-            <label>
-              Foto de perfil
-              <input id="employeePhoto" type="file" accept="image/*" />
-            </label>
+            <label>Nombre del empleado<input id="employeeName" required placeholder="Ej. Luis Segura" /></label>
+            <label>Foto de perfil<input id="employeePhoto" type="file" accept="image/*" /></label>
           </div>
-
           <div class="employee-preview-row">
-            <div class="employee-avatar large" id="employeePhotoPreview">
-              <span>👤</span>
-            </div>
-
+            <div class="employee-avatar large" id="employeePhotoPreview"><span>👤</span></div>
             <div class="inline-actions">
-              <button type="submit" class="btn btn-dark small" id="employeeSaveBtn">
-                Guardar empleado
-              </button>
-              <button type="button" class="btn btn-outline small" id="employeeCancelBtn">
-                Cancelar
-              </button>
+              <button type="submit" class="btn btn-dark small" id="employeeSaveBtn">Guardar empleado</button>
+              <button type="button" class="btn btn-outline small" id="employeeCancelBtn">Cancelar</button>
             </div>
           </div>
         </form>
@@ -414,16 +277,8 @@
       </section>
 
       <section class="admin-section">
-        <div class="admin-section-head">
-          <h3>Datos en la nube</h3>
-          <p>Migra una sola vez las tareas locales guardadas en este navegador.</p>
-        </div>
-
-        <div class="inline-actions">
-          <button type="button" class="btn btn-accent small" id="migrateLocal">
-            Migrar tareas locales a la nube
-          </button>
-        </div>
+        <div class="admin-section-head"><h3>Datos en la nube</h3><p>Migra una sola vez las tareas locales guardadas en este navegador.</p></div>
+        <div class="inline-actions"><button type="button" class="btn btn-accent small" id="migrateLocal">Migrar tareas locales a la nube</button></div>
       </section>
 
       <div class="dialog-actions">
@@ -437,7 +292,6 @@
       <div class="confirm-icon">!</div>
       <h2>¿Eliminar esta tarea?</h2>
       <p id="deleteMessage">Esta acción no se puede deshacer.</p>
-
       <div class="dialog-actions">
         <button type="button" class="btn btn-outline" id="cancelDelete">Cancelar</button>
         <button type="button" class="btn btn-danger" id="confirmDelete">Sí, eliminar</button>
@@ -447,39 +301,24 @@
 
   <div id="toast" class="toast" role="status" aria-live="polite" aria-atomic="true">
     <span class="toast-icon">✓</span>
-    <div>
-      <strong id="toastTitle">Guardado correctamente</strong>
-      <span id="toastMessage"></span>
-    </div>
+    <div><strong id="toastTitle">Guardado correctamente</strong><span id="toastMessage"></span></div>
   </div>
 
   <template id="taskTemplate">
     <article class="task-card" tabindex="0" role="button" aria-label="Ver detalle de tarea">
       <div class="card-status-badge"></div>
-
-      <div class="task-image-wrap">
-        <img class="task-image" alt="Imagen de la tarea" />
-      </div>
-
+      <div class="task-image-wrap"><img class="task-image" alt="Imagen de la tarea" /></div>
       <div class="task-card-body">
         <strong class="card-client"></strong>
         <span class="card-taskname"></span>
-
         <div class="card-meta compact">
-          <span>
-            <small>Entrega</small>
-            <b class="card-delivery"></b>
-          </span>
-
-          <span>
-            <small>Valor total</small>
-            <b class="card-total"></b>
-          </span>
+          <span><small>Entrega</small><b class="card-delivery"></b></span>
+          <span><small>Valor total</small><b class="card-total"></b></span>
         </div>
       </div>
     </article>
   </template>
 
-  <script src="app.js?v=9"></script>
+  <script src="app.js?v=9.1"></script>
 </body>
 </html>
