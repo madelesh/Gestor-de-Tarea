@@ -12,6 +12,8 @@ const archiveGrid = $('#archiveGrid');
 const archiveEmpty = $('#archiveEmpty');
 const dialog = $('#taskDialog');
 const customizeDialog = $('#customizeDialog');
+const paymentDialog = $('#paymentDialog');
+const paymentForm = $('#paymentForm');
 const form = $('#taskForm');
 const imagePreview = $('#imagePreview');
 const imageWrap = document.querySelector('.image-preview-wrap');
@@ -173,17 +175,26 @@ function updateProfitPreview(){
   $('#profitTaker').textContent = money(profit*.30);
 }
 
+function showToast(message, title='Guardado correctamente'){
+  const toast = $('#toast');
+  if(!toast) return;
+  $('#toastTitle').textContent = title;
+  $('#toastMessage').textContent = message || '';
+  toast.classList.add('show');
+  clearTimeout(showToast._timer);
+  showToast._timer = setTimeout(()=>toast.classList.remove('show'), 2800);
+}
+
 function addPayment(id){
   const t = tasks.find(x=>x.id===id); if(!t) return;
   const pending = Math.max(0, Number(t.totalAmount||0)-Number(t.depositAmount||0));
-  const raw = prompt(`Abono actual: ${money(t.depositAmount)}\nSaldo pendiente: ${money(pending)}\n¿Cuánto deseas agregar?`, pending ? String(pending.toFixed(2)) : '0');
-  if(raw===null) return;
-  const amount = Number(String(raw).replace(',','.'));
-  if(!Number.isFinite(amount) || amount<=0) return alert('Ingresa un valor válido.');
-  t.depositAmount = Math.min(Number(t.totalAmount||0), Number(t.depositAmount||0) + amount);
-  t.paymentDate = todayLocal();
-  t.updatedAt = new Date().toISOString();
-  saveTasks(); render();
+  $('#paymentTaskId').value = id;
+  $('#paymentCurrent').textContent = money(t.depositAmount);
+  $('#paymentPending').textContent = money(pending);
+  $('#paymentAmount').value = pending > 0 ? pending.toFixed(2) : '';
+  $('#paymentAmount').max = pending > 0 ? String(pending) : '';
+  paymentDialog?.showModal();
+  setTimeout(()=>$('#paymentAmount')?.select(), 50);
 }
 
 function markDelivered(id){
@@ -312,6 +323,31 @@ on('customizeBtn','click',()=>customizeDialog?.showModal());
 on('closeCustomize','click',()=>customizeDialog?.close());
 on('cancelCustomize','click',()=>customizeDialog?.close());
 on('resetIcon','click',()=>{const settings=loadSettings();delete settings.siteIcon;saveSettings(settings);applySiteIcon('');$('#siteIconInput').value='';});
+
+on('closePaymentDialog','click',()=>paymentDialog?.close());
+on('cancelPaymentDialog','click',()=>paymentDialog?.close());
+if(paymentForm){
+  paymentForm.addEventListener('submit',(e)=>{
+    e.preventDefault();
+    const id = $('#paymentTaskId').value;
+    const t = tasks.find(x=>x.id===id);
+    if(!t) return;
+    const pending = Math.max(0, Number(t.totalAmount||0)-Number(t.depositAmount||0));
+    const amount = Number(String($('#paymentAmount').value||'').replace(',','.'));
+    if(!Number.isFinite(amount) || amount<=0){
+      $('#paymentAmount').focus();
+      return;
+    }
+    const applied = Math.min(amount, pending);
+    t.depositAmount = Math.min(Number(t.totalAmount||0), Number(t.depositAmount||0) + applied);
+    t.paymentDate = todayLocal();
+    t.updatedAt = new Date().toISOString();
+    saveTasks();
+    paymentDialog.close();
+    render();
+    showToast(`Se registró un abono de ${money(applied)} para ${t.clientName}.`);
+  });
+}
 on('closeDialog','click',()=>dialog?.close());
 on('cancelDialog','click',()=>dialog?.close());
 on('searchInput','input',render);

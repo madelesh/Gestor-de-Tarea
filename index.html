@@ -204,6 +204,35 @@
     </form>
   </dialog>
 
+  <dialog id="paymentDialog" class="payment-dialog">
+    <form method="dialog" id="paymentForm" class="payment-form">
+      <div class="dialog-head">
+        <div>
+          <span class="eyebrow">Abono</span>
+          <h2>Registrar abono</h2>
+        </div>
+        <button type="button" class="icon-btn" id="closePaymentDialog" aria-label="Cerrar">✕</button>
+      </div>
+      <input type="hidden" id="paymentTaskId" />
+      <div class="payment-summary">
+        <div><span>Abono actual</span><strong id="paymentCurrent">$0.00</strong></div>
+        <div><span>Saldo pendiente</span><strong id="paymentPending">$0.00</strong></div>
+      </div>
+      <label class="payment-label">¿Cuánto deseas agregar?
+        <input id="paymentAmount" type="number" min="0.01" step="0.01" inputmode="decimal" required placeholder="0.00" />
+      </label>
+      <div class="dialog-actions">
+        <button type="button" class="btn btn-outline" id="cancelPaymentDialog">Cancelar</button>
+        <button type="submit" class="btn btn-accent">Guardar abono</button>
+      </div>
+    </form>
+  </dialog>
+
+  <div id="toast" class="toast" role="status" aria-live="polite" aria-atomic="true">
+    <span class="toast-icon">✓</span>
+    <div><strong id="toastTitle">Guardado correctamente</strong><span id="toastMessage"></span></div>
+  </div>
+
   <template id="taskTemplate">
     <article class="task-card">
       <div class="task-image-wrap">

@@ -122,3 +122,23 @@ dialog{width:min(860px,calc(100% - 26px));max-height:92vh;overflow:auto;border:1
   .task-grid{grid-template-columns:1fr}
   .task-image-wrap{margin:10px 10px 0}
 }
+
+/* Abonos: modal temático y confirmación */
+.payment-dialog{width:min(500px,calc(100% - 28px));}
+.payment-form{padding:24px;}
+.payment-dialog .dialog-head h2{margin-bottom:18px;}
+.payment-summary{display:grid;grid-template-columns:1fr 1fr;gap:12px;margin-bottom:18px;}
+.payment-summary>div{border:1px solid var(--line);background:var(--surface-2);border-radius:14px;padding:14px 16px;}
+.payment-summary span{display:block;font-size:12px;color:var(--muted);margin-bottom:5px;}
+.payment-summary strong{font-size:22px;}
+.payment-label{display:flex;flex-direction:column;gap:8px;font-size:13px;font-weight:800;}
+.payment-label input{width:100%;font-size:20px;font-weight:800;padding:14px 16px;border-radius:13px;border:1px solid var(--line);background:var(--surface);color:var(--ink);outline:none;}
+.payment-label input:focus{border-color:var(--accent);box-shadow:0 0 0 3px color-mix(in srgb,var(--accent) 22%,transparent);}
+.btn-accent{background:var(--accent);color:#111;border:1px solid var(--accent);font-weight:900;}
+.btn-accent:hover{filter:brightness(.96);transform:translateY(-1px);}
+.toast{position:fixed;right:24px;bottom:24px;z-index:9999;display:flex;align-items:center;gap:12px;min-width:290px;max-width:min(420px,calc(100vw - 32px));padding:14px 16px;border:1px solid var(--line);border-radius:16px;background:var(--surface);color:var(--ink);box-shadow:0 20px 60px rgba(0,0,0,.24);opacity:0;transform:translateY(18px) scale(.98);pointer-events:none;transition:.22s ease;}
+.toast.show{opacity:1;transform:translateY(0) scale(1);}
+.toast-icon{display:grid;place-items:center;flex:0 0 36px;width:36px;height:36px;border-radius:50%;background:var(--accent);color:#111;font-size:20px;font-weight:1000;}
+.toast strong{display:block;font-size:14px;line-height:1.2;}
+.toast span#toastMessage{display:block;margin-top:3px;color:var(--muted);font-size:12px;}
+@media (max-width:520px){.payment-summary{grid-template-columns:1fr}.toast{left:16px;right:16px;bottom:16px;min-width:0}}
