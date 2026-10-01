@@ -290,8 +290,10 @@ async function uploadDesignFile(file) {
 }
 
 function fromDesignApi(item) {
+  const numericCode = Number(item.codigo ?? 0);
   return {
     id: String(item.id),
+    code: Number.isFinite(numericCode) ? String(numericCode).padStart(5, '0') : '00000',
     name: item.nombre || '',
     description: item.descripcion || '',
     price: Number(item.precio || 0),
@@ -332,27 +334,71 @@ function renderDesigns() {
   const grid = $('#designGrid');
   const empty = $('#designEmpty');
   if (!grid || !empty) return;
+
   const q = ($('#designSearchInput')?.value || '').trim().toLowerCase();
-  const filtered = designs.filter((d) => `${d.name} ${d.materials} ${d.description}`.toLowerCase().includes(q));
+
+  const filtered = designs.filter((d) =>
+    `${d.code} ${d.name}`.toLowerCase().includes(q)
+  );
+
   grid.innerHTML = '';
+
   filtered.forEach((d) => {
     const card = document.createElement('article');
-    card.className = 'design-card';
+    card.className = 'design-card design-card-v1010';
+
     card.innerHTML = `
-      <div class="design-preview"><img src="${escapeHtml(d.previewUrl || placeholderSvg())}" alt="Vista previa de ${escapeHtml(d.name)}" /></div>
-      <div class="design-card-body">
-        <div class="design-card-title"><h3>${escapeHtml(d.name)}</h3><span class="design-price">${money(d.price)}</span></div>
-        ${d.description ? `<p class="design-description">${escapeHtml(d.description)}</p>` : ''}
-        <div class="design-specs">
-          <div class="design-spec design-materials"><span class="field-icon-badge">${iconUse('icon-box')}</span><span><small>Materiales</small><strong>${escapeHtml(d.materials || 'Sin especificar')}</strong></span></div>
-          <div class="design-spec"><span class="field-icon-badge">${iconUse('icon-ruler')}</span><span><small>Medidas</small><strong>${Number(d.width || 0).toFixed(2)} × ${Number(d.height || 0).toFixed(2)} cm</strong></span></div>
-          <div class="design-spec"><span class="field-icon-badge">${iconUse('icon-clock')}</span><span><small>Tiempo</small><strong>${escapeHtml(d.time || 'Sin estimar')}</strong></span></div>
+      <div class="design-preview design-preview-v1010">
+        <img
+          src="${escapeHtml(d.previewUrl || placeholderSvg())}"
+          alt="Vista previa del diseño ${escapeHtml(d.code)}"
+        />
+        <span class="design-code-badge">#${escapeHtml(d.code)}</span>
+      </div>
+
+      <div class="design-card-body design-card-body-v1010">
+        <div class="design-primary-data">
+          <div class="design-info-row">
+            <span class="field-icon-badge">${iconUse('icon-ruler')}</span>
+            <span>
+              <small>Medidas</small>
+              <strong>${Number(d.width || 0).toFixed(2)} × ${Number(d.height || 0).toFixed(2)} cm</strong>
+            </span>
+          </div>
+
+          <div class="design-info-row">
+            <span class="field-icon-badge">${iconUse('icon-task')}</span>
+            <span>
+              <small>Tipo de archivo</small>
+              <strong>${escapeHtml(designFileLabel(d))}</strong>
+            </span>
+          </div>
+
+          <div class="design-info-row design-code-row">
+            <span class="field-icon-badge">${iconUse('icon-search')}</span>
+            <span>
+              <small>Código de búsqueda</small>
+              <strong>${escapeHtml(d.code)}</strong>
+            </span>
+          </div>
         </div>
-        <span class="design-file-type">Archivo ${escapeHtml(designFileLabel(d))}</span>
-        <a class="btn btn-dark design-download" href="${escapeHtml(d.fileUrl)}" target="_blank" rel="noopener" download="${escapeHtml(d.fileName || '')}">${iconUse('icon-download')}<span>Descargar archivo</span></a>
-      </div>`;
+
+        <a
+          class="btn btn-dark design-download"
+          href="${escapeHtml(d.fileUrl)}"
+          target="_blank"
+          rel="noopener"
+          download="${escapeHtml(d.fileName || '')}"
+        >
+          ${iconUse('icon-download')}
+          <span>Descargar archivo</span>
+        </a>
+      </div>
+    `;
+
     grid.appendChild(card);
   });
+
   empty.style.display = filtered.length ? 'none' : 'block';
 }
 
@@ -369,7 +415,7 @@ function renderAdminDesigns() {
     row.className = 'admin-design-card';
     row.innerHTML = `
       <img src="${escapeHtml(d.previewUrl || placeholderSvg())}" alt="" />
-      <div class="admin-design-main"><strong>${escapeHtml(d.name)}</strong><span>${money(d.price)} · ${escapeHtml(d.materials)} · ${Number(d.width || 0).toFixed(2)} × ${Number(d.height || 0).toFixed(2)} cm · ${escapeHtml(d.time)}</span></div>
+      <div class="admin-design-main"><strong>#${escapeHtml(d.code)} · ${escapeHtml(d.name)}</strong><span>${money(d.price)} · ${escapeHtml(d.materials)} · ${Number(d.width || 0).toFixed(2)} × ${Number(d.height || 0).toFixed(2)} cm · ${escapeHtml(d.time)}</span></div>
       <div class="admin-design-actions"><button type="button" class="btn btn-outline small" data-edit-design="${d.id}">Editar</button><button type="button" class="btn btn-danger small" data-delete-design="${d.id}">Eliminar</button></div>`;
     box.appendChild(row);
   });
