@@ -1891,52 +1891,80 @@ on('designCancelBtn', 'click', clearDesignForm);
 
 designForm?.addEventListener('submit', async (e) => {
   e.preventDefault();
+
   const id = $('#designId').value.trim();
   const name = $('#designName').value.trim();
+
   syncDesignMaterialsInput();
   syncDesignTimeInput();
+
   const materials = $('#designMaterials').value.trim();
   const time = $('#designTime').value.trim();
   const price = Number($('#designPrice').value || 0);
   const width = Number($('#designWidth').value || 0);
   const height = Number($('#designHeight').value || 0);
   const description = $('#designDescription').value.trim();
+
   if (!name || !materials || !time || width <= 0 || height <= 0) {
-    showToast('Selecciona al menos un material y completa nombre, medidas y tiempo estimado.', 'Faltan datos');
+    showToast(
+      'Selecciona al menos un material y completa nombre, medidas y tiempo estimado.',
+      'Faltan datos'
+    );
     return;
   }
+
   if (!id && (!designEditingPreviewFile || !designEditingSourceFile)) {
-    showToast('Para crear un diseño debes subir la imagen de vista previa y el archivo SVG o AI.', 'Faltan archivos');
+    showToast(
+      'Para crear un diseño debes subir la imagen de vista previa y el archivo SVG o AI.',
+      'Faltan archivos'
+    );
     return;
   }
+
   const btn = $('#designSaveBtn');
   const original = btn.textContent;
   btn.disabled = true;
-  btn.textContent = 'Guardando…';
+  btn.textContent = id ? 'Actualizando…' : 'Guardando…';
+
   try {
-    let previewUrl = designEditingPreviewUrl;
-    let fileUrl = designEditingSourceUrl;
-    let fileName = $('#designCurrentFileName').textContent || '';
-    let fileType = '';
-    if (designEditingPreviewFile) previewUrl = await uploadImage(designEditingPreviewFile);
-    if (designEditingSourceFile) {
-      const uploaded = await uploadDesignFile(designEditingSourceFile);
-      fileUrl = uploaded.url;
-      fileName = uploaded.name;
-      fileType = uploaded.type;
-    } else if (id) {
-      const current = designs.find((x) => x.id === id);
-      fileType = current?.fileType || '';
-      fileName = current?.fileName || fileName;
+    const fd = new FormData();
+    fd.append('nombre', name);
+    fd.append('descripcion', description);
+    fd.append('precio', String(price));
+    fd.append('materiales', materials);
+    fd.append('ancho', String(width));
+    fd.append('alto', String(height));
+    fd.append('tiempo_estimado', time);
+
+    if (designEditingPreviewFile) {
+      fd.append('preview', designEditingPreviewFile);
     }
-    const payload = { nombre:name, descripcion:description, precio:price, materiales, ancho:width, alto:height, tiempo_estimado:time, preview_url:previewUrl, archivo_url:fileUrl, archivo_nombre:fileName, archivo_tipo:fileType };
-    await apiFetch(id ? `/api/disenos/${id}` : '/api/disenos', { method:id ? 'PUT':'POST', headers:{'Content-Type':'application/json'}, body:JSON.stringify(payload) });
+
+    if (designEditingSourceFile) {
+      fd.append('archivo', designEditingSourceFile);
+    }
+
+    const result = await apiFetch(
+      id ? `/api/disenos/${id}` : '/api/disenos',
+      {
+        method: id ? 'PUT' : 'POST',
+        body: fd
+      }
+    );
+
     clearDesignForm();
-    await refreshDesigns({ silent:true });
-    showToast(id ? 'El diseño fue actualizado.' : 'El diseño fue guardado.', id ? 'Diseño actualizado' : 'Diseño guardado');
+    await refreshDesigns({ silent: false });
+
+    showToast(
+      result?.mensaje || (id ? 'El diseño fue actualizado.' : 'El diseño fue guardado.'),
+      id ? 'Diseño actualizado' : 'Diseño guardado'
+    );
   } catch (err) {
     console.error('Error guardando diseño:', err);
-    showToast(err.message || 'No se pudo guardar el diseño.', id ? 'No se pudo actualizar el diseño' : 'No se pudo guardar el diseño');
+    showToast(
+      err.message || 'No se pudo guardar el diseño.',
+      id ? 'No se pudo actualizar el diseño' : 'No se pudo guardar el diseño'
+    );
   } finally {
     btn.disabled = false;
     btn.textContent = original;
