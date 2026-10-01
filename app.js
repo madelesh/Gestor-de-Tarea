@@ -1,4 +1,4 @@
-const APP_VERSION = '10.9.1';
+const APP_VERSION = '10.12';
 const API_BASE = 'https://gestor-tareas-api.detodoec.workers.dev';
 const STORAGE_KEY = 'detodoec_tasks_v1';
 const SETTINGS_KEY = 'detodoec_tasks_settings_v3';
@@ -30,13 +30,13 @@ let designEditingSourceFile = null;
 let pendingAdminSection = 'apariencia';
 
 const QUOTE_DEFAULTS = [
-  { clave:'lona', nombre:'Lona', precio:7.25, activo:1, orden:1 },
-  { clave:'lona_microperforada', nombre:'Lona Microperforada', precio:null, activo:0, orden:2 },
-  { clave:'lona_translucida', nombre:'Lona Translucida', precio:12.00, activo:1, orden:3 },
-  { clave:'vinil_blanco', nombre:'Vinil Blanco', precio:8.50, activo:1, orden:4 },
-  { clave:'vinil_transparente', nombre:'Vinil Transparente', precio:null, activo:0, orden:5 },
-  { clave:'pvc', nombre:'PVC', precio:25.00, activo:1, orden:6 },
-  { clave:'lapida', nombre:'Lapidas', precio:65.00, activo:1, orden:7 }
+  { clave:'lona', nombre:'Lona', precio:7.25, precio_publico:7.25, precio_privado:7.25, activo:1, orden:1 },
+  { clave:'lona_microperforada', nombre:'Lona Microperforada', precio:null, precio_publico:null, precio_privado:null, activo:0, orden:2 },
+  { clave:'lona_translucida', nombre:'Lona Translucida', precio:12.00, precio_publico:12.00, precio_privado:12.00, activo:1, orden:3 },
+  { clave:'vinil_blanco', nombre:'Vinil Blanco', precio:8.50, precio_publico:8.50, precio_privado:8.50, activo:1, orden:4 },
+  { clave:'vinil_transparente', nombre:'Vinil Transparente', precio:null, precio_publico:null, precio_privado:null, activo:0, orden:5 },
+  { clave:'pvc', nombre:'PVC', precio:25.00, precio_publico:25.00, precio_privado:25.00, activo:1, orden:6 },
+  { clave:'lapida', nombre:'Lapidas', precio:65.00, precio_publico:65.00, precio_privado:65.00, activo:1, orden:7 }
 ];
 let quoteMaterials = QUOTE_DEFAULTS.map((x) => ({...x}));
 let quoteItems = [];
@@ -553,10 +553,15 @@ async function refreshEmployees({ migrateLocal = true } = {}) {
 }
 
 function normalizeQuoteMaterial(item) {
+  const legacy = item?.precio === null || item?.precio === undefined || item?.precio === '' ? null : Number(item.precio);
+  const publico = item?.precio_publico === null || item?.precio_publico === undefined || item?.precio_publico === '' ? legacy : Number(item.precio_publico);
+  const privado = item?.precio_privado === null || item?.precio_privado === undefined || item?.precio_privado === '' ? publico : Number(item.precio_privado);
   return {
     clave: String(item?.clave || ''),
     nombre: String(item?.nombre || ''),
-    precio: item?.precio === null || item?.precio === undefined || item?.precio === '' ? null : Number(item.precio),
+    precio: publico,
+    precio_publico: publico,
+    precio_privado: privado,
     activo: Number(item?.activo ?? 0) ? 1 : 0,
     orden: Number(item?.orden || 999)
   };
@@ -576,6 +581,16 @@ async function refreshQuoteMaterials({ silent = true } = {}) {
   calculateQuote();
 }
 
+function quoteCustomerType() {
+  return $('#quoteCustomerType')?.value === 'privado' ? 'privado' : 'publico';
+}
+
+function quotePriceFor(material, type = quoteCustomerType()) {
+  if (!material) return null;
+  const raw = type === 'privado' ? material.precio_privado : material.precio_publico;
+  return raw === null || raw === undefined || raw === '' || !Number.isFinite(Number(raw)) ? null : Number(raw);
+}
+
 function renderQuoteMaterialSelect() {
   const select = $('#quoteMaterial');
   if (!select) return;
@@ -584,13 +599,14 @@ function renderQuoteMaterialSelect() {
   quoteMaterials.forEach((item) => {
     const option = document.createElement('option');
     option.value = item.clave;
-    option.textContent = item.activo && Number.isFinite(item.precio)
-      ? `${item.nombre} — ${money(item.precio)}/m²`
+    const price = quotePriceFor(item);
+    option.textContent = item.activo && price !== null
+      ? `${item.nombre} — ${money(price)}/m²`
       : `${item.nombre} — No disponible por el momento`;
-    option.disabled = !(item.activo && Number.isFinite(item.precio));
+    option.disabled = !(item.activo && price !== null);
     select.appendChild(option);
   });
-  const available = quoteMaterials.find((x) => x.activo && Number.isFinite(x.precio));
+  const available = quoteMaterials.find((x) => x.activo && quotePriceFor(x) !== null);
   if (previous && [...select.options].some((o) => o.value === previous && !o.disabled)) select.value = previous;
   else if (available) select.value = available.clave;
   renderQuoteMaterialIcon();
@@ -598,7 +614,7 @@ function renderQuoteMaterialSelect() {
 
 function currentQuoteMaterial() {
   const key = $('#quoteMaterial')?.value;
-  return quoteMaterials.find((x) => x.clave === key) || quoteMaterials.find((x) => x.activo && Number.isFinite(x.precio)) || null;
+  return quoteMaterials.find((x) => x.clave === key) || quoteMaterials.find((x) => x.activo && quotePriceFor(x) !== null) || null;
 }
 
 function materialIconId(key) {
@@ -652,7 +668,8 @@ function getQuoteDraft() {
   const height = Math.max(0, Number($('#quoteHeight')?.value || 0));
   const qty = Math.max(1, Math.floor(Number($('#quoteQty')?.value || 1)));
   const area = width * height * qty;
-  const price = material && material.activo && Number.isFinite(material.precio) ? Number(material.precio) : null;
+  const customerType = quoteCustomerType();
+  const price = material && material.activo ? quotePriceFor(material, customerType) : null;
   const materialTotal = price === null ? 0 : area * price;
   const eyeletsEnabled = Boolean($('#quoteEyeletsEnabled')?.checked);
   const eyeletsQty = eyeletsEnabled ? Math.max(0, Math.floor(Number($('#quoteEyeletsQty')?.value || 0))) : 0;
@@ -666,7 +683,7 @@ function getQuoteDraft() {
   };
   const extrasTotal = extras.eyelets + extras.cut + extras.design;
   const total = materialTotal + extrasTotal;
-  return { material, width, height, qty, area, price, materialTotal, eyeletsEnabled, eyeletsQty, cutEnabled, cutMeters, designEnabled, extras, extrasTotal, total };
+  return { material, customerType, width, height, qty, area, price, materialTotal, eyeletsEnabled, eyeletsQty, cutEnabled, cutMeters, designEnabled, extras, extrasTotal, total };
 }
 
 function calculateQuote() {
@@ -677,6 +694,7 @@ function calculateQuote() {
   if ($('#quoteCutMeters')) $('#quoteCutMeters').disabled = !cutEnabled;
   const draft = getQuoteDraft();
   if ($('#quoteArea')) $('#quoteArea').textContent = `${draft.area.toFixed(2)} m²`;
+  if ($('#quoteCustomerTypeLabel')) $('#quoteCustomerTypeLabel').textContent = draft.customerType === 'privado' ? 'Privado' : 'Público';
   if ($('#quoteMaterialName')) $('#quoteMaterialName').textContent = draft.material?.nombre || 'Material';
   if ($('#quoteUnitPrice')) $('#quoteUnitPrice').textContent = draft.price === null ? 'No disponible' : `${money(draft.price)}/m²`;
   if ($('#quoteSubtotal')) $('#quoteSubtotal').textContent = draft.price === null ? '—' : money(draft.total);
@@ -695,6 +713,7 @@ function addQuoteItem() {
     id: crypto.randomUUID(),
     clave: draft.material.clave,
     nombre: draft.material.nombre,
+    customerType: draft.customerType,
     width: draft.width,
     height: draft.height,
     qty: draft.qty,
@@ -724,6 +743,7 @@ function renderQuoteItems() {
       <div class="quote-item-index quote-item-material-icon">${iconUse(materialIconId(item.clave))}</div>
       <div class="quote-item-main">
         <strong>${escapeHtml(item.nombre)}</strong>
+        <span class="quote-item-client-type">Cliente ${item.customerType === 'privado' ? 'privado' : 'público'}</span>
         <small>${item.width.toFixed(2)} m × ${item.height.toFixed(2)} m · ${item.qty} ${item.qty === 1 ? 'pieza' : 'piezas'} · ${item.area.toFixed(2)} m²</small>
         <span>${money(item.price)}/m²</span>
         ${item.eyeletsQty ? `<span class="quote-item-extra">Ojales: ${item.eyeletsQty} × ${money(QUOTE_EXTRAS.eyelet)}</span>` : ''}
@@ -762,7 +782,8 @@ function renderQuotePriceAdmin() {
     row.dataset.key = item.clave;
     row.innerHTML = `
       <div class="quote-price-name quote-price-name-with-icon"><span class="quote-material-mini-icon">${iconUse(materialIconId(item.clave))}</span><span><strong>${escapeHtml(item.nombre)}</strong><small>Precio por metro cuadrado</small></span></div>
-      <label class="quote-price-input"><span>$</span><input type="number" min="0" step="0.01" data-quote-price="${escapeHtml(item.clave)}" value="${item.precio ?? ''}" placeholder="Sin precio" /></label>
+      <label class="quote-price-input quote-price-public"><small>Público</small><span>$</span><input type="number" min="0" step="0.01" data-quote-price-public="${escapeHtml(item.clave)}" value="${item.precio_publico ?? ''}" placeholder="Sin precio" /></label>
+      <label class="quote-price-input quote-price-private"><small>Privado</small><span>$</span><input type="number" min="0" step="0.01" data-quote-price-private="${escapeHtml(item.clave)}" value="${item.precio_privado ?? ''}" placeholder="Sin precio" /></label>
       <label class="quote-toggle"><input type="checkbox" data-quote-active="${escapeHtml(item.clave)}" ${item.activo ? 'checked' : ''} /> Disponible</label>
     `;
     box.appendChild(row);
@@ -777,15 +798,18 @@ async function saveQuotePrices() {
   btn.textContent = 'Guardando…';
   try {
     for (const item of quoteMaterials) {
-      const input = document.querySelector(`[data-quote-price="${item.clave}"]`);
+      const publicInput = document.querySelector(`[data-quote-price-public="${item.clave}"]`);
+      const privateInput = document.querySelector(`[data-quote-price-private="${item.clave}"]`);
       const toggle = document.querySelector(`[data-quote-active="${item.clave}"]`);
-      const raw = input?.value?.trim() ?? '';
-      const precio = raw === '' ? null : Number(raw);
-      const activo = Boolean(toggle?.checked && Number.isFinite(precio) && precio >= 0);
+      const publicRaw = publicInput?.value?.trim() ?? '';
+      const privateRaw = privateInput?.value?.trim() ?? '';
+      const precio_publico = publicRaw === '' ? null : Number(publicRaw);
+      const precio_privado = privateRaw === '' ? null : Number(privateRaw);
+      const activo = Boolean(toggle?.checked && ((Number.isFinite(precio_publico) && precio_publico >= 0) || (Number.isFinite(precio_privado) && precio_privado >= 0)));
       await apiFetch(`/api/cotizador/materiales/${encodeURIComponent(item.clave)}`, {
         method:'PUT',
         headers:{'Content-Type':'application/json'},
-        body:JSON.stringify({ precio, activo })
+        body:JSON.stringify({ precio_publico, precio_privado, activo })
       });
     }
     saveQuoteIconSettings();
@@ -824,7 +848,7 @@ function copyQuoteSummary() {
   const total = quoteItems.reduce((sum, item) => sum + Number(item.total || 0), 0);
   const lines = ['Cotización DeTodoEc', ''];
   quoteItems.forEach((item, index) => {
-    lines.push(`${index + 1}. ${item.nombre}`);
+    lines.push(`${index + 1}. ${item.nombre} · Cliente ${item.customerType === 'privado' ? 'privado' : 'público'}`);
     lines.push(`   ${item.width.toFixed(2)} m × ${item.height.toFixed(2)} m × ${item.qty} = ${item.area.toFixed(2)} m²`);
     lines.push(`   ${money(item.price)}/m² → ${money(item.materialTotal ?? (item.area * item.price))}`);
     if (item.eyeletsQty) lines.push(`   + Ojales: ${item.eyeletsQty} × ${money(QUOTE_EXTRAS.eyelet)} = ${money(item.extras?.eyelets || 0)}`);
@@ -1780,7 +1804,7 @@ on('designSearchInput', 'input', renderDesigns);
 
 ['quoteEyeletIconSelect','quoteCutIconSelect','quoteDesignIconSelect'].forEach((id) => on(id, 'change', applyQuoteExtraIcons));
 ['quoteMaterial','quoteWidth','quoteHeight','quoteQty','quoteEyeletsQty','quoteCutMeters'].forEach((id) => on(id, 'input', calculateQuote));
-['quoteMaterial','quoteEyeletsEnabled','quoteCutEnabled','quoteDesignEnabled'].forEach((id) => on(id, 'change', calculateQuote));
+['quoteMaterial','quoteCustomerType','quoteEyeletsEnabled','quoteCutEnabled','quoteDesignEnabled'].forEach((id) => on(id, 'change', () => { if (id === 'quoteCustomerType') renderQuoteMaterialSelect(); calculateQuote(); }));
 on('copyQuote', 'click', copyQuoteSummary);
 on('addQuoteItem', 'click', addQuoteItem);
 on('clearQuote', 'click', clearQuote);
