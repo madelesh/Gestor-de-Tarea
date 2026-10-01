@@ -1,4 +1,4 @@
-const APP_VERSION = '10.9';
+const APP_VERSION = '10.9.1';
 const API_BASE = 'https://gestor-tareas-api.detodoec.workers.dev';
 const STORAGE_KEY = 'detodoec_tasks_v1';
 const SETTINGS_KEY = 'detodoec_tasks_settings_v3';
@@ -79,6 +79,57 @@ const paymentForm = $('#paymentForm');
 const taskForm = $('#taskForm');
 const employeeForm = $('#employeeForm');
 const designForm = $('#designForm');
+
+const DESIGN_MATERIALS = ['MDF', 'Acrílico', 'Vinil', 'Tornillos'];
+
+function selectedDesignMaterials() {
+  return $$('.design-material-chip.is-selected').map((btn) => btn.dataset.material).filter(Boolean);
+}
+
+function syncDesignMaterialsInput() {
+  const input = $('#designMaterials');
+  if (input) input.value = selectedDesignMaterials().join(', ');
+}
+
+function setDesignMaterials(value = '') {
+  const selected = new Set(String(value || '').split(',').map((v) => v.trim()).filter(Boolean));
+  $$('.design-material-chip').forEach((btn) => {
+    const on = selected.has(btn.dataset.material);
+    btn.classList.toggle('is-selected', on);
+    btn.setAttribute('aria-pressed', on ? 'true' : 'false');
+  });
+  syncDesignMaterialsInput();
+}
+
+function populateDesignTimeValues(unit = 'horas', selectedValue = 1) {
+  const valueSelect = $('#designTimeValue');
+  if (!valueSelect) return;
+  const max = unit === 'dias' ? 30 : 24;
+  valueSelect.innerHTML = '';
+  for (let i = 1; i <= max; i++) {
+    const opt = document.createElement('option');
+    opt.value = String(i);
+    opt.textContent = String(i);
+    valueSelect.appendChild(opt);
+  }
+  valueSelect.value = String(Math.min(Math.max(Number(selectedValue) || 1, 1), max));
+  syncDesignTimeInput();
+}
+
+function syncDesignTimeInput() {
+  const value = Number($('#designTimeValue')?.value || 1);
+  const unit = $('#designTimeUnit')?.value || 'horas';
+  const input = $('#designTime');
+  if (input) input.value = `${value} ${unit}`;
+}
+
+function setDesignTime(value = '') {
+  const match = String(value || '').trim().match(/(\d+)\s*(hora|horas|día|dias|día|días)/i);
+  let amount = match ? Number(match[1]) : 1;
+  let unit = match && /d/i.test(match[2]) ? 'dias' : 'horas';
+  if ($('#designTimeUnit')) $('#designTimeUnit').value = unit;
+  populateDesignTimeValues(unit, amount);
+}
 const imagePreview = $('#imagePreview');
 const finishedImagePreview = $('#finishedImagePreview');
 const imageWrap = document.querySelector('.image-preview-wrap');
@@ -336,6 +387,8 @@ function clearDesignForm() {
   $('#designFormPreview').removeAttribute('src');
   $('#designCurrentFileName').textContent = '';
   $('#designSaveBtn').textContent = 'Guardar diseño';
+  setDesignMaterials('');
+  setDesignTime('1 horas');
 }
 
 function editDesign(id) {
@@ -344,8 +397,8 @@ function editDesign(id) {
   $('#designId').value = d.id;
   $('#designName').value = d.name;
   $('#designPrice').value = d.price;
-  $('#designMaterials').value = d.materials;
-  $('#designTime').value = d.time;
+  setDesignMaterials(d.materials);
+  setDesignTime(d.time);
   $('#designWidth').value = d.width;
   $('#designHeight').value = d.height;
   $('#designDescription').value = d.description || '';
@@ -1797,6 +1850,22 @@ $('#employeeList').addEventListener('click', (e) => {
 
 
 
+
+$('#designMaterialsOptions')?.addEventListener('click', (e) => {
+  const btn = e.target.closest('.design-material-chip');
+  if (!btn) return;
+  const next = !btn.classList.contains('is-selected');
+  btn.classList.toggle('is-selected', next);
+  btn.setAttribute('aria-pressed', next ? 'true' : 'false');
+  syncDesignMaterialsInput();
+});
+
+$('#designTimeUnit')?.addEventListener('change', () => {
+  populateDesignTimeValues($('#designTimeUnit').value, 1);
+});
+
+$('#designTimeValue')?.addEventListener('change', syncDesignTimeInput);
+
 $('#designPreviewFile')?.addEventListener('change', (e) => {
   const file = e.target.files?.[0];
   if (!file) return;
@@ -1824,6 +1893,8 @@ designForm?.addEventListener('submit', async (e) => {
   e.preventDefault();
   const id = $('#designId').value.trim();
   const name = $('#designName').value.trim();
+  syncDesignMaterialsInput();
+  syncDesignTimeInput();
   const materials = $('#designMaterials').value.trim();
   const time = $('#designTime').value.trim();
   const price = Number($('#designPrice').value || 0);
@@ -1831,7 +1902,7 @@ designForm?.addEventListener('submit', async (e) => {
   const height = Number($('#designHeight').value || 0);
   const description = $('#designDescription').value.trim();
   if (!name || !materials || !time || width <= 0 || height <= 0) {
-    showToast('Completa nombre, materiales, medidas y tiempo estimado.', 'Faltan datos');
+    showToast('Selecciona al menos un material y completa nombre, medidas y tiempo estimado.', 'Faltan datos');
     return;
   }
   if (!id && (!designEditingPreviewFile || !designEditingSourceFile)) {
@@ -1864,7 +1935,8 @@ designForm?.addEventListener('submit', async (e) => {
     await refreshDesigns({ silent:true });
     showToast(id ? 'El diseño fue actualizado.' : 'El diseño fue guardado.', id ? 'Diseño actualizado' : 'Diseño guardado');
   } catch (err) {
-    showToast(err.message, 'No se pudo guardar el diseño');
+    console.error('Error guardando diseño:', err);
+    showToast(err.message || 'No se pudo guardar el diseño.', id ? 'No se pudo actualizar el diseño' : 'No se pudo guardar el diseño');
   } finally {
     btn.disabled = false;
     btn.textContent = original;
@@ -1885,6 +1957,9 @@ window.addEventListener('error', (event) => {
 window.addEventListener('unhandledrejection', (event) => {
   console.error(`[DeTodoEc V${APP_VERSION}] Promesa rechazada`, event.reason);
 });
+
+populateDesignTimeValues('horas', 1);
+setDesignMaterials('');
 
 const initialSettings = loadSettings();
 employees = loadEmployees();
