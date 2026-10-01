@@ -868,7 +868,7 @@ body{font-family:var(--font-ui)}
 }
 
 /* =========================================================
-   V10.7 — Tarjetas, filtros, cotizador y admin sidebar
+   V10.8 — Tarjetas, filtros, cotizador y admin sidebar
    ========================================================= */
 
 /* Cabecera de tareas: CTA a la izquierda, filtros ordenados */
@@ -958,3 +958,136 @@ body{font-family:var(--font-ui)}
   .task-card-v107{max-width:100%!important}
   .quote-extra-head{align-items:flex-start;flex-direction:column;gap:3px}
 }
+
+/* =========================================================
+   V10.8 — Cotizador + alertas de entrega
+   ========================================================= */
+
+/* Colores del contador de entrega */
+.task-card-v107 .card-days-left[data-tone="ok"]{
+  background:rgba(63, 207, 113, .16)!important;
+  color:#4bd07b!important;
+  border:1px solid rgba(75,208,123,.18);
+}
+.task-card-v107 .card-days-left[data-tone="warning"]{
+  background:rgba(255, 166, 48, .16)!important;
+  color:#f0a02b!important;
+  border:1px solid rgba(240,160,43,.18);
+}
+.task-card-v107 .card-days-left[data-tone="late"],
+.task-card-v107 .card-days-left[data-tone="today"]{
+  background:rgba(255, 82, 96, .15)!important;
+  color:#ff6571!important;
+  border:1px solid rgba(255,101,113,.18);
+}
+
+/* Selector de material con icono */
+.quote-material-select-wrap{
+  display:grid;
+  grid-template-columns:44px minmax(0,1fr);
+  align-items:center;
+  gap:10px;
+}
+.quote-material-icon{
+  width:44px;
+  height:44px;
+  border-radius:13px;
+  display:grid;
+  place-items:center;
+  background:color-mix(in srgb,var(--accent) 14%,var(--surface-2));
+  border:1px solid var(--line);
+  color:var(--accent);
+}
+.quote-material-icon .icon{width:20px;height:20px}
+.quote-material-select-wrap select{width:100%;min-width:0}
+
+/* Iconos de materiales en el panel admin */
+.quote-price-name-with-icon{
+  display:flex!important;
+  align-items:center;
+  gap:11px;
+  min-width:0;
+}
+.quote-price-name-with-icon>span:last-child{
+  display:flex;
+  flex-direction:column;
+  min-width:0;
+}
+.quote-material-mini-icon{
+  width:36px;
+  height:36px;
+  flex:0 0 36px;
+  display:grid;
+  place-items:center;
+  border-radius:11px;
+  background:color-mix(in srgb,var(--accent) 12%,var(--surface-2));
+  color:var(--accent);
+  border:1px solid var(--line);
+}
+.quote-material-mini-icon .icon{width:17px;height:17px}
+
+/* Configuración de iconos de acabados */
+.quote-icon-admin{
+  margin-top:20px;
+  padding-top:18px;
+  border-top:1px solid var(--line);
+}
+.quote-icon-admin h4{
+  margin:0 0 12px;
+  font-size:15px;
+  font-weight:800;
+}
+.quote-icon-admin-grid{
+  display:grid;
+  grid-template-columns:repeat(3,minmax(0,1fr));
+  gap:12px;
+}
+.quote-icon-admin-grid label{
+  display:flex;
+  flex-direction:column;
+  gap:7px;
+  font-size:12px;
+  font-weight:800;
+}
+.quote-icon-admin-grid select{
+  width:100%;
+}
+
+/* Inputs numéricos del cotizador sin flechas blancas del navegador */
+#cotizador input[type="number"],
+.quote-admin-section input[type="number"]{
+  appearance:textfield;
+  -moz-appearance:textfield;
+}
+#cotizador input[type="number"]::-webkit-outer-spin-button,
+#cotizador input[type="number"]::-webkit-inner-spin-button,
+.quote-admin-section input[type="number"]::-webkit-outer-spin-button,
+.quote-admin-section input[type="number"]::-webkit-inner-spin-button{
+  -webkit-appearance:none;
+  margin:0;
+}
+
+#quoteWidth,
+#quoteHeight,
+#quoteQty,
+.quote-extra-input,
+.quote-price-input input{
+  text-align:center;
+}
+
+@media(max-width:800px){
+  .quote-icon-admin-grid{grid-template-columns:1fr}
+  .quote-material-select-wrap{grid-template-columns:40px minmax(0,1fr)}
+  .quote-material-icon{width:40px;height:40px}
+}
+.quote-item-material-icon{
+  display:grid!important;
+  place-items:center;
+  width:36px!important;
+  height:36px!important;
+  border-radius:12px!important;
+  background:color-mix(in srgb,var(--accent) 13%,var(--surface-2))!important;
+  color:var(--accent)!important;
+  font-size:0!important;
+}
+.quote-item-material-icon .icon{width:18px;height:18px}

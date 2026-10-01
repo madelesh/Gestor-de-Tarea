@@ -9,7 +9,7 @@
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700;800&display=swap" rel="stylesheet">
   <link id="dynamicFavicon" rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 64 64'%3E%3Crect width='64' height='64' rx='16' fill='%23b9ff39'/%3E%3Cpath d='M18 33l9 9 19-22' fill='none' stroke='%23111' stroke-width='7' stroke-linecap='round' stroke-linejoin='round'/%3E%3C/svg%3E" />
-  <link rel="stylesheet" href="styles.css?v=10.7" />
+  <link rel="stylesheet" href="styles.css?v=10.8" />
 </head>
 <body>
   <svg xmlns="http://www.w3.org/2000/svg" style="display:none" aria-hidden="true" focusable="false">
@@ -40,6 +40,10 @@
     <symbol id="icon-eyelet" viewBox="0 0 24 24"><path fill="currentColor" d="M12 3a9 9 0 1 0 0 18 9 9 0 0 0 0-18Zm0 4a5 5 0 1 1 0 10 5 5 0 0 1 0-10Zm0 2a3 3 0 1 0 0 6 3 3 0 0 0 0-6Z"/></symbol>
     <symbol id="icon-cut" viewBox="0 0 24 24"><path fill="currentColor" d="M9.64 7.64 7.5 5.5A3.5 3.5 0 1 0 5 11.47l3 3-3 3A3.5 3.5 0 1 0 7.5 20.5l4.14-4.14L20 24l1.5-1.5-8.36-8.36 2-2 2.36 2.36L19 13l-2.36-2.36 4.86-4.86L20 4.28l-8.36 8.36-2-2ZM5.5 9A1.5 1.5 0 1 1 7 7.5 1.5 1.5 0 0 1 5.5 9Zm0 10A1.5 1.5 0 1 1 7 17.5 1.5 1.5 0 0 1-1.5 1.5Z"/></symbol>
     <symbol id="icon-design" viewBox="0 0 24 24"><path fill="currentColor" d="m12 2 2.09 6.26L20 10l-5.91 1.74L12 18l-2.09-6.26L4 10l5.91-1.74L12 2Zm7 12 1.2 3.8L24 19l-3.8 1.2L19 24l-1.2-3.8L14 19l3.8-1.2L19 14Z"/></symbol>
+    <symbol id="icon-banner" viewBox="0 0 24 24"><path fill="currentColor" d="M4 3h16a2 2 0 0 1 2 2v11a2 2 0 0 1-2 2H9l-5 3v-3a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2Zm1 4v2h14V7H5Zm0 4v2h9v-2H5Z"/></symbol>
+    <symbol id="icon-vinyl" viewBox="0 0 24 24"><path fill="currentColor" d="M4 4h12a4 4 0 0 1 4 4v8a4 4 0 0 1-4 4H4a2 2 0 0 1-2-2V6a2 2 0 0 1 2-2Zm2 3v10h10a1 1 0 0 0 1-1V8a1 1 0 0 0-1-1H6Zm12 7h4v2h-4v-2Z"/></symbol>
+    <symbol id="icon-pvc" viewBox="0 0 24 24"><path fill="currentColor" d="M4 3h16a2 2 0 0 1 2 2v14a2 2 0 0 1-2 2H4a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2Zm2 4v10h12V7H6Z"/></symbol>
+    <symbol id="icon-stone" viewBox="0 0 24 24"><path fill="currentColor" d="M8 3h8l3 5v11a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V8l3-5Zm2 4-2 3h8l-2-3h-4Zm-1 6v2h6v-2H9Z"/></symbol>
     <symbol id="icon-settings" viewBox="0 0 24 24"><path fill="currentColor" d="m19.43 12.98.04-.98-.04-.98 2.11-1.65-2-3.46-2.49 1a7.9 7.9 0 0 0-1.7-.98L15 3h-4l-.35 2.93c-.6.24-1.17.57-1.7.98l-2.49-1-2 3.46 2.11 1.65-.04.98.04.98-2.11 1.65 2 3.46 2.49-1c.53.41 1.1.74 1.7.98L11 21h4l.35-2.93c.6-.24 1.17-.57 1.7-.98l2.49 1 2-3.46-2.11-1.65ZM13 16a4 4 0 1 1 0-8 4 4 0 0 1 0 8Z"/></symbol>
   </svg>
 
@@ -144,7 +148,10 @@
 
             <div class="quote-form-grid quote-form-grid-multi">
               <label class="quote-field quote-field-wide">Producto o material
-                <select id="quoteMaterial"></select>
+                <div class="quote-material-select-wrap">
+                  <span class="quote-material-icon" id="quoteMaterialIcon"><svg class="icon"><use href="#icon-banner"></use></svg></span>
+                  <select id="quoteMaterial"></select>
+                </div>
               </label>
               <label class="quote-field">Ancho (m)
                 <input id="quoteWidth" type="number" min="0.01" step="0.01" value="1" inputmode="decimal" />
@@ -492,9 +499,17 @@
           </section>
 
           <section class="admin-section quote-admin-section admin-view" data-admin-view="cotizador" hidden>
-            <div class="admin-section-head"><h3>Precios del cotizador</h3><p>Modifica el precio por m² y activa materiales cuando tengas su precio real.</p></div>
+            <div class="admin-section-head"><h3>Precios del cotizador</h3><p>Modifica precios, disponibilidad e iconos de los adicionales.</p></div>
             <div id="quotePriceAdmin" class="quote-price-admin"></div>
-            <div class="inline-actions"><button type="button" class="btn btn-accent small" id="saveQuotePrices">Guardar precios</button></div>
+            <div class="quote-icon-admin">
+              <h4>Iconos de acabados opcionales</h4>
+              <div class="quote-icon-admin-grid">
+                <label>Ojales<select id="quoteEyeletIconSelect"><option value="icon-eyelet">Ojales</option><option value="icon-settings">Engranaje</option><option value="icon-check">Check</option><option value="icon-dollar">Precio</option></select></label>
+                <label>Corte<select id="quoteCutIconSelect"><option value="icon-cut">Tijera</option><option value="icon-settings">Herramienta</option><option value="icon-task">Documento</option><option value="icon-check">Check</option></select></label>
+                <label>Diseño<select id="quoteDesignIconSelect"><option value="icon-design">Diseño</option><option value="icon-image">Imagen</option><option value="icon-task">Documento</option><option value="icon-settings">Ajustes</option></select></label>
+              </div>
+            </div>
+            <div class="inline-actions"><button type="button" class="btn btn-accent small" id="saveQuotePrices">Guardar cambios</button></div>
           </section>
 
           <section class="admin-section admin-view" data-admin-view="datos" hidden>
@@ -552,6 +567,6 @@
     </article>
   </template>
 
-  <script src="app.js?v=10.7"></script>
+  <script src="app.js?v=10.8"></script>
 </body>
 </html>

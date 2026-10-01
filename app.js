@@ -1,4 +1,4 @@
-const APP_VERSION = '10.7';
+const APP_VERSION = '10.8';
 const API_BASE = 'https://gestor-tareas-api.detodoec.workers.dev';
 const STORAGE_KEY = 'detodoec_tasks_v1';
 const SETTINGS_KEY = 'detodoec_tasks_settings_v3';
@@ -38,6 +38,22 @@ const QUOTE_EXTRAS = {
   eyelet: 0.50,
   cut: 1.00,
   design: 2.75
+};
+
+const MATERIAL_ICONS = {
+  lona: 'icon-banner',
+  lona_microperforada: 'icon-banner',
+  lona_translucida: 'icon-banner',
+  vinil_blanco: 'icon-vinyl',
+  vinil_transparente: 'icon-vinyl',
+  pvc: 'icon-pvc',
+  lapida: 'icon-stone'
+};
+
+const DEFAULT_QUOTE_ICON_SETTINGS = {
+  eyelet: 'icon-eyelet',
+  cut: 'icon-cut',
+  design: 'icon-design'
 };
 
 const $ = (s) => document.querySelector(s);
@@ -132,7 +148,7 @@ function deliveryCountdown(v) {
   const days = Math.round((target - today) / 86400000);
   if (days > 1) return { text: `Faltan ${days} días`, tone: days <= 3 ? 'warning' : 'ok' };
   if (days === 1) return { text: 'Falta 1 día', tone: 'warning' };
-  if (days === 0) return { text: 'Entrega hoy', tone: 'today' };
+  if (days === 0) return { text: 'Entrega hoy', tone: 'late' };
   const late = Math.abs(days);
   return { text: `Atrasado ${late} ${late === 1 ? 'día' : 'días'}`, tone: 'late' };
 }
@@ -288,11 +304,57 @@ function renderQuoteMaterialSelect() {
   const available = quoteMaterials.find((x) => x.activo && Number.isFinite(x.precio));
   if (previous && [...select.options].some((o) => o.value === previous && !o.disabled)) select.value = previous;
   else if (available) select.value = available.clave;
+  renderQuoteMaterialIcon();
 }
 
 function currentQuoteMaterial() {
   const key = $('#quoteMaterial')?.value;
   return quoteMaterials.find((x) => x.clave === key) || quoteMaterials.find((x) => x.activo && Number.isFinite(x.precio)) || null;
+}
+
+function materialIconId(key) {
+  return MATERIAL_ICONS[key] || 'icon-task';
+}
+
+function renderQuoteMaterialIcon() {
+  const material = currentQuoteMaterial();
+  const slot = $('#quoteMaterialIcon');
+  if (!slot) return;
+  slot.innerHTML = iconUse(materialIconId(material?.clave));
+}
+
+function loadQuoteIconSettings() {
+  const settings = loadSettings();
+  return { ...DEFAULT_QUOTE_ICON_SETTINGS, ...(settings.quoteExtraIcons || {}) };
+}
+
+function applyQuoteExtraIcons() {
+  const icons = loadQuoteIconSettings();
+  const pairs = [
+    ['#quoteEyeletsEnabled', icons.eyelet],
+    ['#quoteCutEnabled', icons.cut],
+    ['#quoteDesignEnabled', icons.design]
+  ];
+  pairs.forEach(([selector, iconId]) => {
+    const input = $(selector);
+    const label = input?.closest('.quote-extra-option');
+    const slot = label?.querySelector('.quote-extra-icon');
+    if (slot) slot.innerHTML = iconUse(iconId);
+  });
+  if ($('#quoteEyeletIconSelect')) $('#quoteEyeletIconSelect').value = icons.eyelet;
+  if ($('#quoteCutIconSelect')) $('#quoteCutIconSelect').value = icons.cut;
+  if ($('#quoteDesignIconSelect')) $('#quoteDesignIconSelect').value = icons.design;
+}
+
+function saveQuoteIconSettings() {
+  const settings = loadSettings();
+  settings.quoteExtraIcons = {
+    eyelet: $('#quoteEyeletIconSelect')?.value || DEFAULT_QUOTE_ICON_SETTINGS.eyelet,
+    cut: $('#quoteCutIconSelect')?.value || DEFAULT_QUOTE_ICON_SETTINGS.cut,
+    design: $('#quoteDesignIconSelect')?.value || DEFAULT_QUOTE_ICON_SETTINGS.design
+  };
+  saveSettings(settings);
+  applyQuoteExtraIcons();
 }
 
 function getQuoteDraft() {
@@ -319,6 +381,7 @@ function getQuoteDraft() {
 }
 
 function calculateQuote() {
+  renderQuoteMaterialIcon();
   const eyeletsEnabled = Boolean($('#quoteEyeletsEnabled')?.checked);
   const cutEnabled = Boolean($('#quoteCutEnabled')?.checked);
   if ($('#quoteEyeletsQty')) $('#quoteEyeletsQty').disabled = !eyeletsEnabled;
@@ -369,7 +432,7 @@ function renderQuoteItems() {
     const row = document.createElement('div');
     row.className = 'quote-item';
     row.innerHTML = `
-      <div class="quote-item-index">${index + 1}</div>
+      <div class="quote-item-index quote-item-material-icon">${iconUse(materialIconId(item.clave))}</div>
       <div class="quote-item-main">
         <strong>${escapeHtml(item.nombre)}</strong>
         <small>${item.width.toFixed(2)} m × ${item.height.toFixed(2)} m · ${item.qty} ${item.qty === 1 ? 'pieza' : 'piezas'} · ${item.area.toFixed(2)} m²</small>
@@ -409,7 +472,7 @@ function renderQuotePriceAdmin() {
     row.className = 'quote-price-row';
     row.dataset.key = item.clave;
     row.innerHTML = `
-      <div class="quote-price-name"><strong>${escapeHtml(item.nombre)}</strong><small>Precio por metro cuadrado</small></div>
+      <div class="quote-price-name quote-price-name-with-icon"><span class="quote-material-mini-icon">${iconUse(materialIconId(item.clave))}</span><span><strong>${escapeHtml(item.nombre)}</strong><small>Precio por metro cuadrado</small></span></div>
       <label class="quote-price-input"><span>$</span><input type="number" min="0" step="0.01" data-quote-price="${escapeHtml(item.clave)}" value="${item.precio ?? ''}" placeholder="Sin precio" /></label>
       <label class="quote-toggle"><input type="checkbox" data-quote-active="${escapeHtml(item.clave)}" ${item.activo ? 'checked' : ''} /> Disponible</label>
     `;
@@ -436,8 +499,9 @@ async function saveQuotePrices() {
         body:JSON.stringify({ precio, activo })
       });
     }
+    saveQuoteIconSettings();
     await refreshQuoteMaterials({ silent:true });
-    showToast('Los precios del cotizador se actualizaron en la nube.', 'Precios guardados');
+    showToast('Los precios e iconos del cotizador se actualizaron.', 'Cambios guardados');
   } catch (err) {
     showToast(err.message, 'No se pudieron guardar los precios');
   } finally {
@@ -456,6 +520,7 @@ function showMainView(view) {
   $('#navQuote')?.classList.toggle('active', isQuote);
   if (isQuote) {
     renderQuoteMaterialSelect();
+    applyQuoteExtraIcons();
     calculateQuote();
   }
 }
@@ -1414,6 +1479,8 @@ on('detailImageNext', 'click', () => {
 });
 on('navQuote', 'click', () => showMainView('quote'));
 on('navTasks', 'click', () => showMainView('tasks'));
+
+['quoteEyeletIconSelect','quoteCutIconSelect','quoteDesignIconSelect'].forEach((id) => on(id, 'change', applyQuoteExtraIcons));
 ['quoteMaterial','quoteWidth','quoteHeight','quoteQty','quoteEyeletsQty','quoteCutMeters'].forEach((id) => on(id, 'input', calculateQuote));
 ['quoteMaterial','quoteEyeletsEnabled','quoteCutEnabled','quoteDesignEnabled'].forEach((id) => on(id, 'change', calculateQuote));
 on('copyQuote', 'click', copyQuoteSummary);
@@ -1584,6 +1651,7 @@ employees = loadEmployees();
 const preferredTheme = initialSettings.theme || ((window.matchMedia && window.matchMedia('(prefers-color-scheme: dark)').matches) ? 'dark' : 'light');
 setTheme(preferredTheme, false);
 applySiteIcon(initialSettings.siteIcon || '');
+applyQuoteExtraIcons();
 renderEmployeeList();
 renderEmployeeFilter();
 render();
