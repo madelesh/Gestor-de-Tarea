@@ -23,9 +23,9 @@ let isLoading = false;
 let employeeEditingPhoto = '';
 let employeeEditingPhotoFile = null;
 let designs = [];
-let designEditingPreviewUrl = '';
+let designEditingPreviewUrls = [];
 let designEditingSourceUrl = '';
-let designEditingPreviewFile = null;
+let designEditingPreviewFiles = [];
 let designEditingSourceFile = null;
 let pendingAdminSection = 'apariencia';
 
@@ -302,6 +302,13 @@ function fromDesignApi(item) {
     height: Number(item.alto || 0),
     time: item.tiempo_estimado || '',
     previewUrl: item.preview_url || '',
+    previewUrls: (() => {
+      try {
+        const parsed = JSON.parse(item.preview_urls || '[]');
+        if (Array.isArray(parsed) && parsed.length) return parsed.filter(Boolean).slice(0, 5);
+      } catch {}
+      return item.preview_url ? [item.preview_url] : [];
+    })(),
     fileUrl: item.archivo_url || '',
     fileName: item.archivo_nombre || '',
     fileType: item.archivo_tipo || ''
@@ -336,24 +343,31 @@ function renderDesigns() {
   if (!grid || !empty) return;
 
   const q = ($('#designSearchInput')?.value || '').trim().toLowerCase();
-
-  const filtered = designs.filter((d) =>
-    `${d.code} ${d.name}`.toLowerCase().includes(q)
-  );
+  const filtered = designs.filter((d) => `${d.code} ${d.name}`.toLowerCase().includes(q));
 
   grid.innerHTML = '';
 
   filtered.forEach((d) => {
+    const previews = (d.previewUrls?.length ? d.previewUrls : [d.previewUrl]).filter(Boolean).slice(0, 5);
+    const safePreviews = previews.length ? previews : [placeholderSvg()];
     const card = document.createElement('article');
     card.className = 'design-card design-card-v1010';
+    card.dataset.previewIndex = '0';
 
     card.innerHTML = `
       <div class="design-preview design-preview-v1010">
         <img
-          src="${escapeHtml(d.previewUrl || placeholderSvg())}"
+          class="design-main-preview"
+          src="${escapeHtml(safePreviews[0])}"
           alt="Vista previa del diseño ${escapeHtml(d.code)}"
         />
+        <span class="design-price-badge">${money(d.price)}</span>
         <span class="design-code-badge">#${escapeHtml(d.code)}</span>
+        ${safePreviews.length > 1 ? `
+          <button type="button" class="design-preview-arrow prev" aria-label="Imagen anterior">‹</button>
+          <button type="button" class="design-preview-arrow next" aria-label="Imagen siguiente">›</button>
+          <div class="design-preview-dots">${safePreviews.map((_, i) => `<span class="${i === 0 ? 'active' : ''}"></span>`).join('')}</div>
+        ` : ''}
       </div>
 
       <div class="design-card-body design-card-body-v1010">
@@ -383,18 +397,33 @@ function renderDesigns() {
           </div>
         </div>
 
-        <a
-          class="btn btn-dark design-download"
-          href="${escapeHtml(d.fileUrl)}"
-          target="_blank"
-          rel="noopener"
-          download="${escapeHtml(d.fileName || '')}"
-        >
+        <a class="btn btn-dark design-download" href="${escapeHtml(d.fileUrl)}" target="_blank" rel="noopener" download="${escapeHtml(d.fileName || '')}">
           ${iconUse('icon-download')}
           <span>Descargar archivo</span>
         </a>
       </div>
     `;
+
+    if (safePreviews.length > 1) {
+      const img = card.querySelector('.design-main-preview');
+      const dots = [...card.querySelectorAll('.design-preview-dots span')];
+      const show = (next) => {
+        const index = (next + safePreviews.length) % safePreviews.length;
+        card.dataset.previewIndex = String(index);
+        img.src = safePreviews[index];
+        dots.forEach((dot, i) => dot.classList.toggle('active', i === index));
+      };
+      card.querySelector('.prev')?.addEventListener('click', (e) => {
+        e.preventDefault();
+        e.stopPropagation();
+        show(Number(card.dataset.previewIndex || 0) - 1);
+      });
+      card.querySelector('.next')?.addEventListener('click', (e) => {
+        e.preventDefault();
+        e.stopPropagation();
+        show(Number(card.dataset.previewIndex || 0) + 1);
+      });
+    }
 
     grid.appendChild(card);
   });
@@ -425,16 +454,28 @@ function clearDesignForm() {
   if (!designForm) return;
   designForm.reset();
   $('#designId').value = '';
-  designEditingPreviewUrl = '';
+  designEditingPreviewUrls = [];
   designEditingSourceUrl = '';
-  designEditingPreviewFile = null;
+  designEditingPreviewFiles = [];
   designEditingSourceFile = null;
   $('#designFormPreviewWrap').hidden = true;
-  $('#designFormPreview').removeAttribute('src');
+  $('#designPreviewGallery').innerHTML = '';
   $('#designCurrentFileName').textContent = '';
   $('#designSaveBtn').textContent = 'Guardar diseño';
   setDesignMaterials('');
   setDesignTime('1 horas');
+}
+
+function renderDesignAdminPreviewGallery(urls = []) {
+  const gallery = $('#designPreviewGallery');
+  if (!gallery) return;
+  gallery.innerHTML = '';
+  urls.filter(Boolean).slice(0, 5).forEach((url, index) => {
+    const item = document.createElement('div');
+    item.className = 'design-preview-thumb';
+    item.innerHTML = `<img src="${escapeHtml(url)}" alt="Vista previa ${index + 1}"/><span>${index + 1}</span>`;
+    gallery.appendChild(item);
+  });
 }
 
 function editDesign(id) {
@@ -448,12 +489,12 @@ function editDesign(id) {
   $('#designWidth').value = d.width;
   $('#designHeight').value = d.height;
   $('#designDescription').value = d.description || '';
-  designEditingPreviewUrl = d.previewUrl || '';
+  designEditingPreviewUrls = (d.previewUrls?.length ? d.previewUrls : [d.previewUrl]).filter(Boolean).slice(0, 5);
   designEditingSourceUrl = d.fileUrl || '';
-  designEditingPreviewFile = null;
+  designEditingPreviewFiles = [];
   designEditingSourceFile = null;
   $('#designFormPreviewWrap').hidden = false;
-  $('#designFormPreview').src = d.previewUrl || placeholderSvg();
+  renderDesignAdminPreviewGallery(designEditingPreviewUrls);
   $('#designCurrentFileName').textContent = d.fileName || 'Archivo guardado';
   $('#designSaveBtn').textContent = 'Actualizar diseño';
   showAdminSection('disenos');
@@ -1913,15 +1954,22 @@ $('#designTimeUnit')?.addEventListener('change', () => {
 $('#designTimeValue')?.addEventListener('change', syncDesignTimeInput);
 
 $('#designPreviewFile')?.addEventListener('change', (e) => {
-  const file = e.target.files?.[0];
-  if (!file) return;
-  designEditingPreviewFile = file;
-  const reader = new FileReader();
-  reader.onload = () => {
+  const files = [...(e.target.files || [])].slice(0, 5);
+  if (!files.length) return;
+  designEditingPreviewFiles = files;
+
+  Promise.all(files.map((file) => new Promise((resolve) => {
+    const reader = new FileReader();
+    reader.onload = () => resolve(reader.result);
+    reader.readAsDataURL(file);
+  }))).then((urls) => {
     $('#designFormPreviewWrap').hidden = false;
-    $('#designFormPreview').src = reader.result;
-  };
-  reader.readAsDataURL(file);
+    renderDesignAdminPreviewGallery(urls);
+  });
+
+  if ((e.target.files || []).length > 5) {
+    showToast('Solo se usarán las primeras 5 imágenes.', 'Límite de vistas previas');
+  }
 });
 
 $('#designSourceFile')?.addEventListener('change', (e) => {
@@ -1959,7 +2007,7 @@ designForm?.addEventListener('submit', async (e) => {
     return;
   }
 
-  if (!id && (!designEditingPreviewFile || !designEditingSourceFile)) {
+  if (!id && (!designEditingPreviewFiles.length || !designEditingSourceFile)) {
     showToast(
       'Para crear un diseño debes subir la vista previa y el archivo SVG o AI.',
       'Faltan archivos'
@@ -1971,27 +2019,32 @@ designForm?.addEventListener('submit', async (e) => {
   const original = btn.textContent;
   btn.disabled = true;
 
-  let uploadedPreviewUrl = '';
+  let uploadedPreviewUrls = [];
   let uploadedSourceUrl = '';
 
   try {
     const existing = id ? designs.find((d) => String(d.id) === String(id)) : null;
 
-    let previewUrl = existing?.previewUrl || '';
+    let previewUrls = (existing?.previewUrls?.length ? existing.previewUrls : [existing?.previewUrl]).filter(Boolean).slice(0, 5);
     let fileUrl = existing?.fileUrl || '';
     let fileName = existing?.fileName || '';
     let fileType = existing?.fileType || '';
 
-    if (designEditingPreviewFile) {
-      btn.textContent = 'Subiendo vista previa…';
-      const previewForm = new FormData();
-      previewForm.append('imagen', designEditingPreviewFile);
-      const previewResult = await apiFetch('/api/imagenes', {
-        method: 'POST',
-        body: previewForm
-      });
-      previewUrl = previewResult.url || '';
-      uploadedPreviewUrl = previewUrl;
+    if (designEditingPreviewFiles.length) {
+      btn.textContent = 'Subiendo vistas previas…';
+      previewUrls = [];
+      for (let i = 0; i < designEditingPreviewFiles.length; i++) {
+        const previewForm = new FormData();
+        previewForm.append('imagen', designEditingPreviewFiles[i]);
+        const previewResult = await apiFetch('/api/imagenes', {
+          method: 'POST',
+          body: previewForm
+        });
+        const url = previewResult.url || '';
+        if (!url) throw new Error(`No se pudo subir la vista previa ${i + 1}.`);
+        previewUrls.push(url);
+        uploadedPreviewUrls.push(url);
+      }
     }
 
     if (designEditingSourceFile) {
@@ -2008,7 +2061,7 @@ designForm?.addEventListener('submit', async (e) => {
       uploadedSourceUrl = fileUrl;
     }
 
-    if (!previewUrl || !fileUrl) {
+    if (!previewUrls.length || !fileUrl) {
       throw new Error('No se pudieron obtener las URLs de los archivos del diseño.');
     }
 
@@ -2022,7 +2075,8 @@ designForm?.addEventListener('submit', async (e) => {
       ancho: width,
       alto: height,
       tiempo_estimado: time,
-      preview_url: previewUrl,
+      preview_url: previewUrls[0],
+      preview_urls: previewUrls,
       archivo_url: fileUrl,
       archivo_nombre: fileName,
       archivo_tipo: fileType
@@ -2049,7 +2103,7 @@ designForm?.addEventListener('submit', async (e) => {
 
     // Si el registro falló después de subir archivos nuevos, intenta limpiar esos archivos.
     try {
-      if (uploadedPreviewUrl) {
+      for (const uploadedPreviewUrl of uploadedPreviewUrls) {
         const key = uploadedPreviewUrl.split('/api/imagenes/')[1];
         if (key) await apiFetch(`/api/imagenes/${key}`, { method: 'DELETE' });
       }
