@@ -1,4 +1,4 @@
-const APP_VERSION = '10.8';
+const APP_VERSION = '10.9';
 const API_BASE = 'https://gestor-tareas-api.detodoec.workers.dev';
 const STORAGE_KEY = 'detodoec_tasks_v1';
 const SETTINGS_KEY = 'detodoec_tasks_settings_v3';
@@ -22,6 +22,12 @@ let detailImageIndex = 0;
 let isLoading = false;
 let employeeEditingPhoto = '';
 let employeeEditingPhotoFile = null;
+let designs = [];
+let designEditingPreviewUrl = '';
+let designEditingSourceUrl = '';
+let designEditingPreviewFile = null;
+let designEditingSourceFile = null;
+let pendingAdminSection = 'apariencia';
 
 const QUOTE_DEFAULTS = [
   { clave:'lona', nombre:'Lona', precio:7.25, activo:1, orden:1 },
@@ -72,6 +78,7 @@ const deleteDialog = $('#deleteDialog');
 const paymentForm = $('#paymentForm');
 const taskForm = $('#taskForm');
 const employeeForm = $('#employeeForm');
+const designForm = $('#designForm');
 const imagePreview = $('#imagePreview');
 const finishedImagePreview = $('#finishedImagePreview');
 const imageWrap = document.querySelector('.image-preview-wrap');
@@ -222,6 +229,148 @@ async function uploadImage(file) {
   fd.append('imagen', file);
   const data = await apiFetch('/api/imagenes', { method: 'POST', body: fd });
   return data.url || '';
+}
+
+async function uploadDesignFile(file) {
+  const fd = new FormData();
+  fd.append('archivo', file);
+  const data = await apiFetch('/api/archivos', { method: 'POST', body: fd });
+  return { url: data.url || '', name: data.nombre || file.name || '', type: data.tipo || file.type || '' };
+}
+
+function fromDesignApi(item) {
+  return {
+    id: String(item.id),
+    name: item.nombre || '',
+    description: item.descripcion || '',
+    price: Number(item.precio || 0),
+    materials: item.materiales || '',
+    width: Number(item.ancho || 0),
+    height: Number(item.alto || 0),
+    time: item.tiempo_estimado || '',
+    previewUrl: item.preview_url || '',
+    fileUrl: item.archivo_url || '',
+    fileName: item.archivo_nombre || '',
+    fileType: item.archivo_tipo || ''
+  };
+}
+
+async function refreshDesigns({ silent = true } = {}) {
+  try {
+    const data = await apiFetch('/api/disenos');
+    designs = (Array.isArray(data) ? data : []).map(fromDesignApi);
+    renderDesigns();
+    renderAdminDesigns();
+  } catch (err) {
+    console.error('No se pudieron cargar los diseños', err);
+    designs = [];
+    renderDesigns();
+    renderAdminDesigns();
+    if (!silent) showToast(err.message, 'No se pudieron cargar los diseños');
+  }
+}
+
+function designFileLabel(design) {
+  const name = String(design.fileName || '').trim();
+  if (name.includes('.')) return name.split('.').pop().toUpperCase();
+  if (String(design.fileType || '').includes('svg')) return 'SVG';
+  return 'AI';
+}
+
+function renderDesigns() {
+  const grid = $('#designGrid');
+  const empty = $('#designEmpty');
+  if (!grid || !empty) return;
+  const q = ($('#designSearchInput')?.value || '').trim().toLowerCase();
+  const filtered = designs.filter((d) => `${d.name} ${d.materials} ${d.description}`.toLowerCase().includes(q));
+  grid.innerHTML = '';
+  filtered.forEach((d) => {
+    const card = document.createElement('article');
+    card.className = 'design-card';
+    card.innerHTML = `
+      <div class="design-preview"><img src="${escapeHtml(d.previewUrl || placeholderSvg())}" alt="Vista previa de ${escapeHtml(d.name)}" /></div>
+      <div class="design-card-body">
+        <div class="design-card-title"><h3>${escapeHtml(d.name)}</h3><span class="design-price">${money(d.price)}</span></div>
+        ${d.description ? `<p class="design-description">${escapeHtml(d.description)}</p>` : ''}
+        <div class="design-specs">
+          <div class="design-spec design-materials"><span class="field-icon-badge">${iconUse('icon-box')}</span><span><small>Materiales</small><strong>${escapeHtml(d.materials || 'Sin especificar')}</strong></span></div>
+          <div class="design-spec"><span class="field-icon-badge">${iconUse('icon-ruler')}</span><span><small>Medidas</small><strong>${Number(d.width || 0).toFixed(2)} × ${Number(d.height || 0).toFixed(2)} cm</strong></span></div>
+          <div class="design-spec"><span class="field-icon-badge">${iconUse('icon-clock')}</span><span><small>Tiempo</small><strong>${escapeHtml(d.time || 'Sin estimar')}</strong></span></div>
+        </div>
+        <span class="design-file-type">Archivo ${escapeHtml(designFileLabel(d))}</span>
+        <a class="btn btn-dark design-download" href="${escapeHtml(d.fileUrl)}" target="_blank" rel="noopener" download="${escapeHtml(d.fileName || '')}">${iconUse('icon-download')}<span>Descargar archivo</span></a>
+      </div>`;
+    grid.appendChild(card);
+  });
+  empty.style.display = filtered.length ? 'none' : 'block';
+}
+
+function renderAdminDesigns() {
+  const box = $('#adminDesignList');
+  if (!box) return;
+  box.innerHTML = '';
+  if (!designs.length) {
+    box.innerHTML = '<div class="admin-design-empty">Todavía no hay diseños guardados.</div>';
+    return;
+  }
+  designs.forEach((d) => {
+    const row = document.createElement('article');
+    row.className = 'admin-design-card';
+    row.innerHTML = `
+      <img src="${escapeHtml(d.previewUrl || placeholderSvg())}" alt="" />
+      <div class="admin-design-main"><strong>${escapeHtml(d.name)}</strong><span>${money(d.price)} · ${escapeHtml(d.materials)} · ${Number(d.width || 0).toFixed(2)} × ${Number(d.height || 0).toFixed(2)} cm · ${escapeHtml(d.time)}</span></div>
+      <div class="admin-design-actions"><button type="button" class="btn btn-outline small" data-edit-design="${d.id}">Editar</button><button type="button" class="btn btn-danger small" data-delete-design="${d.id}">Eliminar</button></div>`;
+    box.appendChild(row);
+  });
+}
+
+function clearDesignForm() {
+  if (!designForm) return;
+  designForm.reset();
+  $('#designId').value = '';
+  designEditingPreviewUrl = '';
+  designEditingSourceUrl = '';
+  designEditingPreviewFile = null;
+  designEditingSourceFile = null;
+  $('#designFormPreviewWrap').hidden = true;
+  $('#designFormPreview').removeAttribute('src');
+  $('#designCurrentFileName').textContent = '';
+  $('#designSaveBtn').textContent = 'Guardar diseño';
+}
+
+function editDesign(id) {
+  const d = designs.find((x) => x.id === String(id));
+  if (!d) return;
+  $('#designId').value = d.id;
+  $('#designName').value = d.name;
+  $('#designPrice').value = d.price;
+  $('#designMaterials').value = d.materials;
+  $('#designTime').value = d.time;
+  $('#designWidth').value = d.width;
+  $('#designHeight').value = d.height;
+  $('#designDescription').value = d.description || '';
+  designEditingPreviewUrl = d.previewUrl || '';
+  designEditingSourceUrl = d.fileUrl || '';
+  designEditingPreviewFile = null;
+  designEditingSourceFile = null;
+  $('#designFormPreviewWrap').hidden = false;
+  $('#designFormPreview').src = d.previewUrl || placeholderSvg();
+  $('#designCurrentFileName').textContent = d.fileName || 'Archivo guardado';
+  $('#designSaveBtn').textContent = 'Actualizar diseño';
+  showAdminSection('disenos');
+}
+
+async function deleteDesign(id) {
+  const d = designs.find((x) => x.id === String(id));
+  if (!d) return;
+  if (!window.confirm(`¿Eliminar el diseño "${d.name}"?`)) return;
+  try {
+    await apiFetch(`/api/disenos/${id}`, { method:'DELETE' });
+    await refreshDesigns({ silent:true });
+    showToast(`Se eliminó ${d.name}.`, 'Diseño eliminado');
+  } catch (err) {
+    showToast(err.message, 'No se pudo eliminar el diseño');
+  }
 }
 
 function fromEmployeeApi(emp) {
@@ -511,18 +660,23 @@ async function saveQuotePrices() {
 }
 
 function showMainView(view) {
+  const isTasks = view === 'tasks';
   const isQuote = view === 'quote';
-  $('#resumen').hidden = isQuote;
-  $('#tareas').hidden = isQuote;
+  const isDesigns = view === 'designs';
+  $('#resumen').hidden = !isTasks;
+  $('#tareas').hidden = !isTasks;
   $('#archivados').hidden = true;
   $('#cotizador').hidden = !isQuote;
-  $('#navTasks')?.classList.toggle('active', !isQuote);
+  $('#disenos').hidden = !isDesigns;
+  $('#navTasks')?.classList.toggle('active', isTasks);
   $('#navQuote')?.classList.toggle('active', isQuote);
+  $('#navDesigns')?.classList.toggle('active', isDesigns);
   if (isQuote) {
     renderQuoteMaterialSelect();
     applyQuoteExtraIcons();
     calculateQuote();
   }
+  if (isDesigns) renderDesigns();
 }
 
 function copyQuoteSummary() {
@@ -1384,7 +1538,8 @@ function applySiteIcon(dataUrl) {
   }
 }
 
-function requestAdminPanel() {
+function requestAdminPanel(section = 'apariencia') {
+  pendingAdminSection = section || 'apariencia';
   $('#loginUser').value = '';
   $('#loginPass').value = '';
   $('#loginError').hidden = true;
@@ -1427,7 +1582,7 @@ on('archiveNav', 'click', () => setArchiveView(true));
 on('closeArchive', 'click', () => setArchiveView(false));
 on('archiveSearchInput', 'input', renderArchive);
 on('themeToggle', 'click', toggleTheme);
-on('customizeBtn', 'click', requestAdminPanel);
+on('customizeBtn', 'click', () => requestAdminPanel('apariencia'));
 on('closeLogin', 'click', () => loginDialog.close());
 on('cancelLogin', 'click', () => loginDialog.close());
 on('closeAdmin', 'click', () => adminDialog.close());
@@ -1479,6 +1634,9 @@ on('detailImageNext', 'click', () => {
 });
 on('navQuote', 'click', () => showMainView('quote'));
 on('navTasks', 'click', () => showMainView('tasks'));
+on('navDesigns', 'click', () => showMainView('designs'));
+on('manageDesignsBtn', 'click', () => requestAdminPanel('disenos'));
+on('designSearchInput', 'input', renderDesigns);
 
 ['quoteEyeletIconSelect','quoteCutIconSelect','quoteDesignIconSelect'].forEach((id) => on(id, 'change', applyQuoteExtraIcons));
 ['quoteMaterial','quoteWidth','quoteHeight','quoteQty','quoteEyeletsQty','quoteCutMeters'].forEach((id) => on(id, 'input', calculateQuote));
@@ -1638,6 +1796,88 @@ $('#employeeList').addEventListener('click', (e) => {
 });
 
 
+
+$('#designPreviewFile')?.addEventListener('change', (e) => {
+  const file = e.target.files?.[0];
+  if (!file) return;
+  designEditingPreviewFile = file;
+  const reader = new FileReader();
+  reader.onload = () => {
+    $('#designFormPreviewWrap').hidden = false;
+    $('#designFormPreview').src = reader.result;
+  };
+  reader.readAsDataURL(file);
+});
+
+$('#designSourceFile')?.addEventListener('change', (e) => {
+  const file = e.target.files?.[0];
+  designEditingSourceFile = file || null;
+  if (file) {
+    $('#designFormPreviewWrap').hidden = false;
+    $('#designCurrentFileName').textContent = file.name;
+  }
+});
+
+on('designCancelBtn', 'click', clearDesignForm);
+
+designForm?.addEventListener('submit', async (e) => {
+  e.preventDefault();
+  const id = $('#designId').value.trim();
+  const name = $('#designName').value.trim();
+  const materials = $('#designMaterials').value.trim();
+  const time = $('#designTime').value.trim();
+  const price = Number($('#designPrice').value || 0);
+  const width = Number($('#designWidth').value || 0);
+  const height = Number($('#designHeight').value || 0);
+  const description = $('#designDescription').value.trim();
+  if (!name || !materials || !time || width <= 0 || height <= 0) {
+    showToast('Completa nombre, materiales, medidas y tiempo estimado.', 'Faltan datos');
+    return;
+  }
+  if (!id && (!designEditingPreviewFile || !designEditingSourceFile)) {
+    showToast('Para crear un diseño debes subir la imagen de vista previa y el archivo SVG o AI.', 'Faltan archivos');
+    return;
+  }
+  const btn = $('#designSaveBtn');
+  const original = btn.textContent;
+  btn.disabled = true;
+  btn.textContent = 'Guardando…';
+  try {
+    let previewUrl = designEditingPreviewUrl;
+    let fileUrl = designEditingSourceUrl;
+    let fileName = $('#designCurrentFileName').textContent || '';
+    let fileType = '';
+    if (designEditingPreviewFile) previewUrl = await uploadImage(designEditingPreviewFile);
+    if (designEditingSourceFile) {
+      const uploaded = await uploadDesignFile(designEditingSourceFile);
+      fileUrl = uploaded.url;
+      fileName = uploaded.name;
+      fileType = uploaded.type;
+    } else if (id) {
+      const current = designs.find((x) => x.id === id);
+      fileType = current?.fileType || '';
+      fileName = current?.fileName || fileName;
+    }
+    const payload = { nombre:name, descripcion:description, precio:price, materiales, ancho:width, alto:height, tiempo_estimado:time, preview_url:previewUrl, archivo_url:fileUrl, archivo_nombre:fileName, archivo_tipo:fileType };
+    await apiFetch(id ? `/api/disenos/${id}` : '/api/disenos', { method:id ? 'PUT':'POST', headers:{'Content-Type':'application/json'}, body:JSON.stringify(payload) });
+    clearDesignForm();
+    await refreshDesigns({ silent:true });
+    showToast(id ? 'El diseño fue actualizado.' : 'El diseño fue guardado.', id ? 'Diseño actualizado' : 'Diseño guardado');
+  } catch (err) {
+    showToast(err.message, 'No se pudo guardar el diseño');
+  } finally {
+    btn.disabled = false;
+    btn.textContent = original;
+  }
+});
+
+$('#adminDesignList')?.addEventListener('click', (e) => {
+  const editId = e.target.closest('[data-edit-design]')?.dataset.editDesign;
+  const deleteId = e.target.closest('[data-delete-design]')?.dataset.deleteDesign;
+  if (editId) editDesign(editId);
+  if (deleteId) deleteDesign(deleteId);
+});
+
 window.addEventListener('error', (event) => {
   console.error(`[DeTodoEc V${APP_VERSION}]`, event.error || event.message);
 });
@@ -1658,6 +1898,7 @@ render();
 refreshTasks();
 refreshEmployees();
 refreshQuoteMaterials();
+refreshDesigns();
 const searchBox = $('#searchInput');
 if (searchBox) { searchBox.value = ''; setTimeout(() => { if (searchBox.value.includes('@')) { searchBox.value=''; render(); } }, 300); }
 
