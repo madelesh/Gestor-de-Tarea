@@ -1,4 +1,4 @@
-const APP_VERSION = '10.6';
+const APP_VERSION = '10.7';
 const API_BASE = 'https://gestor-tareas-api.detodoec.workers.dev';
 const STORAGE_KEY = 'detodoec_tasks_v1';
 const SETTINGS_KEY = 'detodoec_tasks_settings_v3';
@@ -34,6 +34,11 @@ const QUOTE_DEFAULTS = [
 ];
 let quoteMaterials = QUOTE_DEFAULTS.map((x) => ({...x}));
 let quoteItems = [];
+const QUOTE_EXTRAS = {
+  eyelet: 0.50,
+  cut: 1.00,
+  design: 2.75
+};
 
 const $ = (s) => document.querySelector(s);
 const $$ = (s) => [...document.querySelectorAll(s)];
@@ -115,6 +120,23 @@ function prettyDate(v) {
   if (!y || !m || !d) return clean;
   return new Intl.DateTimeFormat('es-EC', { day: '2-digit', month: 'short', year: 'numeric' }).format(new Date(y, m - 1, d));
 }
+function deliveryCountdown(v) {
+  if (!v) return { text: 'Sin fecha', tone: 'neutral' };
+  const clean = String(v).slice(0, 10);
+  const [y, m, d] = clean.split('-').map(Number);
+  if (!y || !m || !d) return { text: 'Sin fecha', tone: 'neutral' };
+  const target = new Date(y, m - 1, d);
+  target.setHours(0,0,0,0);
+  const today = new Date();
+  today.setHours(0,0,0,0);
+  const days = Math.round((target - today) / 86400000);
+  if (days > 1) return { text: `Faltan ${days} días`, tone: days <= 3 ? 'warning' : 'ok' };
+  if (days === 1) return { text: 'Falta 1 día', tone: 'warning' };
+  if (days === 0) return { text: 'Entrega hoy', tone: 'today' };
+  const late = Math.abs(days);
+  return { text: `Atrasado ${late} ${late === 1 ? 'día' : 'días'}`, tone: 'late' };
+}
+
 function statusLabel(v) {
   return ({ pendiente: 'Pendiente', proceso: 'En proceso', terminado: 'Terminado', entregado: 'Entregado' })[v] || v || 'Pendiente';
 }
@@ -280,17 +302,37 @@ function getQuoteDraft() {
   const qty = Math.max(1, Math.floor(Number($('#quoteQty')?.value || 1)));
   const area = width * height * qty;
   const price = material && material.activo && Number.isFinite(material.precio) ? Number(material.precio) : null;
-  const total = price === null ? 0 : area * price;
-  return { material, width, height, qty, area, price, total };
+  const materialTotal = price === null ? 0 : area * price;
+  const eyeletsEnabled = Boolean($('#quoteEyeletsEnabled')?.checked);
+  const eyeletsQty = eyeletsEnabled ? Math.max(0, Math.floor(Number($('#quoteEyeletsQty')?.value || 0))) : 0;
+  const cutEnabled = Boolean($('#quoteCutEnabled')?.checked);
+  const cutMeters = cutEnabled ? Math.max(0, Number($('#quoteCutMeters')?.value || 0)) : 0;
+  const designEnabled = Boolean($('#quoteDesignEnabled')?.checked);
+  const extras = {
+    eyelets: eyeletsQty * QUOTE_EXTRAS.eyelet,
+    cut: cutMeters * QUOTE_EXTRAS.cut,
+    design: designEnabled ? QUOTE_EXTRAS.design : 0
+  };
+  const extrasTotal = extras.eyelets + extras.cut + extras.design;
+  const total = materialTotal + extrasTotal;
+  return { material, width, height, qty, area, price, materialTotal, eyeletsEnabled, eyeletsQty, cutEnabled, cutMeters, designEnabled, extras, extrasTotal, total };
 }
 
 function calculateQuote() {
+  const eyeletsEnabled = Boolean($('#quoteEyeletsEnabled')?.checked);
+  const cutEnabled = Boolean($('#quoteCutEnabled')?.checked);
+  if ($('#quoteEyeletsQty')) $('#quoteEyeletsQty').disabled = !eyeletsEnabled;
+  if ($('#quoteCutMeters')) $('#quoteCutMeters').disabled = !cutEnabled;
   const draft = getQuoteDraft();
   if ($('#quoteArea')) $('#quoteArea').textContent = `${draft.area.toFixed(2)} m²`;
   if ($('#quoteMaterialName')) $('#quoteMaterialName').textContent = draft.material?.nombre || 'Material';
   if ($('#quoteUnitPrice')) $('#quoteUnitPrice').textContent = draft.price === null ? 'No disponible' : `${money(draft.price)}/m²`;
   if ($('#quoteSubtotal')) $('#quoteSubtotal').textContent = draft.price === null ? '—' : money(draft.total);
-  if ($('#quoteNote')) $('#quoteNote').textContent = draft.price === null ? 'Este material está deshabilitado hasta que se configure su precio real.' : 'Listo para agregar a la cotización.';
+  if ($('#quoteNote')) {
+    if (draft.price === null) $('#quoteNote').textContent = 'Este material está deshabilitado hasta que se configure su precio real.';
+    else if (draft.extrasTotal > 0) $('#quoteNote').textContent = `Material ${money(draft.materialTotal)} + acabados ${money(draft.extrasTotal)}.`;
+    else $('#quoteNote').textContent = 'Listo para agregar a la cotización.';
+  }
   $('#addQuoteItem')?.toggleAttribute('disabled', draft.price === null || draft.area <= 0);
 }
 
@@ -306,6 +348,12 @@ function addQuoteItem() {
     qty: draft.qty,
     area: draft.area,
     price: draft.price,
+    materialTotal: draft.materialTotal,
+    eyeletsQty: draft.eyeletsQty,
+    cutMeters: draft.cutMeters,
+    designEnabled: draft.designEnabled,
+    extras: draft.extras,
+    extrasTotal: draft.extrasTotal,
     total: draft.total
   });
   renderQuoteItems();
@@ -326,6 +374,9 @@ function renderQuoteItems() {
         <strong>${escapeHtml(item.nombre)}</strong>
         <small>${item.width.toFixed(2)} m × ${item.height.toFixed(2)} m · ${item.qty} ${item.qty === 1 ? 'pieza' : 'piezas'} · ${item.area.toFixed(2)} m²</small>
         <span>${money(item.price)}/m²</span>
+        ${item.eyeletsQty ? `<span class="quote-item-extra">Ojales: ${item.eyeletsQty} × ${money(QUOTE_EXTRAS.eyelet)}</span>` : ''}
+        ${item.cutMeters ? `<span class="quote-item-extra">Corte: ${item.cutMeters.toFixed(2)} m × ${money(QUOTE_EXTRAS.cut)}</span>` : ''}
+        ${item.designEnabled ? `<span class="quote-item-extra">Diseño: ${money(QUOTE_EXTRAS.design)}</span>` : ''}
       </div>
       <strong class="quote-item-total">${money(item.total)}</strong>
       <button type="button" class="quote-item-remove" data-remove-quote="${item.id}" title="Quitar material" aria-label="Quitar material">×</button>
@@ -416,7 +467,11 @@ function copyQuoteSummary() {
   quoteItems.forEach((item, index) => {
     lines.push(`${index + 1}. ${item.nombre}`);
     lines.push(`   ${item.width.toFixed(2)} m × ${item.height.toFixed(2)} m × ${item.qty} = ${item.area.toFixed(2)} m²`);
-    lines.push(`   ${money(item.price)}/m² → ${money(item.total)}`);
+    lines.push(`   ${money(item.price)}/m² → ${money(item.materialTotal ?? (item.area * item.price))}`);
+    if (item.eyeletsQty) lines.push(`   + Ojales: ${item.eyeletsQty} × ${money(QUOTE_EXTRAS.eyelet)} = ${money(item.extras?.eyelets || 0)}`);
+    if (item.cutMeters) lines.push(`   + Corte: ${item.cutMeters.toFixed(2)} m × ${money(QUOTE_EXTRAS.cut)} = ${money(item.extras?.cut || 0)}`);
+    if (item.designEnabled) lines.push(`   + Diseño = ${money(QUOTE_EXTRAS.design)}`);
+    lines.push(`   Subtotal: ${money(item.total)}`);
   });
   lines.push('', `TOTAL: ${money(total)}`);
   const content = lines.join('\n');
@@ -660,6 +715,14 @@ function createTaskCard(task) {
   if (cardWorkerAvatar) { const emp = findEmployeeByName(task.workerName || ''); cardWorkerAvatar.textContent = emp?.photo ? '' : initials(task.workerName || ''); cardWorkerAvatar.style.backgroundImage = emp?.photo ? `url(${emp.photo})` : 'none'; }
   node.querySelector('.card-delivery').textContent = prettyDate(task.deliveryDate);
   node.querySelector('.card-total').textContent = money(task.totalAmount);
+  const cardBalance = node.querySelector('.card-balance');
+  if (cardBalance) cardBalance.textContent = money(balance(task));
+  const countdown = deliveryCountdown(task.deliveryDate);
+  const countdownEl = node.querySelector('.card-days-left');
+  if (countdownEl) {
+    countdownEl.textContent = countdown.text;
+    countdownEl.dataset.tone = countdown.tone;
+  }
   card.dataset.id = task.id;
   card.addEventListener('click', () => openDetail(task.id));
   card.addEventListener('keydown', (e) => {
@@ -1351,8 +1414,8 @@ on('detailImageNext', 'click', () => {
 });
 on('navQuote', 'click', () => showMainView('quote'));
 on('navTasks', 'click', () => showMainView('tasks'));
-['quoteMaterial','quoteWidth','quoteHeight','quoteQty'].forEach((id) => on(id, 'input', calculateQuote));
-on('quoteMaterial', 'change', calculateQuote);
+['quoteMaterial','quoteWidth','quoteHeight','quoteQty','quoteEyeletsQty','quoteCutMeters'].forEach((id) => on(id, 'input', calculateQuote));
+['quoteMaterial','quoteEyeletsEnabled','quoteCutEnabled','quoteDesignEnabled'].forEach((id) => on(id, 'change', calculateQuote));
 on('copyQuote', 'click', copyQuoteSummary);
 on('addQuoteItem', 'click', addQuoteItem);
 on('clearQuote', 'click', clearQuote);

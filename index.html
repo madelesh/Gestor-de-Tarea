@@ -9,7 +9,7 @@
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700;800&display=swap" rel="stylesheet">
   <link id="dynamicFavicon" rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 64 64'%3E%3Crect width='64' height='64' rx='16' fill='%23b9ff39'/%3E%3Cpath d='M18 33l9 9 19-22' fill='none' stroke='%23111' stroke-width='7' stroke-linecap='round' stroke-linejoin='round'/%3E%3C/svg%3E" />
-  <link rel="stylesheet" href="styles.css?v=10.6" />
+  <link rel="stylesheet" href="styles.css?v=10.7" />
 </head>
 <body>
   <svg xmlns="http://www.w3.org/2000/svg" style="display:none" aria-hidden="true" focusable="false">
@@ -36,6 +36,11 @@
     <symbol id="icon-calculator" viewBox="0 0 24 24"><path fill="currentColor" d="M6 2h12a2 2 0 0 1 2 2v16a2 2 0 0 1-2 2H6a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2Zm1 3v4h10V5H7Zm0 7v2h2v-2H7Zm4 0v2h2v-2h-2Zm4 0v2h2v-2h-2Zm-8 4v2h2v-2H7Zm4 0v2h2v-2h-2Zm4 0v2h2v-2h-2Z"/></symbol>
     <symbol id="icon-chevron-left" viewBox="0 0 24 24"><path fill="currentColor" d="m15.5 5-7 7 7 7 1.5-1.5-5.5-5.5L17 6.5 15.5 5Z"/></symbol>
     <symbol id="icon-chevron-right" viewBox="0 0 24 24"><path fill="currentColor" d="m8.5 5 7 7-7 7L7 17.5l5.5-5.5L7 6.5 8.5 5Z"/></symbol>
+
+    <symbol id="icon-eyelet" viewBox="0 0 24 24"><path fill="currentColor" d="M12 3a9 9 0 1 0 0 18 9 9 0 0 0 0-18Zm0 4a5 5 0 1 1 0 10 5 5 0 0 1 0-10Zm0 2a3 3 0 1 0 0 6 3 3 0 0 0 0-6Z"/></symbol>
+    <symbol id="icon-cut" viewBox="0 0 24 24"><path fill="currentColor" d="M9.64 7.64 7.5 5.5A3.5 3.5 0 1 0 5 11.47l3 3-3 3A3.5 3.5 0 1 0 7.5 20.5l4.14-4.14L20 24l1.5-1.5-8.36-8.36 2-2 2.36 2.36L19 13l-2.36-2.36 4.86-4.86L20 4.28l-8.36 8.36-2-2ZM5.5 9A1.5 1.5 0 1 1 7 7.5 1.5 1.5 0 0 1 5.5 9Zm0 10A1.5 1.5 0 1 1 7 17.5 1.5 1.5 0 0 1-1.5 1.5Z"/></symbol>
+    <symbol id="icon-design" viewBox="0 0 24 24"><path fill="currentColor" d="m12 2 2.09 6.26L20 10l-5.91 1.74L12 18l-2.09-6.26L4 10l5.91-1.74L12 2Zm7 12 1.2 3.8L24 19l-3.8 1.2L19 24l-1.2-3.8L14 19l3.8-1.2L19 14Z"/></symbol>
+    <symbol id="icon-settings" viewBox="0 0 24 24"><path fill="currentColor" d="m19.43 12.98.04-.98-.04-.98 2.11-1.65-2-3.46-2.49 1a7.9 7.9 0 0 0-1.7-.98L15 3h-4l-.35 2.93c-.6.24-1.17.57-1.7.98l-2.49-1-2 3.46 2.11 1.65-.04.98.04.98-2.11 1.65 2 3.46 2.49-1c.53.41 1.1.74 1.7.98L11 21h4l.35-2.93c.6-.24 1.17-.57 1.7-.98l2.49 1 2-3.46-2.11-1.65ZM13 16a4 4 0 1 1 0-8 4 4 0 0 1 0 8Z"/></symbol>
   </svg>
 
   <div class="app-shell">
@@ -73,12 +78,15 @@
       </section>
 
       <section class="section" id="tareas">
-        <div class="section-head">
-          <div>
-            <span class="eyebrow">Tareas</span>
-            <h1>Trabajos registrados</h1>
+        <div class="section-head tasks-head">
+          <div class="tasks-title-wrap">
+            <button class="btn btn-accent create-task-prominent" id="newTaskAction" type="button"><svg class="icon"><use href="#icon-plus"></use></svg><span>Crear tarea</span></button>
+            <div>
+              <span class="eyebrow">Tareas</span>
+              <h1>Trabajos registrados</h1>
+            </div>
           </div>
-          <div class="section-tools">
+          <div class="section-tools task-toolbar">
             <div class="status-tabs" id="statusTabs" aria-label="Filtros de estado">
               <button type="button" class="filter-chip active" data-status="all">Todas</button>
               <button type="button" class="filter-chip" data-status="pendiente">Pendientes</button>
@@ -86,8 +94,7 @@
               <button type="button" class="filter-chip" data-status="terminado">Terminados</button>
             </div>
             <input id="searchInput" name="task_search_only_v1031" type="text" inputmode="search" role="searchbox" placeholder="Buscar cliente o tarea..." autocomplete="new-password" autocapitalize="off" autocorrect="off" spellcheck="false" readonly data-lpignore="true" data-1p-ignore="true" data-bwignore="true" /><select id="employeeFilter" class="employee-filter" autocomplete="off"><option value="all">Todos los empleados</option></select>
-            <button class="btn btn-dark" id="newTaskAction" type="button">Crear tarea</button>
-            <button class="btn btn-outline" id="archiveNav" type="button">Archivados <span id="archiveCount" class="nav-count">0</span></button>
+            <button class="btn btn-outline archive-toolbar-btn" id="archiveNav" type="button"><svg class="icon"><use href="#icon-archive"></use></svg><span>Archivados</span><span id="archiveCount" class="nav-count">0</span></button>
           </div>
         </div>
 
@@ -151,6 +158,29 @@
               <div class="quote-area-box">
                 <span>Área total</span>
                 <strong id="quoteArea">1.00 m²</strong>
+              </div>
+            </div>
+
+            <div class="quote-extras">
+              <div class="quote-extra-head"><strong>Acabados opcionales</strong><span>Se suman al material actual</span></div>
+              <div class="quote-extra-grid">
+                <label class="quote-extra-option">
+                  <input id="quoteEyeletsEnabled" type="checkbox" />
+                  <span class="quote-extra-icon"><svg class="icon"><use href="#icon-eyelet"></use></svg></span>
+                  <span><b>Ojales</b><small>$0.50 c/u</small></span>
+                  <input id="quoteEyeletsQty" class="quote-extra-input" type="number" min="0" step="1" value="0" inputmode="numeric" disabled />
+                </label>
+                <label class="quote-extra-option">
+                  <input id="quoteCutEnabled" type="checkbox" />
+                  <span class="quote-extra-icon"><svg class="icon"><use href="#icon-cut"></use></svg></span>
+                  <span><b>Corte</b><small>$1.00 / m</small></span>
+                  <input id="quoteCutMeters" class="quote-extra-input" type="number" min="0" step="0.01" value="0" inputmode="decimal" disabled />
+                </label>
+                <label class="quote-extra-option quote-extra-design">
+                  <input id="quoteDesignEnabled" type="checkbox" />
+                  <span class="quote-extra-icon"><svg class="icon"><use href="#icon-design"></use></svg></span>
+                  <span><b>Diseño</b><small>$2.75 / trabajo</small></span>
+                </label>
               </div>
             </div>
 
@@ -415,6 +445,14 @@
       </header>
 
       <div class="admin-workspace">
+        <aside class="admin-sidebar" aria-label="Secciones del administrador">
+          <button type="button" class="admin-nav-btn active" data-admin-target="apariencia"><svg class="icon"><use href="#icon-image"></use></svg><span>Apariencia</span></button>
+          <button type="button" class="admin-nav-btn" data-admin-target="acceso"><svg class="icon"><use href="#icon-lock"></use></svg><span>Acceso</span></button>
+          <button type="button" class="admin-nav-btn" data-admin-target="empleados"><svg class="icon"><use href="#icon-user"></use></svg><span>Empleados</span></button>
+          <button type="button" class="admin-nav-btn" data-admin-target="cotizador"><svg class="icon"><use href="#icon-calculator"></use></svg><span>Cotizador</span></button>
+          <button type="button" class="admin-nav-btn" data-admin-target="datos"><svg class="icon"><use href="#icon-cloud"></use></svg><span>Datos en la nube</span></button>
+          <button type="button" class="btn btn-outline admin-close-side" id="closeAdminFooter"><span>Cerrar</span></button>
+        </aside>
         <main class="admin-content">
           <section class="admin-section admin-view active" data-admin-view="apariencia">
             <div class="admin-section-head"><h3>Apariencia</h3><p>Logo e imagen del sistema.</p></div>
@@ -465,14 +503,7 @@
           </section>
         </main>
 
-        <aside class="admin-sidebar" aria-label="Secciones del administrador">
-          <button type="button" class="admin-nav-btn active" data-admin-target="apariencia">Apariencia</button>
-          <button type="button" class="admin-nav-btn" data-admin-target="acceso">Acceso</button>
-          <button type="button" class="admin-nav-btn" data-admin-target="empleados">Empleados</button>
-          <button type="button" class="admin-nav-btn" data-admin-target="cotizador">Cotizador</button>
-          <button type="button" class="admin-nav-btn" data-admin-target="datos">Datos en la nube</button>
-          <button type="button" class="btn btn-outline admin-close-side" id="closeAdminFooter">Cerrar</button>
-        </aside>
+
       </div>
     </div>
   </dialog>
@@ -495,8 +526,11 @@
   </div>
 
   <template id="taskTemplate">
-    <article class="task-card" tabindex="0" role="button" aria-label="Ver detalle de tarea">
-      <div class="card-status-badge"></div>
+    <article class="task-card task-card-v107" tabindex="0" role="button" aria-label="Ver detalle de tarea">
+      <div class="card-topline">
+        <div class="card-worker-top"><span class="card-worker-avatar"></span><span><small>Realiza</small><b class="card-worker-name"></b></span></div>
+        <div class="card-status-badge"></div>
+      </div>
       <div class="task-image-wrap task-card-carousel">
         <img class="task-image" alt="Imagen de la tarea" />
         <button type="button" class="card-image-arrow card-image-prev" aria-label="Imagen anterior"><svg class="icon"><use href="#icon-chevron-left"></use></svg></button>
@@ -506,15 +540,18 @@
       <div class="task-card-body">
         <strong class="card-client"></strong>
         <span class="card-taskname"></span>
-        <div class="card-worker-row"><span class="card-worker-avatar"></span><span><small>Realiza</small><b class="card-worker-name"></b></span></div>
-        <div class="card-meta compact">
-          <span class="meta-pill"><span class="field-icon-badge"><svg class="icon"><use href="#icon-calendar"></use></svg></span><span><small>Entrega</small><b class="card-delivery"></b></span></span>
-          <span class="meta-pill"><span class="field-icon-badge"><svg class="icon"><use href="#icon-dollar"></use></svg></span><span><small>Valor total</small><b class="card-total"></b></span></span>
+        <div class="card-delivery-row">
+          <span class="card-days-left"></span>
+          <span class="card-delivery-subtle"><svg class="icon"><use href="#icon-calendar"></use></svg><span class="card-delivery"></span></span>
+        </div>
+        <div class="card-money-row">
+          <div><small>Valor total</small><b class="card-total"></b></div>
+          <div class="card-balance-box"><small>Saldo pendiente</small><b class="card-balance"></b></div>
         </div>
       </div>
     </article>
   </template>
 
-  <script src="app.js?v=10.6"></script>
+  <script src="app.js?v=10.7"></script>
 </body>
 </html>
