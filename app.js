@@ -1915,7 +1915,7 @@ designForm?.addEventListener('submit', async (e) => {
 
   if (!id && (!designEditingPreviewFile || !designEditingSourceFile)) {
     showToast(
-      'Para crear un diseño debes subir la imagen de vista previa y el archivo SVG o AI.',
+      'Para crear un diseño debes subir la vista previa y el archivo SVG o AI.',
       'Faltan archivos'
     );
     return;
@@ -1924,31 +1924,70 @@ designForm?.addEventListener('submit', async (e) => {
   const btn = $('#designSaveBtn');
   const original = btn.textContent;
   btn.disabled = true;
-  btn.textContent = id ? 'Actualizando…' : 'Guardando…';
+
+  let uploadedPreviewUrl = '';
+  let uploadedSourceUrl = '';
 
   try {
-    const fd = new FormData();
-    fd.append('nombre', name);
-    fd.append('descripcion', description);
-    fd.append('precio', String(price));
-    fd.append('materiales', materials);
-    fd.append('ancho', String(width));
-    fd.append('alto', String(height));
-    fd.append('tiempo_estimado', time);
+    const existing = id ? designs.find((d) => String(d.id) === String(id)) : null;
+
+    let previewUrl = existing?.previewUrl || '';
+    let fileUrl = existing?.fileUrl || '';
+    let fileName = existing?.fileName || '';
+    let fileType = existing?.fileType || '';
 
     if (designEditingPreviewFile) {
-      fd.append('preview', designEditingPreviewFile);
+      btn.textContent = 'Subiendo vista previa…';
+      const previewForm = new FormData();
+      previewForm.append('imagen', designEditingPreviewFile);
+      const previewResult = await apiFetch('/api/imagenes', {
+        method: 'POST',
+        body: previewForm
+      });
+      previewUrl = previewResult.url || '';
+      uploadedPreviewUrl = previewUrl;
     }
 
     if (designEditingSourceFile) {
-      fd.append('archivo', designEditingSourceFile);
+      btn.textContent = 'Subiendo archivo…';
+      const fileForm = new FormData();
+      fileForm.append('archivo', designEditingSourceFile);
+      const fileResult = await apiFetch('/api/archivos', {
+        method: 'POST',
+        body: fileForm
+      });
+      fileUrl = fileResult.url || '';
+      fileName = fileResult.nombre || designEditingSourceFile.name || '';
+      fileType = fileResult.tipo || designEditingSourceFile.type || '';
+      uploadedSourceUrl = fileUrl;
     }
+
+    if (!previewUrl || !fileUrl) {
+      throw new Error('No se pudieron obtener las URLs de los archivos del diseño.');
+    }
+
+    btn.textContent = id ? 'Actualizando datos…' : 'Guardando datos…';
+
+    const payload = {
+      nombre: name,
+      descripcion: description,
+      precio: price,
+      materiales: materials,
+      ancho: width,
+      alto: height,
+      tiempo_estimado: time,
+      preview_url: previewUrl,
+      archivo_url: fileUrl,
+      archivo_nombre: fileName,
+      archivo_tipo: fileType
+    };
 
     const result = await apiFetch(
       id ? `/api/disenos/${id}` : '/api/disenos',
       {
         method: id ? 'PUT' : 'POST',
-        body: fd
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(payload)
       }
     );
 
@@ -1961,6 +2000,19 @@ designForm?.addEventListener('submit', async (e) => {
     );
   } catch (err) {
     console.error('Error guardando diseño:', err);
+
+    // Si el registro falló después de subir archivos nuevos, intenta limpiar esos archivos.
+    try {
+      if (uploadedPreviewUrl) {
+        const key = uploadedPreviewUrl.split('/api/imagenes/')[1];
+        if (key) await apiFetch(`/api/imagenes/${key}`, { method: 'DELETE' });
+      }
+      if (uploadedSourceUrl) {
+        const key = uploadedSourceUrl.split('/api/archivos/')[1];
+        if (key) await apiFetch(`/api/archivos/${key}`, { method: 'DELETE' });
+      }
+    } catch {}
+
     showToast(
       err.message || 'No se pudo guardar el diseño.',
       id ? 'No se pudo actualizar el diseño' : 'No se pudo guardar el diseño'
