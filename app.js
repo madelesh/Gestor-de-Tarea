@@ -1,4 +1,4 @@
-const APP_VERSION = '10.15';
+const APP_VERSION = '10.15.1';
 const API_BASE = 'https://gestor-tareas-api.detodoec.workers.dev';
 const STORAGE_KEY = 'detodoec_tasks_v1';
 const SETTINGS_KEY = 'detodoec_tasks_settings_v3';
@@ -345,6 +345,66 @@ function designFileLabel(design) {
   return 'AI';
 }
 
+async function buildSocialImageWithCode(imageUrl, code) {
+  const response = await fetch(imageUrl);
+  if (!response.ok) throw new Error('No se pudo descargar la imagen');
+  const blob = await response.blob();
+
+  const bitmap = await createImageBitmap(blob);
+  const canvas = document.createElement('canvas');
+  canvas.width = bitmap.width;
+  canvas.height = bitmap.height;
+  const ctx = canvas.getContext('2d');
+
+  ctx.drawImage(bitmap, 0, 0, canvas.width, canvas.height);
+
+  const scale = Math.max(1, Math.min(canvas.width, canvas.height) / 900);
+  const paddingX = 26 * scale;
+  const paddingY = 14 * scale;
+  const radius = 24 * scale;
+  const margin = 22 * scale;
+  const fontSize = 34 * scale;
+  const label = `#${String(code || '').padStart(5, '0')}`;
+
+  ctx.font = `700 ${fontSize}px Inter, Arial, sans-serif`;
+  ctx.textBaseline = 'middle';
+  const textWidth = ctx.measureText(label).width;
+  const badgeWidth = textWidth + paddingX * 2;
+  const badgeHeight = fontSize + paddingY * 2;
+  const x = canvas.width - badgeWidth - margin;
+  const y = margin;
+
+  ctx.save();
+  ctx.fillStyle = '#B8F431';
+  roundedRect(ctx, x, y, badgeWidth, badgeHeight, radius);
+  ctx.fill();
+
+  ctx.fillStyle = '#09111f';
+  ctx.fillText(label, x + paddingX, y + badgeHeight / 2 + 1 * scale);
+  ctx.restore();
+
+  return new Promise((resolve, reject) => {
+    canvas.toBlob((result) => {
+      if (!result) {
+        reject(new Error('No se pudo generar la imagen'));
+        return;
+      }
+      resolve(result);
+    }, 'image/png');
+  });
+}
+
+function roundedRect(ctx, x, y, width, height, radius) {
+  const r = Math.min(radius, width / 2, height / 2);
+  ctx.beginPath();
+  ctx.moveTo(x + r, y);
+  ctx.arcTo(x + width, y, x + width, y + height, r);
+  ctx.arcTo(x + width, y + height, x, y + height, r);
+  ctx.arcTo(x, y + height, x, y, r);
+  ctx.arcTo(x, y, x + width, y, r);
+  ctx.closePath();
+}
+
 function renderDesigns() {
   const grid = $('#designGrid');
   const empty = $('#designEmpty');
@@ -450,13 +510,12 @@ function renderDesigns() {
       e.preventDefault();
       e.stopPropagation();
       const btn = e.currentTarget;
-      const url = btn.dataset.socialImage;
+      const activeIndex = Number(card.dataset.previewIndex || 0);
+      const url = safePreviews[activeIndex] || btn.dataset.socialImage;
       const filename = btn.dataset.socialName || `diseno-${d.code}.png`;
       try {
-        const response = await fetch(url);
-        if (!response.ok) throw new Error('No se pudo descargar la imagen');
-        const blob = await response.blob();
-        const objectUrl = URL.createObjectURL(blob);
+        const finalBlob = await buildSocialImageWithCode(url, d.code);
+        const objectUrl = URL.createObjectURL(finalBlob);
         const a = document.createElement('a');
         a.href = objectUrl;
         a.download = filename;
@@ -464,7 +523,7 @@ function renderDesigns() {
         a.click();
         a.remove();
         setTimeout(() => URL.revokeObjectURL(objectUrl), 1000);
-        showToast('Imagen lista para publicar.', 'Imagen descargada');
+        showToast('Imagen lista para publicar con código.', 'Imagen descargada');
       } catch (err) {
         showToast(err.message || 'No se pudo descargar la imagen.', 'Descarga');
       }
