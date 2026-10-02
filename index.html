@@ -9,7 +9,7 @@
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700;800&display=swap" rel="stylesheet">
   <link id="dynamicFavicon" rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 64 64'%3E%3Crect width='64' height='64' rx='16' fill='%23b9ff39'/%3E%3Cpath d='M18 33l9 9 19-22' fill='none' stroke='%23111' stroke-width='7' stroke-linecap='round' stroke-linejoin='round'/%3E%3C/svg%3E" />
-  <link rel="stylesheet" href="styles.css?v=10.14" />
+  <link rel="stylesheet" href="styles.css?v=10.15" />
 </head>
 <body>
   <svg xmlns="http://www.w3.org/2000/svg" style="display:none" aria-hidden="true" focusable="false">
@@ -48,6 +48,7 @@
 
     <symbol id="icon-library" viewBox="0 0 24 24"><path fill="currentColor" d="M4 3h4v18H4V3Zm6 0h4v18h-4V3Zm6 2.5 3.5-1 4.5 15-3.5 1-4.5-15Z"/></symbol>
     <symbol id="icon-download" viewBox="0 0 24 24"><path fill="currentColor" d="M11 3h2v10.17l3.59-3.58L18 11l-6 6-6-6 1.41-1.41L11 13.17V3ZM5 19h14v2H5v-2Z"/></symbol>
+    <symbol id="icon-copy" viewBox="0 0 24 24"><path fill="currentColor" d="M8 7V4a2 2 0 0 1 2-2h8a2 2 0 0 1 2 2v10a2 2 0 0 1-2 2h-3v3a3 3 0 0 1-3 3H5a3 3 0 0 1-3-3V10a3 3 0 0 1 3-3h3Zm2 0h2a3 3 0 0 1 3 3v4h3V4h-8v3Zm2 2H5a1 1 0 0 0-1 1v9a1 1 0 0 0 1 1h7a1 1 0 0 0 1-1v-9a1 1 0 0 0-1-1Z"/></symbol>
     <symbol id="icon-ruler" viewBox="0 0 24 24"><path fill="currentColor" d="m3 17 14-14 4 4L7 21H3v-4Zm4.5-1.5 1 1 1.5-1.5-1-1-1.5 1.5Zm3-3 1 1L13 12l-1-1-1.5 1.5Zm3-3 1 1L16 9l-1-1-1.5 1.5Z"/></symbol>
     <symbol id="icon-clock" viewBox="0 0 24 24"><path fill="currentColor" d="M12 2a10 10 0 1 0 0 20 10 10 0 0 0 0-20Zm1 5v5.59l3.7 2.14-1 1.73L11 13.75V7h2Z"/></symbol>
     <symbol id="icon-box" viewBox="0 0 24 24"><path fill="currentColor" d="m12 2 9 4.5v11L12 22l-9-4.5v-11L12 2Zm0 2.24L6.24 7.12 12 10l5.76-2.88L12 4.24ZM5 8.74v7.52l6 3v-7.52l-6-3Zm8 10.52 6-3V8.74l-6 3v7.52Z"/></symbol>
@@ -699,7 +700,12 @@
         <div class="card-image-dots"><span></span><span></span></div>
       </div>
       <div class="task-card-body">
-        <strong class="card-client"></strong>
+        <div class="card-client-row">
+          <strong class="card-client"></strong>
+          <button type="button" class="card-copy-client" title="Copiar nombre del cliente" aria-label="Copiar nombre del cliente">
+            <svg class="icon"><use href="#icon-copy"></use></svg>
+          </button>
+        </div>
         <span class="card-taskname"></span>
         <div class="card-delivery-row">
           <span class="card-days-left"></span>
@@ -713,6 +719,6 @@
     </article>
   </template>
 
-  <script src="app.js?v=10.14"></script>
+  <script src="app.js?v=10.15"></script>
 </body>
 </html>

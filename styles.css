@@ -2113,3 +2113,168 @@ body,
     margin-left:0!important;
   }
 }
+
+
+/* =========================================================
+   V10.15 — Flujo rápido de tareas + tarjetas y diseños
+   ========================================================= */
+
+/* Corrige el encabezado del cotizador (icono/título alineados) */
+.quote-card-head-main{
+  flex-direction:row!important;
+  align-items:center!important;
+  gap:12px!important;
+}
+.quote-card-head-main>div{
+  display:flex!important;
+  flex-direction:column!important;
+  gap:3px!important;
+}
+.quote-card-head-main strong,
+.quote-card-head-main small{
+  display:block!important;
+  white-space:normal!important;
+}
+.quote-card-head-main strong{line-height:1.2!important}
+.quote-card-head-main small{line-height:1.3!important}
+
+/* Copiar cliente */
+.card-client-row{
+  display:grid;
+  grid-template-columns:minmax(0,1fr) 36px;
+  align-items:center;
+  gap:8px;
+}
+.card-copy-client{
+  width:36px;
+  height:36px;
+  display:grid;
+  place-items:center;
+  border:1px solid var(--line);
+  border-radius:12px;
+  background:transparent;
+  color:var(--muted);
+  cursor:pointer;
+  transition:.18s ease;
+}
+.card-copy-client:hover{
+  color:var(--accent);
+  border-color:var(--accent);
+  background:color-mix(in srgb,var(--accent) 8%,transparent);
+}
+.card-copy-client .icon{width:16px;height:16px}
+
+/* Drag & drop entre estados */
+#taskGrid{
+  display:block!important;
+}
+.task-group{
+  width:100%;
+  margin-bottom:26px;
+  border-radius:20px;
+  transition:.18s ease;
+}
+.task-group-heading{
+  display:grid!important;
+  grid-template-columns:auto auto minmax(0,1fr);
+  align-items:center;
+  gap:9px;
+}
+.task-group-heading small{
+  justify-self:end;
+  color:var(--muted);
+  font-size:10px;
+  font-weight:700;
+  opacity:.7;
+}
+.task-group-body{
+  display:grid!important;
+  grid-template-columns:repeat(auto-fill,minmax(285px,330px))!important;
+  gap:16px!important;
+  align-items:start!important;
+  padding:12px 0 2px!important;
+  min-height:76px;
+}
+.task-group-empty{
+  grid-column:1/-1;
+  min-height:64px;
+  display:grid;
+  place-items:center;
+  border:1px dashed var(--line);
+  border-radius:16px;
+  color:var(--muted);
+  font-size:12px;
+  font-weight:700;
+  opacity:.75;
+}
+.task-group.drag-over{
+  outline:2px solid var(--accent);
+  outline-offset:6px;
+  background:color-mix(in srgb,var(--accent) 5%,transparent);
+}
+.task-card.dragging{
+  opacity:.42;
+  transform:scale(.98);
+}
+.task-card[draggable="true"]{cursor:grab}
+.task-card[draggable="true"]:active{cursor:grabbing}
+.standalone-task-grid{
+  padding-top:0!important;
+}
+
+/* Diseño: código copiable y doble descarga */
+.design-code-row{
+  grid-template-columns:34px minmax(0,1fr) 38px!important;
+}
+.design-copy-code{
+  width:38px;
+  height:38px;
+  border-radius:12px;
+  border:1px solid var(--line);
+  background:transparent;
+  color:var(--muted);
+  display:grid;
+  place-items:center;
+  cursor:pointer;
+}
+.design-copy-code:hover{
+  border-color:var(--accent);
+  color:var(--accent);
+}
+.design-copy-code .icon{width:16px;height:16px}
+.design-download-actions{
+  display:grid;
+  grid-template-columns:1fr 1fr;
+  gap:9px;
+}
+.design-download-actions .btn{
+  min-height:46px;
+  display:flex;
+  align-items:center;
+  justify-content:center;
+  gap:8px;
+  min-width:0;
+}
+.design-download-actions .btn span{
+  white-space:nowrap;
+  overflow:hidden;
+  text-overflow:ellipsis;
+}
+
+@media(max-width:720px){
+  .task-group-heading{
+    grid-template-columns:auto auto;
+  }
+  .task-group-heading small{
+    display:none;
+  }
+  .task-group-body{
+    grid-template-columns:repeat(2,minmax(0,1fr))!important;
+  }
+  .design-download-actions{
+    grid-template-columns:1fr;
+  }
+}
+@media(max-width:520px){
+  .task-group-body{grid-template-columns:1fr!important}
+}

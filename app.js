@@ -1,4 +1,4 @@
-const APP_VERSION = '10.14';
+const APP_VERSION = '10.15';
 const API_BASE = 'https://gestor-tareas-api.detodoec.workers.dev';
 const STORAGE_KEY = 'detodoec_tasks_v1';
 const SETTINGS_KEY = 'detodoec_tasks_settings_v3';
@@ -388,27 +388,28 @@ function renderDesigns() {
             </span>
           </div>
 
-          <div class="design-info-row">
-            <span class="field-icon-badge">${iconUse('icon-task')}</span>
-            <span>
-              <small>Tipo de archivo</small>
-              <strong>${escapeHtml(designFileLabel(d))}</strong>
-            </span>
-          </div>
-
           <div class="design-info-row design-code-row">
             <span class="field-icon-badge">${iconUse('icon-search')}</span>
             <span>
               <small>Código de búsqueda</small>
               <strong>${escapeHtml(d.code)}</strong>
             </span>
+            <button type="button" class="design-copy-code" data-copy-design-code="${escapeHtml(d.code)}" title="Copiar código" aria-label="Copiar código">
+              ${iconUse('icon-copy')}
+            </button>
           </div>
         </div>
 
-        <a class="btn btn-dark design-download" href="${escapeHtml(d.fileUrl)}" target="_blank" rel="noopener" download="${escapeHtml(d.fileName || '')}">
-          ${iconUse('icon-download')}
-          <span>Descargar archivo</span>
-        </a>
+        <div class="design-download-actions">
+          <button type="button" class="btn btn-outline design-social-download" data-social-image="${escapeHtml(safePreviews[0])}" data-social-name="${escapeHtml(`diseno-${d.code}.png`)}">
+            ${iconUse('icon-image')}
+            <span>Descargar imagen</span>
+          </button>
+          <a class="btn btn-dark design-download" href="${escapeHtml(d.fileUrl)}" target="_blank" rel="noopener" download="${escapeHtml(d.fileName || '')}">
+            ${iconUse('icon-download')}
+            <span>Descargar archivo</span>
+          </a>
+        </div>
       </div>
     `;
 
@@ -432,6 +433,42 @@ function renderDesigns() {
         show(Number(card.dataset.previewIndex || 0) + 1);
       });
     }
+
+    card.querySelector('[data-copy-design-code]')?.addEventListener('click', async (e) => {
+      e.preventDefault();
+      e.stopPropagation();
+      const code = e.currentTarget.dataset.copyDesignCode || d.code;
+      try {
+        await navigator.clipboard.writeText(code);
+        showToast(code, 'Código copiado');
+      } catch {
+        showToast('No se pudo copiar el código.', 'Copiar');
+      }
+    });
+
+    card.querySelector('[data-social-image]')?.addEventListener('click', async (e) => {
+      e.preventDefault();
+      e.stopPropagation();
+      const btn = e.currentTarget;
+      const url = btn.dataset.socialImage;
+      const filename = btn.dataset.socialName || `diseno-${d.code}.png`;
+      try {
+        const response = await fetch(url);
+        if (!response.ok) throw new Error('No se pudo descargar la imagen');
+        const blob = await response.blob();
+        const objectUrl = URL.createObjectURL(blob);
+        const a = document.createElement('a');
+        a.href = objectUrl;
+        a.download = filename;
+        document.body.appendChild(a);
+        a.click();
+        a.remove();
+        setTimeout(() => URL.revokeObjectURL(objectUrl), 1000);
+        showToast('Imagen lista para publicar.', 'Imagen descargada');
+      } catch (err) {
+        showToast(err.message || 'No se pudo descargar la imagen.', 'Descarga');
+      }
+    });
 
     grid.appendChild(card);
   });
@@ -1295,29 +1332,8 @@ async function refreshTasks({ silent = false } = {}) {
     const data = await apiFetch('/api/tareas');
     tasks = (Array.isArray(data) ? data : []).map(fromApi);
 
-    // V10.4: si una tarea está totalmente pagada y en estado final,
-    // se archiva automáticamente en la nube para que ocurra en todas las PCs.
-    const autoArchive = tasks.filter((t) =>
-      !t.archived &&
-      (t.status === 'terminado' || t.status === 'entregado') &&
-      balance(t) <= 0.0001
-    );
+    // V10.15: las tareas ya no se archivan automáticamente por estar pagadas.
 
-    if (autoArchive.length) {
-      await Promise.all(autoArchive.map((task) =>
-        apiFetch(`/api/tareas/${task.id}`, {
-          method: 'PUT',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ ...toApi(task), archivada: true })
-        }).catch((error) => {
-          console.error('No se pudo archivar automáticamente', task.id, error);
-          return null;
-        })
-      ));
-
-      const refreshed = await apiFetch('/api/tareas');
-      tasks = (Array.isArray(refreshed) ? refreshed : []).map(fromApi);
-    }
 
     render();
     setSyncState('ok');
@@ -1353,6 +1369,17 @@ function createTaskCard(task) {
   nextBtn.addEventListener('click', (e) => { e.stopPropagation(); cardImageIndex = (cardImageIndex + 1) % cardImages.length; updateCardImage(); });
   updateCardImage();
   node.querySelector('.card-client').textContent = task.clientName || 'Sin cliente';
+  const copyClientBtn = node.querySelector('.card-copy-client');
+  copyClientBtn?.addEventListener('click', async (e) => {
+    e.preventDefault();
+    e.stopPropagation();
+    try {
+      await navigator.clipboard.writeText(task.clientName || '');
+      showToast(task.clientName || '', 'Nombre del cliente copiado');
+    } catch {
+      showToast('No se pudo copiar el nombre.', 'Copiar');
+    }
+  });
   node.querySelector('.card-taskname').textContent = task.taskName || 'Sin nombre de tarea';
   const cardWorker = node.querySelector('.card-worker-name');
   const cardWorkerAvatar = node.querySelector('.card-worker-avatar');
@@ -1369,6 +1396,13 @@ function createTaskCard(task) {
     countdownEl.dataset.tone = countdown.tone;
   }
   card.dataset.id = task.id;
+  card.draggable = true;
+  card.addEventListener('dragstart', (e) => {
+    card.classList.add('dragging');
+    e.dataTransfer.effectAllowed = 'move';
+    e.dataTransfer.setData('text/plain', String(task.id));
+  });
+  card.addEventListener('dragend', () => card.classList.remove('dragging'));
   card.addEventListener('click', () => openDetail(task.id));
   card.addEventListener('keydown', (e) => {
     if (e.key === 'Enter' || e.key === ' ') {
@@ -1377,6 +1411,32 @@ function createTaskCard(task) {
     }
   });
   return node;
+}
+
+async function moveTaskToStatus(taskId, nextStatus) {
+  const task = tasks.find((item) => String(item.id) === String(taskId));
+  if (!task || task.status === nextStatus) return;
+
+  const previous = task.status;
+  task.status = nextStatus;
+  render();
+
+  try {
+    await apiFetch(`/api/tareas/${task.id}`, {
+      method:'PUT',
+      headers:{'Content-Type':'application/json'},
+      body:JSON.stringify({ ...toApi(task), estado:nextStatus })
+    });
+    showToast(
+      `${task.taskName || 'La tarea'} pasó de ${statusLabel(previous)} a ${statusLabel(nextStatus)}.`,
+      'Estado actualizado'
+    );
+    await refreshTasks({ silent:true });
+  } catch (err) {
+    task.status = previous;
+    render();
+    showToast(err.message, 'No se pudo mover la tarea');
+  }
 }
 
 function render() {
@@ -1401,15 +1461,51 @@ function render() {
 
     groups.forEach((group) => {
       const items = filtered.filter((t) => t.status === group.key).sort(sortByDate);
-      if (!items.length) return;
+
+      const wrapper = document.createElement('section');
+      wrapper.className = `task-group task-group-${group.key}`;
+      wrapper.dataset.statusDrop = group.key;
+
       const heading = document.createElement('div');
       heading.className = `task-group-heading task-group-${group.key}`;
-      heading.innerHTML = `<strong>${group.label}</strong><span>${items.length}</span>`;
-      taskGrid.appendChild(heading);
-      items.forEach((t) => taskGrid.appendChild(createTaskCard(t)));
+      heading.innerHTML = `
+        <strong>${group.label}</strong>
+        <span>${items.length}</span>
+        <small>Arrastra aquí para cambiar estado</small>
+      `;
+
+      const body = document.createElement('div');
+      body.className = 'task-group-body';
+
+      if (!items.length) {
+        body.innerHTML = `<div class="task-group-empty">Suelta una tarea aquí</div>`;
+      } else {
+        items.forEach((t) => body.appendChild(createTaskCard(t)));
+      }
+
+      wrapper.addEventListener('dragover', (e) => {
+        e.preventDefault();
+        e.dataTransfer.dropEffect = 'move';
+        wrapper.classList.add('drag-over');
+      });
+      wrapper.addEventListener('dragleave', (e) => {
+        if (!wrapper.contains(e.relatedTarget)) wrapper.classList.remove('drag-over');
+      });
+      wrapper.addEventListener('drop', (e) => {
+        e.preventDefault();
+        wrapper.classList.remove('drag-over');
+        const taskId = e.dataTransfer.getData('text/plain');
+        if (taskId) moveTaskToStatus(taskId, group.key);
+      });
+
+      wrapper.append(heading, body);
+      taskGrid.appendChild(wrapper);
     });
   } else {
-    filtered.sort(sortByDate).forEach((t) => taskGrid.appendChild(createTaskCard(t)));
+    const singleGrid = document.createElement('div');
+    singleGrid.className = 'task-group-body standalone-task-grid';
+    filtered.sort(sortByDate).forEach((t) => singleGrid.appendChild(createTaskCard(t)));
+    taskGrid.appendChild(singleGrid);
   }
 
   emptyState.style.display = filtered.length ? 'none' : 'block';
