@@ -1,4 +1,4 @@
-const APP_VERSION = '10.15.1';
+const APP_VERSION = '10.15.2';
 const API_BASE = 'https://gestor-tareas-api.detodoec.workers.dev';
 const STORAGE_KEY = 'detodoec_tasks_v1';
 const SETTINGS_KEY = 'detodoec_tasks_settings_v3';
@@ -358,29 +358,21 @@ async function buildSocialImageWithCode(imageUrl, code) {
 
   ctx.drawImage(bitmap, 0, 0, canvas.width, canvas.height);
 
+  const label = `COD ${String(code || '').padStart(5, '0')}`;
   const scale = Math.max(1, Math.min(canvas.width, canvas.height) / 900);
-  const paddingX = 26 * scale;
-  const paddingY = 14 * scale;
-  const radius = 24 * scale;
-  const margin = 22 * scale;
-  const fontSize = 34 * scale;
-  const label = `#${String(code || '').padStart(5, '0')}`;
-
-  ctx.font = `700 ${fontSize}px Inter, Arial, sans-serif`;
-  ctx.textBaseline = 'middle';
-  const textWidth = ctx.measureText(label).width;
-  const badgeWidth = textWidth + paddingX * 2;
-  const badgeHeight = fontSize + paddingY * 2;
-  const x = canvas.width - badgeWidth - margin;
-  const y = margin;
+  const fontSize = Math.max(22, 56 * scale);
 
   ctx.save();
-  ctx.fillStyle = '#B8F431';
-  roundedRect(ctx, x, y, badgeWidth, badgeHeight, radius);
-  ctx.fill();
-
-  ctx.fillStyle = '#09111f';
-  ctx.fillText(label, x + paddingX, y + badgeHeight / 2 + 1 * scale);
+  ctx.translate(canvas.width / 2, canvas.height / 2);
+  ctx.rotate(-Math.PI / 7);
+  ctx.font = `800 ${fontSize}px Inter, Arial, sans-serif`;
+  ctx.textAlign = 'center';
+  ctx.textBaseline = 'middle';
+  ctx.lineWidth = Math.max(2, 6 * scale);
+  ctx.strokeStyle = 'rgba(255,255,255,0.35)';
+  ctx.fillStyle = 'rgba(10, 17, 31, 0.18)';
+  ctx.strokeText(label, 0, 0);
+  ctx.fillText(label, 0, 0);
   ctx.restore();
 
   return new Promise((resolve, reject) => {
@@ -523,7 +515,7 @@ function renderDesigns() {
         a.click();
         a.remove();
         setTimeout(() => URL.revokeObjectURL(objectUrl), 1000);
-        showToast('Imagen lista para publicar con código.', 'Imagen descargada');
+        showToast('Imagen lista para publicar con marca de agua del código.', 'Imagen descargada');
       } catch (err) {
         showToast(err.message || 'No se pudo descargar la imagen.', 'Descarga');
       }
