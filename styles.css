@@ -2360,3 +2360,82 @@ body,
   .default-task-image-admin{grid-template-columns:1fr}
   .default-task-image-preview{width:140px}
 }
+
+
+/* =========================================================
+   V10.16.1 — Corrección visual estadísticas + etiqueta Tareas
+   ========================================================= */
+
+/* Evita que la etiqueta verde "Tareas" se estire */
+.tasks-heading-block{
+  display:flex!important;
+  flex-direction:column!important;
+  align-items:flex-start!important;
+  gap:6px!important;
+  width:auto!important;
+  max-width:max-content!important;
+}
+
+.tasks-heading-block .eyebrow{
+  width:auto!important;
+  max-width:max-content!important;
+  align-self:flex-start!important;
+  padding:7px 13px!important;
+  line-height:1!important;
+}
+
+/* Corrige iconos y textos de las tarjetas de estadísticas */
+.stats article{
+  display:flex!important;
+  flex-direction:column!important;
+  justify-content:center!important;
+  min-height:112px!important;
+}
+
+.stats .stat-label{
+  display:flex!important;
+  flex-direction:row!important;
+  align-items:center!important;
+  gap:10px!important;
+  margin:0 0 12px!important;
+  min-height:32px!important;
+}
+
+.stats .stat-label > span{
+  display:block!important;
+  margin:0!important;
+  padding:0!important;
+  line-height:1.2!important;
+}
+
+.stats .stat-label > span:last-child{
+  color:var(--muted)!important;
+  font-size:14px!important;
+  font-weight:500!important;
+}
+
+.stats .stat-icon{
+  width:32px!important;
+  height:32px!important;
+  min-width:32px!important;
+  flex:0 0 32px!important;
+  margin:0!important;
+  padding:0!important;
+  display:grid!important;
+  place-items:center!important;
+  border-radius:10px!important;
+  background:color-mix(in srgb,var(--accent) 14%,var(--surface-2))!important;
+  color:var(--accent)!important;
+}
+
+.stats .stat-icon .icon{
+  width:16px!important;
+  height:16px!important;
+  display:block!important;
+  margin:0!important;
+}
+
+.stats article > strong{
+  margin:0!important;
+  line-height:1!important;
+}
