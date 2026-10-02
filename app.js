@@ -1,4 +1,4 @@
-const APP_VERSION = '10.13';
+const APP_VERSION = '10.14';
 const API_BASE = 'https://gestor-tareas-api.detodoec.workers.dev';
 const STORAGE_KEY = 'detodoec_tasks_v1';
 const SETTINGS_KEY = 'detodoec_tasks_settings_v3';
@@ -41,6 +41,7 @@ const QUOTE_DEFAULTS = [
 let quoteMaterials = QUOTE_DEFAULTS.map((x) => ({...x}));
 let quoteItems = [];
 let quoteClients = [];
+let quotePublicClient = { id:'publico', nombre:'Cliente público', foto_url:'', publico:true };
 let quoteClientPrices = [];
 let selectedQuoteCustomerId = 'publico';
 let quoteClientEditingPhotoUrl = '';
@@ -590,10 +591,10 @@ async function refreshQuoteMaterials({ silent = true } = {}) {
 
 function currentQuoteCustomer() {
   if (selectedQuoteCustomerId === 'publico') {
-    return { id:'publico', nombre:'Cliente público', foto_url:'', publico:true };
+    return quotePublicClient;
   }
   return quoteClients.find((client) => String(client.id) === String(selectedQuoteCustomerId))
-    || { id:'publico', nombre:'Cliente público', foto_url:'', publico:true };
+    || quotePublicClient;
 }
 
 function quoteCustomerLabel(customer = currentQuoteCustomer()) {
@@ -640,7 +641,7 @@ function renderQuoteCustomerPicker() {
   }
 
   const rows = [
-    { id:'publico', nombre:'Cliente público', foto_url:'', publico:true },
+    quotePublicClient,
     ...quoteClients
   ];
 
@@ -761,9 +762,13 @@ function renderQuoteClientAdmin() {
 
   list.innerHTML = `
     <article class="quote-client-admin-card public-client-card">
-      <span class="quote-client-admin-avatar public-avatar">${iconUse('icon-user')}</span>
-      <div><strong>Cliente público</strong><small>Cliente base del cotizador</small></div>
-      <span class="quote-client-fixed">Fijo</span>
+      <span class="quote-client-admin-avatar ${quotePublicClient.foto_url ? '' : 'public-avatar'}">
+        ${quotePublicClient.foto_url ? `<img src="${escapeHtml(quotePublicClient.foto_url)}" alt="" />` : iconUse('icon-user')}
+      </span>
+      <div><strong>${escapeHtml(quotePublicClient.nombre || 'Cliente público')}</strong><small>Cliente público</small></div>
+      <div class="quote-client-admin-actions">
+        <button type="button" class="btn btn-outline small" data-edit-quote-client="publico">Editar</button>
+      </div>
     </article>
   `;
 
@@ -785,14 +790,18 @@ function renderQuoteClientAdmin() {
 }
 
 function editQuoteClient(id) {
-  const client = quoteClients.find((item) => String(item.id) === String(id));
+  const client = String(id) === 'publico'
+    ? quotePublicClient
+    : quoteClients.find((item) => String(item.id) === String(id));
   if (!client) return;
   $('#quoteClientId').value = String(client.id);
   $('#quoteClientNameInput').value = client.nombre;
   quoteClientEditingPhotoUrl = client.foto_url || '';
   quoteClientEditingPhotoFile = null;
   renderQuoteClientPhotoPreview(quoteClientEditingPhotoUrl);
-  $('#quoteClientSaveBtn').textContent = 'Actualizar cliente';
+  $('#quoteClientSaveBtn').textContent = String(client.id) === 'publico'
+    ? 'Actualizar cliente público'
+    : 'Actualizar cliente';
 }
 
 async function deleteQuoteClient(id) {
@@ -827,6 +836,12 @@ async function refreshQuoteConfig({ silent = true } = {}) {
       eyelet: settings?.icon_ojelet || '',
       cut: settings?.icon_corte || '',
       design: settings?.icon_diseno || ''
+    };
+    quotePublicClient = {
+      id:'publico',
+      nombre: settings?.publico_nombre || 'Cliente público',
+      foto_url: settings?.publico_foto || '',
+      publico:true
     };
   } catch (err) {
     console.error('No se pudo cargar la configuración del cotizador', err);
@@ -2090,15 +2105,30 @@ $('#quoteClientForm')?.addEventListener('submit', async (e) => {
       foto_url = upload.url || '';
     }
 
-    await apiFetch(id ? `/api/cotizador/clientes/${id}` : '/api/cotizador/clientes', {
-      method:id ? 'PUT' : 'POST',
-      headers:{'Content-Type':'application/json'},
-      body:JSON.stringify({ nombre, foto_url })
-    });
+    if (id === 'publico') {
+      await apiFetch('/api/cotizador/cliente-publico', {
+        method:'PUT',
+        headers:{'Content-Type':'application/json'},
+        body:JSON.stringify({ nombre, foto_url })
+      });
+    } else {
+      await apiFetch(id ? `/api/cotizador/clientes/${id}` : '/api/cotizador/clientes', {
+        method:id ? 'PUT' : 'POST',
+        headers:{'Content-Type':'application/json'},
+        body:JSON.stringify({ nombre, foto_url })
+      });
+    }
 
     clearQuoteClientForm();
     await refreshQuoteConfig({ silent:true });
-    showToast(id ? 'Cliente actualizado correctamente.' : 'Cliente creado correctamente.', id ? 'Cliente actualizado' : 'Cliente creado');
+    showToast(
+      id === 'publico'
+        ? 'Cliente público actualizado correctamente.'
+        : id
+          ? 'Cliente actualizado correctamente.'
+          : 'Cliente creado correctamente.',
+      id ? 'Cliente actualizado' : 'Cliente creado'
+    );
   } catch (err) {
     showToast(err.message, 'No se pudo guardar el cliente');
   } finally {

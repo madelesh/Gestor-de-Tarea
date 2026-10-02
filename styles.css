@@ -2059,3 +2059,57 @@ body,
   .quote-client-form{grid-template-columns:1fr}
   .quote-client-admin-list{grid-template-columns:1fr}
 }
+
+
+/* =========================================================
+   V10.14 — Selector de cliente arriba + cliente público editable
+   ========================================================= */
+
+.quote-card-head-with-customer{
+  display:flex!important;
+  align-items:flex-start!important;
+  justify-content:space-between!important;
+  gap:18px!important;
+}
+
+.quote-card-head-main{
+  display:flex;
+  align-items:center;
+  gap:12px;
+  min-width:0;
+}
+
+.quote-customer-picker-top{
+  margin-left:auto!important;
+  width:min(280px,32vw)!important;
+  min-width:230px!important;
+  align-self:flex-start!important;
+}
+
+.quote-customer-picker-top .quote-customer-trigger{
+  min-height:56px;
+}
+
+.quote-extra-head{
+  display:flex;
+  align-items:flex-end;
+  justify-content:space-between;
+  gap:12px;
+}
+
+.public-client-card{
+  border-color:color-mix(in srgb,var(--accent) 30%,var(--line))!important;
+}
+
+@media(max-width:820px){
+  .quote-card-head-with-customer{
+    flex-direction:column!important;
+    align-items:stretch!important;
+  }
+
+  .quote-customer-picker-top{
+    width:100%!important;
+    min-width:0!important;
+    margin-left:0!important;
+  }
+}
