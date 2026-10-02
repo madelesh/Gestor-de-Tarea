@@ -48,6 +48,8 @@ let quoteClientEditingPhotoUrl = '';
 let quoteClientEditingPhotoFile = null;
 let quoteCloudIcons = { eyelet:'', cut:'', design:'' };
 let quotePendingIconFiles = { eyelet:null, cut:null, design:null };
+let taskDefaultImage = '';
+let pendingDefaultTaskImageFile = null;
 const QUOTE_EXTRAS = {
   eyelet: 0.50,
   cut: 1.00,
@@ -229,6 +231,7 @@ function balance(task) {
   return Math.max(0, Number(task.totalAmount || 0) - Number(task.depositAmount || 0));
 }
 function placeholderSvg() {
+  if (taskDefaultImage) return taskDefaultImage;
   return 'data:image/svg+xml;charset=UTF-8,' + encodeURIComponent(`
     <svg xmlns="http://www.w3.org/2000/svg" width="800" height="800" viewBox="0 0 800 800">
       <rect width="100%" height="100%" fill="#ecefe7"/>
@@ -931,6 +934,8 @@ async function refreshQuoteConfig({ silent = true } = {}) {
       foto_url: settings?.publico_foto || '',
       publico:true
     };
+    taskDefaultImage = settings?.task_placeholder || '';
+    renderDefaultTaskImagePreview();
   } catch (err) {
     console.error('No se pudo cargar la configuración del cotizador', err);
     if (!silent) showToast('No se pudo sincronizar la configuración del cotizador.', 'Cotizador');
@@ -946,6 +951,63 @@ async function refreshQuoteConfig({ silent = true } = {}) {
   renderQuotePriceAdmin();
   applyQuoteExtraIcons();
   calculateQuote();
+}
+
+function renderDefaultTaskImagePreview(previewUrl = '') {
+  const img = $('#defaultTaskImagePreview');
+  if (!img) return;
+  img.src = previewUrl || taskDefaultImage || placeholderSvg();
+}
+
+async function saveTaskDefaultImage() {
+  const btn = $('#saveDefaultTaskImage');
+  if (!btn) return;
+  const old = btn.textContent;
+  btn.disabled = true;
+  btn.textContent = 'Guardando…';
+  try {
+    let imageUrl = taskDefaultImage || '';
+    if (pendingDefaultTaskImageFile) {
+      const fd = new FormData();
+      fd.append('imagen', pendingDefaultTaskImageFile);
+      const upload = await apiFetch('/api/imagenes', { method:'POST', body:fd });
+      imageUrl = upload.url || '';
+    }
+    await apiFetch('/api/cotizador/ajustes', {
+      method:'PUT',
+      headers:{'Content-Type':'application/json'},
+      body:JSON.stringify({ task_placeholder:imageUrl })
+    });
+    taskDefaultImage = imageUrl;
+    pendingDefaultTaskImageFile = null;
+    $('#defaultTaskImageInput').value = '';
+    renderDefaultTaskImagePreview();
+    render();
+    showToast('La imagen predeterminada se guardó en la nube.', 'Imagen actualizada');
+  } catch (err) {
+    showToast(err.message, 'No se pudo guardar la imagen');
+  } finally {
+    btn.disabled = false;
+    btn.textContent = old;
+  }
+}
+
+async function resetTaskDefaultImage() {
+  try {
+    await apiFetch('/api/cotizador/ajustes', {
+      method:'PUT',
+      headers:{'Content-Type':'application/json'},
+      body:JSON.stringify({ task_placeholder:'' })
+    });
+    taskDefaultImage = '';
+    pendingDefaultTaskImageFile = null;
+    $('#defaultTaskImageInput').value = '';
+    renderDefaultTaskImagePreview();
+    render();
+    showToast('Se restauró la imagen predeterminada original.', 'Imagen restablecida');
+  } catch (err) {
+    showToast(err.message, 'No se pudo restablecer la imagen');
+  }
 }
 
 function getQuoteDraft() {
@@ -1402,7 +1464,9 @@ async function refreshTasks({ silent = false } = {}) {
 function createTaskCard(task) {
   const node = $('#taskTemplate').content.cloneNode(true);
   const card = node.querySelector('.task-card');
-  node.querySelector('.card-status-badge').textContent = statusLabel(task.status);
+  const statusBadge = node.querySelector('.card-status-badge');
+  statusBadge.textContent = task.archived ? 'Entregado' : statusLabel(task.status);
+  if (task.archived) statusBadge.classList.add('archived-delivered');
   const cardImage = node.querySelector('.task-image');
   const cardImages = [task.image, task.finishedImage].filter(Boolean);
   if (!cardImages.length) cardImages.push(placeholderSvg());
@@ -1445,11 +1509,18 @@ function createTaskCard(task) {
   const countdown = deliveryCountdown(task.deliveryDate);
   const countdownEl = node.querySelector('.card-days-left');
   if (countdownEl) {
-    countdownEl.textContent = countdown.text;
-    countdownEl.dataset.tone = countdown.tone;
+    if (task.archived) {
+      countdownEl.innerHTML = `${iconUse('icon-check')}<span>Entregado</span>`;
+      countdownEl.dataset.tone = 'success';
+      countdownEl.classList.add('archived-delivered-label');
+    } else {
+      countdownEl.textContent = countdown.text;
+      countdownEl.dataset.tone = countdown.tone;
+      countdownEl.classList.remove('archived-delivered-label');
+    }
   }
   card.dataset.id = task.id;
-  card.draggable = true;
+  card.draggable = !task.archived;
   card.addEventListener('dragstart', (e) => {
     card.classList.add('dragging');
     e.dataTransfer.effectAllowed = 'move';
@@ -1694,6 +1765,11 @@ function openDetail(id) {
   $('#detailWorkerShareMini').textContent = `70% · ${money(distributable(task) * 0.70)}`;
   $('#detailTakerShareMini').textContent = `30% · ${money(distributable(task) * 0.30)}`;
   $('#detailDescription').textContent = task.description || 'Sin descripción';
+  const archiveButton = $('#detailArchive');
+  if (archiveButton) {
+    archiveButton.innerHTML = task.archived ? `${iconUse('icon-refresh')}<span>Desarchivar</span>` : `${iconUse('icon-archive')}<span>Archivar</span>`;
+    archiveButton.classList.toggle('unarchive-action', task.archived);
+  }
   setMiniAvatar($('#detailWorkerAvatar'), task.workerName || '');
   setMiniAvatar($('#detailTakerAvatar'), task.orderTaker || '');
 
@@ -2317,6 +2393,15 @@ $$('.filter-chip').forEach((btn) => btn.addEventListener('click', () => {
   $$('.filter-chip').forEach((b) => b.classList.toggle('active', b === btn));
   render();
 }));
+
+$('#defaultTaskImageInput')?.addEventListener('change', (e) => {
+  const file = e.target.files?.[0];
+  if (!file) return;
+  pendingDefaultTaskImageFile = file;
+  renderDefaultTaskImagePreview(URL.createObjectURL(file));
+});
+on('saveDefaultTaskImage', 'click', saveTaskDefaultImage);
+on('resetDefaultTaskImage', 'click', resetTaskDefaultImage);
 
 $('#siteIconInput').addEventListener('change', (e) => {
   const file = e.target.files?.[0];
