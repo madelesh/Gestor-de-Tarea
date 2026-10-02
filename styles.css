@@ -2439,3 +2439,82 @@ body,
   margin:0!important;
   line-height:1!important;
 }
+
+
+/* =========================================================
+   V10.16.2 — Iconos de estadísticas centrados + versión
+   ========================================================= */
+
+/* Alineación consistente del encabezado de cada estadística */
+.stats .stat-label{
+  display:grid!important;
+  grid-template-columns:32px minmax(0,1fr)!important;
+  align-items:center!important;
+  justify-items:start!important;
+  column-gap:10px!important;
+}
+
+/* Centra el icono exactamente dentro de su caja */
+.stats .stat-icon{
+  position:relative!important;
+  display:flex!important;
+  align-items:center!important;
+  justify-content:center!important;
+  width:32px!important;
+  height:32px!important;
+  min-width:32px!important;
+  min-height:32px!important;
+  padding:0!important;
+  margin:0!important;
+  line-height:0!important;
+  overflow:hidden!important;
+  box-sizing:border-box!important;
+}
+
+.stats .stat-icon .icon{
+  position:static!important;
+  display:block!important;
+  width:16px!important;
+  height:16px!important;
+  min-width:16px!important;
+  min-height:16px!important;
+  margin:auto!important;
+  padding:0!important;
+  transform:none!important;
+  flex:none!important;
+}
+
+/* Evita reglas globales que muevan el SVG */
+.stats .stat-icon svg{
+  inset:auto!important;
+  top:auto!important;
+  right:auto!important;
+  bottom:auto!important;
+  left:auto!important;
+  vertical-align:middle!important;
+}
+
+/* Pie de versión de la página */
+.app-version-footer{
+  width:100%;
+  display:flex;
+  align-items:center;
+  justify-content:center;
+  gap:8px;
+  padding:22px 20px 26px;
+  margin-top:28px;
+  border-top:1px solid var(--line);
+  color:var(--muted);
+  font-size:12px;
+  font-weight:600;
+  letter-spacing:.01em;
+}
+
+.app-version-footer strong{
+  color:var(--ink);
+  font-weight:800;
+}
+
+.app-version-footer .version-separator{
+  opacity:.55;
+}
