@@ -1,4 +1,4 @@
-const APP_VERSION = '10.12';
+const APP_VERSION = '10.13';
 const API_BASE = 'https://gestor-tareas-api.detodoec.workers.dev';
 const STORAGE_KEY = 'detodoec_tasks_v1';
 const SETTINGS_KEY = 'detodoec_tasks_settings_v3';
@@ -40,6 +40,13 @@ const QUOTE_DEFAULTS = [
 ];
 let quoteMaterials = QUOTE_DEFAULTS.map((x) => ({...x}));
 let quoteItems = [];
+let quoteClients = [];
+let quoteClientPrices = [];
+let selectedQuoteCustomerId = 'publico';
+let quoteClientEditingPhotoUrl = '';
+let quoteClientEditingPhotoFile = null;
+let quoteCloudIcons = { eyelet:'', cut:'', design:'' };
+let quotePendingIconFiles = { eyelet:null, cut:null, design:null };
 const QUOTE_EXTRAS = {
   eyelet: 0.50,
   cut: 1.00,
@@ -581,14 +588,82 @@ async function refreshQuoteMaterials({ silent = true } = {}) {
   calculateQuote();
 }
 
-function quoteCustomerType() {
-  return $('#quoteCustomerType')?.value === 'privado' ? 'privado' : 'publico';
+function currentQuoteCustomer() {
+  if (selectedQuoteCustomerId === 'publico') {
+    return { id:'publico', nombre:'Cliente público', foto_url:'', publico:true };
+  }
+  return quoteClients.find((client) => String(client.id) === String(selectedQuoteCustomerId))
+    || { id:'publico', nombre:'Cliente público', foto_url:'', publico:true };
 }
 
-function quotePriceFor(material, type = quoteCustomerType()) {
+function quoteCustomerLabel(customer = currentQuoteCustomer()) {
+  return customer?.nombre || 'Cliente público';
+}
+
+function quotePriceFor(material, customerId = selectedQuoteCustomerId) {
   if (!material) return null;
-  const raw = type === 'privado' ? material.precio_privado : material.precio_publico;
-  return raw === null || raw === undefined || raw === '' || !Number.isFinite(Number(raw)) ? null : Number(raw);
+
+  if (String(customerId) === 'publico') {
+    const raw = material.precio_publico;
+    return raw === null || raw === undefined || raw === '' || !Number.isFinite(Number(raw))
+      ? null
+      : Number(raw);
+  }
+
+  const row = quoteClientPrices.find(
+    (price) => String(price.cliente_id) === String(customerId) && price.material_clave === material.clave
+  );
+  const raw = row?.precio;
+  return raw === null || raw === undefined || raw === '' || !Number.isFinite(Number(raw))
+    ? null
+    : Number(raw);
+}
+
+function renderQuoteCustomerPicker() {
+  const menu = $('#quoteCustomerMenu');
+  const triggerName = $('#quoteCustomerName');
+  const trigger = $('#quoteCustomerTrigger');
+  if (!menu || !triggerName || !trigger) return;
+
+  const current = currentQuoteCustomer();
+  triggerName.textContent = quoteCustomerLabel(current);
+
+  const avatar = trigger.querySelector('.quote-customer-avatar');
+  if (avatar) {
+    if (current.foto_url) {
+      avatar.innerHTML = `<img src="${escapeHtml(current.foto_url)}" alt="" />`;
+      avatar.classList.remove('public-avatar');
+    } else {
+      avatar.innerHTML = iconUse('icon-user');
+      avatar.classList.add('public-avatar');
+    }
+  }
+
+  const rows = [
+    { id:'publico', nombre:'Cliente público', foto_url:'', publico:true },
+    ...quoteClients
+  ];
+
+  menu.innerHTML = rows.map((client) => `
+    <button type="button" class="quote-customer-option ${String(client.id) === String(selectedQuoteCustomerId) ? 'active' : ''}" data-quote-customer="${escapeHtml(String(client.id))}" role="option">
+      <span class="quote-customer-avatar ${client.foto_url ? '' : 'public-avatar'}">
+        ${client.foto_url ? `<img src="${escapeHtml(client.foto_url)}" alt="" />` : iconUse('icon-user')}
+      </span>
+      <span>${escapeHtml(client.nombre)}</span>
+      ${String(client.id) === String(selectedQuoteCustomerId) ? '<span class="quote-customer-check">✓</span>' : ''}
+    </button>
+  `).join('');
+
+  $('#quoteCustomerId').value = String(selectedQuoteCustomerId);
+}
+
+function selectQuoteCustomer(id) {
+  selectedQuoteCustomerId = String(id || 'publico');
+  renderQuoteCustomerPicker();
+  renderQuoteMaterialSelect();
+  calculateQuote();
+  if ($('#quoteCustomerMenu')) $('#quoteCustomerMenu').hidden = true;
+  $('#quoteCustomerTrigger')?.setAttribute('aria-expanded', 'false');
 }
 
 function renderQuoteMaterialSelect() {
@@ -602,7 +677,7 @@ function renderQuoteMaterialSelect() {
     const price = quotePriceFor(item);
     option.textContent = item.activo && price !== null
       ? `${item.nombre} — ${money(price)}/m²`
-      : `${item.nombre} — No disponible por el momento`;
+      : `${item.nombre} — No disponible para este cliente`;
     option.disabled = !(item.activo && price !== null);
     select.appendChild(option);
   });
@@ -614,7 +689,9 @@ function renderQuoteMaterialSelect() {
 
 function currentQuoteMaterial() {
   const key = $('#quoteMaterial')?.value;
-  return quoteMaterials.find((x) => x.clave === key) || quoteMaterials.find((x) => x.activo && quotePriceFor(x) !== null) || null;
+  return quoteMaterials.find((x) => x.clave === key)
+    || quoteMaterials.find((x) => x.activo && quotePriceFor(x) !== null)
+    || null;
 }
 
 function materialIconId(key) {
@@ -628,38 +705,144 @@ function renderQuoteMaterialIcon() {
   slot.innerHTML = iconUse(materialIconId(material?.clave));
 }
 
-function loadQuoteIconSettings() {
-  const settings = loadSettings();
-  return { ...DEFAULT_QUOTE_ICON_SETTINGS, ...(settings.quoteExtraIcons || {}) };
+function quoteExtraIconMarkup(type) {
+  const url = quoteCloudIcons[type];
+  if (url) return `<img src="${escapeHtml(url)}" alt="" />`;
+  const fallback = type === 'eyelet' ? 'icon-eyelet' : type === 'cut' ? 'icon-cut' : 'icon-design';
+  return iconUse(fallback);
 }
 
 function applyQuoteExtraIcons() {
-  const icons = loadQuoteIconSettings();
   const pairs = [
-    ['#quoteEyeletsEnabled', icons.eyelet],
-    ['#quoteCutEnabled', icons.cut],
-    ['#quoteDesignEnabled', icons.design]
+    ['#quoteEyeletsEnabled', 'eyelet'],
+    ['#quoteCutEnabled', 'cut'],
+    ['#quoteDesignEnabled', 'design']
   ];
-  pairs.forEach(([selector, iconId]) => {
+  pairs.forEach(([selector, type]) => {
     const input = $(selector);
     const label = input?.closest('.quote-extra-option');
     const slot = label?.querySelector('.quote-extra-icon');
-    if (slot) slot.innerHTML = iconUse(iconId);
+    if (slot) slot.innerHTML = quoteExtraIconMarkup(type);
   });
-  if ($('#quoteEyeletIconSelect')) $('#quoteEyeletIconSelect').value = icons.eyelet;
-  if ($('#quoteCutIconSelect')) $('#quoteCutIconSelect').value = icons.cut;
-  if ($('#quoteDesignIconSelect')) $('#quoteDesignIconSelect').value = icons.design;
+
+  [['eyelet','#quoteEyeletIconPreview'],['cut','#quoteCutIconPreview'],['design','#quoteDesignIconPreview']].forEach(([type, selector]) => {
+    const slot = $(selector);
+    if (slot) slot.innerHTML = quoteExtraIconMarkup(type);
+  });
 }
 
-function saveQuoteIconSettings() {
-  const settings = loadSettings();
-  settings.quoteExtraIcons = {
-    eyelet: $('#quoteEyeletIconSelect')?.value || DEFAULT_QUOTE_ICON_SETTINGS.eyelet,
-    cut: $('#quoteCutIconSelect')?.value || DEFAULT_QUOTE_ICON_SETTINGS.cut,
-    design: $('#quoteDesignIconSelect')?.value || DEFAULT_QUOTE_ICON_SETTINGS.design
-  };
-  saveSettings(settings);
+async function uploadQuoteCloudIcon(type, file) {
+  if (!file) return quoteCloudIcons[type] || '';
+  const fd = new FormData();
+  fd.append('imagen', file);
+  const result = await apiFetch('/api/imagenes', { method:'POST', body:fd });
+  return result.url || '';
+}
+
+function renderQuoteClientPhotoPreview(url = '') {
+  const preview = $('#quoteClientPhotoPreview');
+  if (!preview) return;
+  if (url) preview.innerHTML = `<img src="${escapeHtml(url)}" alt="Foto del cliente" />`;
+  else preview.innerHTML = iconUse('icon-user');
+}
+
+function clearQuoteClientForm() {
+  $('#quoteClientForm')?.reset();
+  if ($('#quoteClientId')) $('#quoteClientId').value = '';
+  quoteClientEditingPhotoUrl = '';
+  quoteClientEditingPhotoFile = null;
+  renderQuoteClientPhotoPreview('');
+  if ($('#quoteClientSaveBtn')) $('#quoteClientSaveBtn').textContent = 'Guardar cliente';
+}
+
+function renderQuoteClientAdmin() {
+  const list = $('#quoteClientAdminList');
+  if (!list) return;
+
+  list.innerHTML = `
+    <article class="quote-client-admin-card public-client-card">
+      <span class="quote-client-admin-avatar public-avatar">${iconUse('icon-user')}</span>
+      <div><strong>Cliente público</strong><small>Cliente base del cotizador</small></div>
+      <span class="quote-client-fixed">Fijo</span>
+    </article>
+  `;
+
+  quoteClients.forEach((client) => {
+    const card = document.createElement('article');
+    card.className = 'quote-client-admin-card';
+    card.innerHTML = `
+      <span class="quote-client-admin-avatar ${client.foto_url ? '' : 'public-avatar'}">
+        ${client.foto_url ? `<img src="${escapeHtml(client.foto_url)}" alt="" />` : iconUse('icon-user')}
+      </span>
+      <div><strong>${escapeHtml(client.nombre)}</strong><small>Cliente personalizado</small></div>
+      <div class="quote-client-admin-actions">
+        <button type="button" class="btn btn-outline small" data-edit-quote-client="${client.id}">Editar</button>
+        <button type="button" class="btn btn-danger small" data-delete-quote-client="${client.id}">Eliminar</button>
+      </div>
+    `;
+    list.appendChild(card);
+  });
+}
+
+function editQuoteClient(id) {
+  const client = quoteClients.find((item) => String(item.id) === String(id));
+  if (!client) return;
+  $('#quoteClientId').value = String(client.id);
+  $('#quoteClientNameInput').value = client.nombre;
+  quoteClientEditingPhotoUrl = client.foto_url || '';
+  quoteClientEditingPhotoFile = null;
+  renderQuoteClientPhotoPreview(quoteClientEditingPhotoUrl);
+  $('#quoteClientSaveBtn').textContent = 'Actualizar cliente';
+}
+
+async function deleteQuoteClient(id) {
+  const client = quoteClients.find((item) => String(item.id) === String(id));
+  if (!client) return;
+  if (!confirm(`¿Eliminar al cliente "${client.nombre}"?`)) return;
+  try {
+    await apiFetch(`/api/cotizador/clientes/${id}`, { method:'DELETE' });
+    if (String(selectedQuoteCustomerId) === String(id)) selectedQuoteCustomerId = 'publico';
+    await refreshQuoteConfig({ silent:true });
+    showToast(`${client.nombre} fue eliminado.`, 'Cliente eliminado');
+  } catch (err) {
+    showToast(err.message, 'No se pudo eliminar el cliente');
+  }
+}
+
+async function refreshQuoteConfig({ silent = true } = {}) {
+  try {
+    const [materials, clients, prices, settings] = await Promise.all([
+      apiFetch('/api/cotizador/materiales'),
+      apiFetch('/api/cotizador/clientes'),
+      apiFetch('/api/cotizador/precios-clientes'),
+      apiFetch('/api/cotizador/ajustes')
+    ]);
+
+    if (Array.isArray(materials) && materials.length) {
+      quoteMaterials = materials.map(normalizeQuoteMaterial).sort((a,b) => a.orden-b.orden);
+    }
+    quoteClients = Array.isArray(clients) ? clients : [];
+    quoteClientPrices = Array.isArray(prices) ? prices : [];
+    quoteCloudIcons = {
+      eyelet: settings?.icon_ojelet || '',
+      cut: settings?.icon_corte || '',
+      design: settings?.icon_diseno || ''
+    };
+  } catch (err) {
+    console.error('No se pudo cargar la configuración del cotizador', err);
+    if (!silent) showToast('No se pudo sincronizar la configuración del cotizador.', 'Cotizador');
+  }
+
+  if (selectedQuoteCustomerId !== 'publico' && !quoteClients.some((c) => String(c.id) === String(selectedQuoteCustomerId))) {
+    selectedQuoteCustomerId = 'publico';
+  }
+
+  renderQuoteCustomerPicker();
+  renderQuoteClientAdmin();
+  renderQuoteMaterialSelect();
+  renderQuotePriceAdmin();
   applyQuoteExtraIcons();
+  calculateQuote();
 }
 
 function getQuoteDraft() {
@@ -668,8 +851,9 @@ function getQuoteDraft() {
   const height = Math.max(0, Number($('#quoteHeight')?.value || 0));
   const qty = Math.max(1, Math.floor(Number($('#quoteQty')?.value || 1)));
   const area = width * height * qty;
-  const customerType = quoteCustomerType();
-  const price = material && material.activo ? quotePriceFor(material, customerType) : null;
+  const customer = currentQuoteCustomer();
+  const customerId = String(customer.id);
+  const price = material && material.activo ? quotePriceFor(material, customerId) : null;
   const materialTotal = price === null ? 0 : area * price;
   const eyeletsEnabled = Boolean($('#quoteEyeletsEnabled')?.checked);
   const eyeletsQty = eyeletsEnabled ? Math.max(0, Math.floor(Number($('#quoteEyeletsQty')?.value || 0))) : 0;
@@ -683,7 +867,7 @@ function getQuoteDraft() {
   };
   const extrasTotal = extras.eyelets + extras.cut + extras.design;
   const total = materialTotal + extrasTotal;
-  return { material, customerType, width, height, qty, area, price, materialTotal, eyeletsEnabled, eyeletsQty, cutEnabled, cutMeters, designEnabled, extras, extrasTotal, total };
+  return { material, customer, customerId, width, height, qty, area, price, materialTotal, eyeletsEnabled, eyeletsQty, cutEnabled, cutMeters, designEnabled, extras, extrasTotal, total };
 }
 
 function calculateQuote() {
@@ -694,7 +878,7 @@ function calculateQuote() {
   if ($('#quoteCutMeters')) $('#quoteCutMeters').disabled = !cutEnabled;
   const draft = getQuoteDraft();
   if ($('#quoteArea')) $('#quoteArea').textContent = `${draft.area.toFixed(2)} m²`;
-  if ($('#quoteCustomerTypeLabel')) $('#quoteCustomerTypeLabel').textContent = draft.customerType === 'privado' ? 'Privado' : 'Público';
+  if ($('#quoteCustomerTypeLabel')) $('#quoteCustomerTypeLabel').textContent = quoteCustomerLabel(draft.customer);
   if ($('#quoteMaterialName')) $('#quoteMaterialName').textContent = draft.material?.nombre || 'Material';
   if ($('#quoteUnitPrice')) $('#quoteUnitPrice').textContent = draft.price === null ? 'No disponible' : `${money(draft.price)}/m²`;
   if ($('#quoteSubtotal')) $('#quoteSubtotal').textContent = draft.price === null ? '—' : money(draft.total);
@@ -713,7 +897,8 @@ function addQuoteItem() {
     id: crypto.randomUUID(),
     clave: draft.material.clave,
     nombre: draft.material.nombre,
-    customerType: draft.customerType,
+    customerId: draft.customerId,
+    customerName: quoteCustomerLabel(draft.customer),
     width: draft.width,
     height: draft.height,
     qty: draft.qty,
@@ -743,7 +928,7 @@ function renderQuoteItems() {
       <div class="quote-item-index quote-item-material-icon">${iconUse(materialIconId(item.clave))}</div>
       <div class="quote-item-main">
         <strong>${escapeHtml(item.nombre)}</strong>
-        <span class="quote-item-client-type">Cliente ${item.customerType === 'privado' ? 'privado' : 'público'}</span>
+        <span class="quote-item-client-type">${escapeHtml(item.customerName || 'Cliente público')}</span>
         <small>${item.width.toFixed(2)} m × ${item.height.toFixed(2)} m · ${item.qty} ${item.qty === 1 ? 'pieza' : 'piezas'} · ${item.area.toFixed(2)} m²</small>
         <span>${money(item.price)}/m²</span>
         ${item.eyeletsQty ? `<span class="quote-item-extra">Ojales: ${item.eyeletsQty} × ${money(QUOTE_EXTRAS.eyelet)}</span>` : ''}
@@ -776,17 +961,47 @@ function renderQuotePriceAdmin() {
   const box = $('#quotePriceAdmin');
   if (!box) return;
   box.innerHTML = '';
+
   quoteMaterials.forEach((item) => {
-    const row = document.createElement('div');
-    row.className = 'quote-price-row';
-    row.dataset.key = item.clave;
-    row.innerHTML = `
-      <div class="quote-price-name quote-price-name-with-icon"><span class="quote-material-mini-icon">${iconUse(materialIconId(item.clave))}</span><span><strong>${escapeHtml(item.nombre)}</strong><small>Precio por metro cuadrado</small></span></div>
-      <label class="quote-price-input quote-price-public"><small>Público</small><span>$</span><input type="number" min="0" step="0.01" data-quote-price-public="${escapeHtml(item.clave)}" value="${item.precio_publico ?? ''}" placeholder="Sin precio" /></label>
-      <label class="quote-price-input quote-price-private"><small>Privado</small><span>$</span><input type="number" min="0" step="0.01" data-quote-price-private="${escapeHtml(item.clave)}" value="${item.precio_privado ?? ''}" placeholder="Sin precio" /></label>
-      <label class="quote-toggle"><input type="checkbox" data-quote-active="${escapeHtml(item.clave)}" ${item.activo ? 'checked' : ''} /> Disponible</label>
+    const card = document.createElement('div');
+    card.className = 'quote-price-material-card';
+    card.dataset.key = item.clave;
+
+    const clientInputs = quoteClients.map((client) => {
+      const row = quoteClientPrices.find(
+        (price) => String(price.cliente_id) === String(client.id) && price.material_clave === item.clave
+      );
+      return `
+        <label class="quote-price-client-field">
+          <span class="quote-price-client-label">
+            <span class="quote-price-client-avatar ${client.foto_url ? '' : 'public-avatar'}">
+              ${client.foto_url ? `<img src="${escapeHtml(client.foto_url)}" alt="" />` : iconUse('icon-user')}
+            </span>
+            <small>${escapeHtml(client.nombre)}</small>
+          </span>
+          <span class="quote-price-input-wrap">$ <input type="number" min="0" step="0.01" data-quote-client-price="${client.id}:${escapeHtml(item.clave)}" value="${row?.precio ?? ''}" placeholder="Sin precio" /></span>
+        </label>
+      `;
+    }).join('');
+
+    card.innerHTML = `
+      <div class="quote-price-material-head">
+        <span class="quote-material-mini-icon">${iconUse(materialIconId(item.clave))}</span>
+        <div><strong>${escapeHtml(item.nombre)}</strong><small>Precio por m²</small></div>
+        <label class="quote-toggle"><input type="checkbox" data-quote-active="${escapeHtml(item.clave)}" ${item.activo ? 'checked' : ''} /> Disponible</label>
+      </div>
+      <div class="quote-price-client-grid">
+        <label class="quote-price-client-field public-price-field">
+          <span class="quote-price-client-label">
+            <span class="quote-price-client-avatar public-avatar">${iconUse('icon-user')}</span>
+            <small>Cliente público</small>
+          </span>
+          <span class="quote-price-input-wrap">$ <input type="number" min="0" step="0.01" data-quote-price-public="${escapeHtml(item.clave)}" value="${item.precio_publico ?? ''}" placeholder="Sin precio" /></span>
+        </label>
+        ${clientInputs}
+      </div>
     `;
-    box.appendChild(row);
+    box.appendChild(card);
   });
 }
 
@@ -796,27 +1011,58 @@ async function saveQuotePrices() {
   const old = btn.textContent;
   btn.disabled = true;
   btn.textContent = 'Guardando…';
+
   try {
     for (const item of quoteMaterials) {
       const publicInput = document.querySelector(`[data-quote-price-public="${item.clave}"]`);
-      const privateInput = document.querySelector(`[data-quote-price-private="${item.clave}"]`);
       const toggle = document.querySelector(`[data-quote-active="${item.clave}"]`);
       const publicRaw = publicInput?.value?.trim() ?? '';
-      const privateRaw = privateInput?.value?.trim() ?? '';
       const precio_publico = publicRaw === '' ? null : Number(publicRaw);
-      const precio_privado = privateRaw === '' ? null : Number(privateRaw);
-      const activo = Boolean(toggle?.checked && ((Number.isFinite(precio_publico) && precio_publico >= 0) || (Number.isFinite(precio_privado) && precio_privado >= 0)));
+
       await apiFetch(`/api/cotizador/materiales/${encodeURIComponent(item.clave)}`, {
         method:'PUT',
         headers:{'Content-Type':'application/json'},
-        body:JSON.stringify({ precio_publico, precio_privado, activo })
+        body:JSON.stringify({
+          precio_publico,
+          precio_privado: precio_publico,
+          activo:Boolean(toggle?.checked)
+        })
       });
+
+      for (const client of quoteClients) {
+        const input = document.querySelector(`[data-quote-client-price="${client.id}:${item.clave}"]`);
+        const raw = input?.value?.trim() ?? '';
+        const precio = raw === '' ? null : Number(raw);
+        await apiFetch(`/api/cotizador/precios-clientes/${client.id}/${encodeURIComponent(item.clave)}`, {
+          method:'PUT',
+          headers:{'Content-Type':'application/json'},
+          body:JSON.stringify({ precio })
+        });
+      }
     }
-    saveQuoteIconSettings();
-    await refreshQuoteMaterials({ silent:true });
-    showToast('Los precios e iconos del cotizador se actualizaron.', 'Cambios guardados');
+
+    const iconUrls = { ...quoteCloudIcons };
+    for (const type of ['eyelet','cut','design']) {
+      if (quotePendingIconFiles[type]) {
+        iconUrls[type] = await uploadQuoteCloudIcon(type, quotePendingIconFiles[type]);
+      }
+    }
+
+    await apiFetch('/api/cotizador/ajustes', {
+      method:'PUT',
+      headers:{'Content-Type':'application/json'},
+      body:JSON.stringify({
+        icon_ojelet: iconUrls.eyelet || '',
+        icon_corte: iconUrls.cut || '',
+        icon_diseno: iconUrls.design || ''
+      })
+    });
+
+    quotePendingIconFiles = { eyelet:null, cut:null, design:null };
+    await refreshQuoteConfig({ silent:true });
+    showToast('Precios e iconos guardados en la nube.', 'Cotizador actualizado');
   } catch (err) {
-    showToast(err.message, 'No se pudieron guardar los precios');
+    showToast(err.message, 'No se pudieron guardar los cambios');
   } finally {
     btn.disabled = false;
     btn.textContent = old;
@@ -836,6 +1082,7 @@ function showMainView(view) {
   $('#navQuote')?.classList.toggle('active', isQuote);
   $('#navDesigns')?.classList.toggle('active', isDesigns);
   if (isQuote) {
+    renderQuoteCustomerPicker();
     renderQuoteMaterialSelect();
     applyQuoteExtraIcons();
     calculateQuote();
@@ -848,7 +1095,7 @@ function copyQuoteSummary() {
   const total = quoteItems.reduce((sum, item) => sum + Number(item.total || 0), 0);
   const lines = ['Cotización DeTodoEc', ''];
   quoteItems.forEach((item, index) => {
-    lines.push(`${index + 1}. ${item.nombre} · Cliente ${item.customerType === 'privado' ? 'privado' : 'público'}`);
+    lines.push(`${index + 1}. ${item.nombre} · ${item.customerName || 'Cliente público'}`);
     lines.push(`   ${item.width.toFixed(2)} m × ${item.height.toFixed(2)} m × ${item.qty} = ${item.area.toFixed(2)} m²`);
     lines.push(`   ${money(item.price)}/m² → ${money(item.materialTotal ?? (item.area * item.price))}`);
     if (item.eyeletsQty) lines.push(`   + Ojales: ${item.eyeletsQty} × ${money(QUOTE_EXTRAS.eyelet)} = ${money(item.extras?.eyelets || 0)}`);
@@ -1802,9 +2049,79 @@ on('navDesigns', 'click', () => showMainView('designs'));
 on('manageDesignsBtn', 'click', () => requestAdminPanel('disenos'));
 on('designSearchInput', 'input', renderDesigns);
 
-['quoteEyeletIconSelect','quoteCutIconSelect','quoteDesignIconSelect'].forEach((id) => on(id, 'change', applyQuoteExtraIcons));
 ['quoteMaterial','quoteWidth','quoteHeight','quoteQty','quoteEyeletsQty','quoteCutMeters'].forEach((id) => on(id, 'input', calculateQuote));
-['quoteMaterial','quoteCustomerType','quoteEyeletsEnabled','quoteCutEnabled','quoteDesignEnabled'].forEach((id) => on(id, 'change', () => { if (id === 'quoteCustomerType') renderQuoteMaterialSelect(); calculateQuote(); }));
+['quoteMaterial','quoteEyeletsEnabled','quoteCutEnabled','quoteDesignEnabled'].forEach((id) => on(id, 'change', calculateQuote));
+
+on('quoteCustomerTrigger', 'click', () => {
+  const menu = $('#quoteCustomerMenu');
+  if (!menu) return;
+  menu.hidden = !menu.hidden;
+  $('#quoteCustomerTrigger')?.setAttribute('aria-expanded', menu.hidden ? 'false' : 'true');
+});
+$('#quoteCustomerMenu')?.addEventListener('click', (e) => {
+  const btn = e.target.closest('[data-quote-customer]');
+  if (btn) selectQuoteCustomer(btn.dataset.quoteCustomer);
+});
+
+on('quoteClientCancelBtn', 'click', clearQuoteClientForm);
+$('#quoteClientPhotoInput')?.addEventListener('change', (e) => {
+  const file = e.target.files?.[0];
+  if (!file) return;
+  quoteClientEditingPhotoFile = file;
+  renderQuoteClientPhotoPreview(URL.createObjectURL(file));
+});
+$('#quoteClientForm')?.addEventListener('submit', async (e) => {
+  e.preventDefault();
+  const id = $('#quoteClientId').value.trim();
+  const nombre = $('#quoteClientNameInput').value.trim();
+  if (!nombre) return;
+
+  const btn = $('#quoteClientSaveBtn');
+  const old = btn.textContent;
+  btn.disabled = true;
+  btn.textContent = id ? 'Actualizando…' : 'Guardando…';
+
+  try {
+    let foto_url = quoteClientEditingPhotoUrl || '';
+    if (quoteClientEditingPhotoFile) {
+      const fd = new FormData();
+      fd.append('imagen', quoteClientEditingPhotoFile);
+      const upload = await apiFetch('/api/imagenes', { method:'POST', body:fd });
+      foto_url = upload.url || '';
+    }
+
+    await apiFetch(id ? `/api/cotizador/clientes/${id}` : '/api/cotizador/clientes', {
+      method:id ? 'PUT' : 'POST',
+      headers:{'Content-Type':'application/json'},
+      body:JSON.stringify({ nombre, foto_url })
+    });
+
+    clearQuoteClientForm();
+    await refreshQuoteConfig({ silent:true });
+    showToast(id ? 'Cliente actualizado correctamente.' : 'Cliente creado correctamente.', id ? 'Cliente actualizado' : 'Cliente creado');
+  } catch (err) {
+    showToast(err.message, 'No se pudo guardar el cliente');
+  } finally {
+    btn.disabled = false;
+    btn.textContent = old;
+  }
+});
+$('#quoteClientAdminList')?.addEventListener('click', (e) => {
+  const editId = e.target.closest('[data-edit-quote-client]')?.dataset.editQuoteClient;
+  const deleteId = e.target.closest('[data-delete-quote-client]')?.dataset.deleteQuoteClient;
+  if (editId) editQuoteClient(editId);
+  if (deleteId) deleteQuoteClient(deleteId);
+});
+
+[['quoteEyeletIconFile','eyelet','#quoteEyeletIconPreview'],['quoteCutIconFile','cut','#quoteCutIconPreview'],['quoteDesignIconFile','design','#quoteDesignIconPreview']].forEach(([id,type,previewSelector]) => {
+  on(id, 'change', (e) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+    quotePendingIconFiles[type] = file;
+    const preview = $(previewSelector);
+    if (preview) preview.innerHTML = `<img src="${URL.createObjectURL(file)}" alt="" />`;
+  });
+});
 on('copyQuote', 'click', copyQuoteSummary);
 on('addQuoteItem', 'click', addQuoteItem);
 on('clearQuote', 'click', clearQuote);
@@ -2176,7 +2493,7 @@ renderEmployeeFilter();
 render();
 refreshTasks();
 refreshEmployees();
-refreshQuoteMaterials();
+refreshQuoteConfig();
 refreshDesigns();
 const searchBox = $('#searchInput');
 if (searchBox) { searchBox.value = ''; setTimeout(() => { if (searchBox.value.includes('@')) { searchBox.value=''; render(); } }, 300); }

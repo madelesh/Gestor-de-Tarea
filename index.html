@@ -9,7 +9,7 @@
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700;800&display=swap" rel="stylesheet">
   <link id="dynamicFavicon" rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 64 64'%3E%3Crect width='64' height='64' rx='16' fill='%23b9ff39'/%3E%3Cpath d='M18 33l9 9 19-22' fill='none' stroke='%23111' stroke-width='7' stroke-linecap='round' stroke-linejoin='round'/%3E%3C/svg%3E" />
-  <link rel="stylesheet" href="styles.css?v=10.12" />
+  <link rel="stylesheet" href="styles.css?v=10.13" />
 </head>
 <body>
   <svg xmlns="http://www.w3.org/2000/svg" style="display:none" aria-hidden="true" focusable="false">
@@ -154,12 +154,6 @@
             </div>
 
             <div class="quote-form-grid quote-form-grid-multi">
-              <label class="quote-field">Tipo de cliente
-                <select id="quoteCustomerType">
-                  <option value="publico">Cliente público</option>
-                  <option value="privado">Cliente privado</option>
-                </select>
-              </label>
               <label class="quote-field quote-field-wide">Producto o material
                 <div class="quote-material-select-wrap">
                   <span class="quote-material-icon" id="quoteMaterialIcon"><svg class="icon"><use href="#icon-banner"></use></svg></span>
@@ -182,7 +176,24 @@
             </div>
 
             <div class="quote-extras">
-              <div class="quote-extra-head"><strong>Acabados opcionales</strong><span>Se suman al material actual</span></div>
+              <div class="quote-extra-head quote-extra-head-with-customer">
+                <div>
+                  <strong>Acabados opcionales</strong>
+                  <span>Se suman al material actual</span>
+                </div>
+                <div class="quote-customer-picker" id="quoteCustomerPicker">
+                  <button type="button" class="quote-customer-trigger" id="quoteCustomerTrigger" aria-haspopup="listbox" aria-expanded="false">
+                    <span class="quote-customer-avatar public-avatar"><svg class="icon"><use href="#icon-user"></use></svg></span>
+                    <span class="quote-customer-trigger-text">
+                      <small>Cliente</small>
+                      <strong id="quoteCustomerName">Cliente público</strong>
+                    </span>
+                    <span class="quote-customer-chevron">⌄</span>
+                  </button>
+                  <div class="quote-customer-menu" id="quoteCustomerMenu" role="listbox" hidden></div>
+                  <input type="hidden" id="quoteCustomerId" value="publico" />
+                </div>
+              </div>
               <div class="quote-extra-grid">
                 <label class="quote-extra-option">
                   <input id="quoteEyeletsEnabled" type="checkbox" />
@@ -205,7 +216,7 @@
             </div>
 
             <div class="quote-current-preview">
-              <div><span>Cliente</span><strong id="quoteCustomerTypeLabel">Público</strong></div>
+              <div><span>Cliente</span><strong id="quoteCustomerTypeLabel">Cliente público</strong></div>
               <div><span>Material</span><strong id="quoteMaterialName">Lona</strong></div>
               <div><span>Precio</span><strong id="quoteUnitPrice">$7.25/m²</strong></div>
               <div><span>Subtotal</span><strong id="quoteSubtotal">$7.25</strong></div>
@@ -534,17 +545,69 @@
           </section>
 
           <section class="admin-section quote-admin-section admin-view" data-admin-view="cotizador" hidden>
-            <div class="admin-section-head"><h3>Precios del cotizador</h3><p>Modifica precios para clientes públicos y privados, disponibilidad e iconos de los adicionales.</p></div>
+            <div class="admin-section-head">
+              <h3>Clientes y precios del cotizador</h3>
+              <p>Crea clientes personalizados con foto y configura un precio distinto para cada material.</p>
+            </div>
+
+            <div class="quote-client-admin-block">
+              <div class="quote-admin-subhead">
+                <div><h4>Clientes</h4><p>Cliente público es fijo. Puedes crear, renombrar o eliminar los demás clientes.</p></div>
+              </div>
+
+              <form id="quoteClientForm" class="quote-client-form">
+                <input type="hidden" id="quoteClientId" />
+                <label>Nombre del cliente
+                  <input id="quoteClientNameInput" required placeholder="Ej. Distribuidor Norte" />
+                </label>
+                <label>Foto de perfil
+                  <input id="quoteClientPhotoInput" type="file" accept="image/*" />
+                </label>
+                <div class="quote-client-photo-preview" id="quoteClientPhotoPreview"><svg class="icon"><use href="#icon-user"></use></svg></div>
+                <div class="inline-actions">
+                  <button type="submit" class="btn btn-dark small" id="quoteClientSaveBtn">Guardar cliente</button>
+                  <button type="button" class="btn btn-outline small" id="quoteClientCancelBtn">Cancelar</button>
+                </div>
+              </form>
+
+              <div id="quoteClientAdminList" class="quote-client-admin-list"></div>
+            </div>
+
+            <div class="quote-admin-divider"></div>
+
+            <div class="quote-admin-subhead">
+              <div><h4>Precios por cliente</h4><p>Configura el precio público y el precio específico de cada cliente.</p></div>
+            </div>
             <div id="quotePriceAdmin" class="quote-price-admin"></div>
+
+            <div class="quote-admin-divider"></div>
+
             <div class="quote-icon-admin">
-              <h4>Iconos de acabados opcionales</h4>
-              <div class="quote-icon-admin-grid">
-                <label>Ojales<select id="quoteEyeletIconSelect"><option value="icon-eyelet">Ojales</option><option value="icon-settings">Engranaje</option><option value="icon-check">Check</option><option value="icon-dollar">Precio</option></select></label>
-                <label>Corte<select id="quoteCutIconSelect"><option value="icon-cut">Tijera</option><option value="icon-settings">Herramienta</option><option value="icon-task">Documento</option><option value="icon-check">Check</option></select></label>
-                <label>Diseño<select id="quoteDesignIconSelect"><option value="icon-design">Diseño</option><option value="icon-image">Imagen</option><option value="icon-task">Documento</option><option value="icon-settings">Ajustes</option></select></label>
+              <div class="quote-admin-subhead">
+                <div><h4>Iconos de acabados opcionales</h4><p>Los iconos se guardan en la nube y se verán igual en todas las PCs.</p></div>
+              </div>
+              <div class="quote-icon-upload-grid">
+                <label class="quote-icon-upload-card">
+                  <span class="quote-icon-upload-preview" id="quoteEyeletIconPreview"><svg class="icon"><use href="#icon-eyelet"></use></svg></span>
+                  <span><strong>Ojales</strong><small>Subir icono</small></span>
+                  <input id="quoteEyeletIconFile" type="file" accept="image/*,.svg" />
+                </label>
+                <label class="quote-icon-upload-card">
+                  <span class="quote-icon-upload-preview" id="quoteCutIconPreview"><svg class="icon"><use href="#icon-cut"></use></svg></span>
+                  <span><strong>Corte</strong><small>Subir icono</small></span>
+                  <input id="quoteCutIconFile" type="file" accept="image/*,.svg" />
+                </label>
+                <label class="quote-icon-upload-card">
+                  <span class="quote-icon-upload-preview" id="quoteDesignIconPreview"><svg class="icon"><use href="#icon-design"></use></svg></span>
+                  <span><strong>Diseño</strong><small>Subir icono</small></span>
+                  <input id="quoteDesignIconFile" type="file" accept="image/*,.svg" />
+                </label>
               </div>
             </div>
-            <div class="inline-actions"><button type="button" class="btn btn-accent small" id="saveQuotePrices">Guardar cambios</button></div>
+
+            <div class="inline-actions">
+              <button type="button" class="btn btn-accent small" id="saveQuotePrices">Guardar precios e iconos</button>
+            </div>
           </section>
 
           <section class="admin-section design-admin-section admin-view" data-admin-view="disenos" hidden>
@@ -648,6 +711,6 @@
     </article>
   </template>
 
-  <script src="app.js?v=10.12"></script>
+  <script src="app.js?v=10.13"></script>
 </body>
 </html>
