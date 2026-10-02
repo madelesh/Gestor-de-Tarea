@@ -1,4 +1,4 @@
-const APP_VERSION = '10.15.2';
+const APP_VERSION = '10.15.3';
 const API_BASE = 'https://gestor-tareas-api.detodoec.workers.dev';
 const STORAGE_KEY = 'detodoec_tasks_v1';
 const SETTINGS_KEY = 'detodoec_tasks_settings_v3';
@@ -1195,19 +1195,21 @@ function showMainView(view) {
 
 function copyQuoteSummary() {
   if (!quoteItems.length) return;
-  const total = quoteItems.reduce((sum, item) => sum + Number(item.total || 0), 0);
-  const lines = ['Cotización DeTodoEc', ''];
+
+  const lines = ['Cotización', ''];
+
   quoteItems.forEach((item, index) => {
-    lines.push(`${index + 1}. ${item.nombre} · ${item.customerName || 'Cliente público'}`);
-    lines.push(`   ${item.width.toFixed(2)} m × ${item.height.toFixed(2)} m × ${item.qty} = ${item.area.toFixed(2)} m²`);
-    lines.push(`   ${money(item.price)}/m² → ${money(item.materialTotal ?? (item.area * item.price))}`);
-    if (item.eyeletsQty) lines.push(`   + Ojales: ${item.eyeletsQty} × ${money(QUOTE_EXTRAS.eyelet)} = ${money(item.extras?.eyelets || 0)}`);
-    if (item.cutMeters) lines.push(`   + Corte: ${item.cutMeters.toFixed(2)} m × ${money(QUOTE_EXTRAS.cut)} = ${money(item.extras?.cut || 0)}`);
-    if (item.designEnabled) lines.push(`   + Diseño = ${money(QUOTE_EXTRAS.design)}`);
-    lines.push(`   Subtotal: ${money(item.total)}`);
+    lines.push(`${item.nombre}`);
+    lines.push(`Alto ${item.height.toFixed(2)}M x Ancho ${item.width.toFixed(2)}m ${money(item.total)}`);
+    lines.push(`*Subtotal:* ${money(item.total)}`);
+
+    if (index < quoteItems.length - 1) {
+      lines.push('');
+    }
   });
-  lines.push('', `TOTAL: ${money(total)}`);
+
   const content = lines.join('\n');
+
   navigator.clipboard?.writeText(content)
     .then(() => showToast('La cotización fue copiada y está lista para enviarla al cliente.', 'Cotización copiada'))
     .catch(() => showToast(content, 'Cotización lista'));
