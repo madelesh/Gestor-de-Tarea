@@ -9,7 +9,7 @@
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700;800&display=swap" rel="stylesheet">
   <link id="dynamicFavicon" rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 64 64'%3E%3Crect width='64' height='64' rx='16' fill='%23b9ff39'/%3E%3Cpath d='M18 33l9 9 19-22' fill='none' stroke='%23111' stroke-width='7' stroke-linecap='round' stroke-linejoin='round'/%3E%3C/svg%3E" />
-  <link rel="stylesheet" href="styles.css?v=11.1" />
+  <link rel="stylesheet" href="styles.css?v=11.2" />
 </head>
 <body>
   <svg xmlns="http://www.w3.org/2000/svg" style="display:none" aria-hidden="true" focusable="false">
@@ -19,6 +19,7 @@
     <symbol id="icon-moon" viewBox="0 0 24 24"><path fill="currentColor" d="M14.77 4.58A8 8 0 1 0 19.42 19a7 7 0 1 1-4.65-14.42Z"/></symbol>
     <symbol id="icon-sun" viewBox="0 0 24 24"><path fill="currentColor" d="M12 18a6 6 0 1 1 0-12 6 6 0 0 1 0 12Zm0-16h1v3h-2V2h1Zm0 17h1v3h-2v-3h1ZM4.22 5.64l1.42-1.42 2.12 2.12-1.42 1.42-2.12-2.12Zm12.02 12.02 1.42-1.42 2.12 2.12-1.42 1.42-2.12-2.12ZM2 11h3v2H2v-2Zm17 0h3v2h-3v-2ZM4.22 18.36l2.12-2.12 1.42 1.42-2.12 2.12-1.42-1.42Zm12.02-12.02 2.12-2.12 1.42 1.42-2.12 2.12-1.42-1.42Z"/></symbol>
     <symbol id="icon-admin" viewBox="0 0 24 24"><path fill="currentColor" d="M12 2 4 5v6c0 5 3.4 9.74 8 11 4.6-1.26 8-6 8-11V5l-8-3Zm0 5a3 3 0 1 1 0 6 3 3 0 0 1 0-6Zm0 10c-1.97 0-3.75-.8-5.03-2.1.53-1.56 2.83-2.4 5.03-2.4s4.5.84 5.03 2.4A7.02 7.02 0 0 1 12 17Z"/></symbol>
+    <symbol id="icon-home" viewBox="0 0 24 24"><path fill="currentColor" d="m12 3 9 8h-3v9h-5v-6h-2v6H6v-9H3l9-8Z"/></symbol>
     <symbol id="icon-user" viewBox="0 0 24 24"><path fill="currentColor" d="M12 12a4 4 0 1 0 0-8 4 4 0 0 0 0 8Zm0 2c-3.31 0-6 1.79-6 4v2h12v-2c0-2.21-2.69-4-6-4Z"/></symbol>
     <symbol id="icon-task" viewBox="0 0 24 24"><path fill="currentColor" d="M6 3h9l5 5v13a1 1 0 0 1-1 1H6a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2Zm8 1.5V9h4.5L14 4.5ZM8 13h8v1.75H8V13Zm0 4h6v1.75H8V17Zm0-8h4v1.75H8V9Z"/></symbol>
     <symbol id="icon-briefcase" viewBox="0 0 24 24"><path fill="currentColor" d="M9 4h6a2 2 0 0 1 2 2v2h3a2 2 0 0 1 2 2v3h-8v-2h-4v2H2v-3a2 2 0 0 1 2-2h3V6a2 2 0 0 1 2-2Zm6 4V6H9v2h6Zm7 7v5a2 2 0 0 1-2 2H4a2 2 0 0 1-2-2v-5h8v2h4v-2h8Z"/></symbol>
@@ -88,7 +89,8 @@
       </a>
 
       <nav class="main-nav" aria-label="Navegación principal">
-        <button type="button" class="main-nav-btn active" id="navTasks"><svg class="icon"><use href="#icon-task"></use></svg><span>Tareas</span></button>
+        <button type="button" class="main-nav-btn active" id="navHome"><svg class="icon"><use href="#icon-home"></use></svg><span>Home</span></button>
+        <button type="button" class="main-nav-btn" id="navTasks"><svg class="icon"><use href="#icon-task"></use></svg><span>Tareas</span></button>
         <button type="button" class="main-nav-btn" id="navQuote"><svg class="icon"><use href="#icon-calculator"></use></svg><span>Cotizador</span></button>
         <button type="button" class="main-nav-btn" id="navDesigns"><svg class="icon"><use href="#icon-library"></use></svg><span>Diseños</span></button>
         <button type="button" class="main-nav-btn" id="navCheckIn" hidden><svg class="icon"><use href="#icon-clock"></use></svg><span>Check-in</span></button>
@@ -108,12 +110,45 @@
           <span class="top-user-avatar" id="topUserAvatar"><svg class="icon"><use href="#icon-user"></use></svg></span>
           <span class="top-user-copy"><small>Usuario</small><strong id="topUserName">—</strong></span>
         </button>
+        <div class="profile-dropdown" id="profileDropdown" hidden>
+          <button type="button" id="profileEditMenu"><svg class="icon"><use href="#icon-user"></use></svg><span>Editar perfil</span></button>
+          <button type="button" id="profileSettingsMenu"><svg class="icon"><use href="#icon-settings"></use></svg><span>Ajustes</span></button>
+          <button type="button" id="profileAdminMenu" hidden><svg class="icon"><use href="#icon-admin"></use></svg><span>Ajustes de administrador</span></button>
+        </div>
         <button type="button" class="icon-btn square admin-access" id="customizeBtn" title="Panel de administrador" aria-label="Panel de administrador"><svg class="icon"><use href="#icon-admin"></use></svg></button>
       </div>
     </header>
 
     <main class="page-content">
-      <section class="stats" id="resumen">
+      <section class="section home-section" id="home">
+        <div class="home-hero">
+          <div>
+            <span class="eyebrow">Inicio</span>
+            <h1>Hola, <span id="homeGreetingName">Usuario</span></h1>
+            <p>Consulta quién está trabajando ahora y accede rápidamente a tus herramientas.</p>
+          </div>
+          <div class="home-current-time">
+            <small>Hoy</small>
+            <strong id="homeCurrentDate">—</strong>
+          </div>
+        </div>
+
+        <section class="home-team-panel">
+          <div class="home-panel-head">
+            <div>
+              <h2>Equipo</h2>
+              <p>Estado actual según el registro de entrada del día.</p>
+            </div>
+            <button type="button" class="btn btn-outline small" id="refreshHomeUsers">
+              <svg class="icon"><use href="#icon-refresh"></use></svg><span>Actualizar</span>
+            </button>
+          </div>
+          <div class="home-workers-grid" id="homeWorkersGrid"></div>
+          <div class="home-workers-empty" id="homeWorkersEmpty" hidden>No hay usuarios registrados.</div>
+        </section>
+      </section>
+
+      <section class="stats" id="resumen" hidden>
         <article><div class="stat-label"><span class="stat-icon"><svg class="icon"><use href="#icon-task"></use></svg></span><span>Tareas activas</span></div><strong id="statTotal">0</strong></article>
         <article><div class="stat-label"><span class="stat-icon"><svg class="icon"><use href="#icon-calendar"></use></svg></span><span>Pendientes</span></div><strong id="statPending">0</strong></article>
         <article><div class="stat-label"><span class="stat-icon"><svg class="icon"><use href="#icon-check"></use></svg></span><span>Terminadas</span></div><strong id="statDone">0</strong></article>
@@ -344,7 +379,7 @@
     <footer class="app-version-footer" aria-label="Versión de la aplicación">
       <span>DeTodoEc</span>
       <span class="version-separator">•</span>
-      <strong>Versión 11.1</strong>
+      <strong>Versión 11.2</strong>
     </footer>
   </div>
 
@@ -549,6 +584,26 @@
     </form>
   </dialog>
 
+  <dialog id="settingsDialog" class="profile-dialog settings-dialog">
+    <div class="profile-form settings-form">
+      <header class="dialog-head">
+        <div><span class="eyebrow">Ajustes</span><h2>Preferencias</h2></div>
+        <button type="button" class="icon-btn" id="closeSettings" aria-label="Cerrar">✕</button>
+      </header>
+      <section class="settings-option-card">
+        <div><strong>Tema de la página</strong><span>Selecciona cómo quieres ver la interfaz.</span></div>
+        <div class="settings-theme-actions">
+          <button type="button" class="btn btn-outline small" id="settingsLightTheme">Claro</button>
+          <button type="button" class="btn btn-outline small" id="settingsDarkTheme">Oscuro</button>
+        </div>
+      </section>
+      <section class="settings-option-card">
+        <div><strong>Versión</strong><span>Gestor de Tareas DeTodoEc</span></div>
+        <strong>11.2</strong>
+      </section>
+    </div>
+  </dialog>
+
   <dialog id="profileDialog" class="profile-dialog">
     <form method="dialog" id="profileForm" class="profile-form">
       <div class="dialog-head"><div><span class="eyebrow">Cuenta</span><h2>Mi perfil</h2></div><button type="button" class="icon-btn" id="closeProfile" aria-label="Cerrar">✕</button></div>
@@ -608,6 +663,7 @@
         <aside class="admin-sidebar" aria-label="Secciones del administrador">
           <button type="button" class="admin-nav-btn active" data-admin-target="apariencia"><svg class="icon"><use href="#icon-image"></use></svg><span>Apariencia</span></button>
           <button type="button" class="admin-nav-btn" data-admin-target="acceso"><svg class="icon"><use href="#icon-users"></use></svg><span>Usuarios</span></button>
+          <button type="button" class="admin-nav-btn" data-admin-target="roles"><svg class="icon"><use href="#icon-shield"></use></svg><span>Roles</span></button>
           <button type="button" class="admin-nav-btn" data-admin-target="empleados"><svg class="icon"><use href="#icon-user"></use></svg><span>Empleados</span></button>
           <button type="button" class="admin-nav-btn" data-admin-target="cotizador"><svg class="icon"><use href="#icon-calculator"></use></svg><span>Cotizador</span></button>
           <button type="button" class="admin-nav-btn" data-admin-target="disenos"><svg class="icon"><use href="#icon-library"></use></svg><span>Diseños</span></button>
@@ -643,13 +699,72 @@
               <label>Nombre<input id="adminUserName" required placeholder="Ej. Luis Segura" /></label>
               <label>Usuario<input id="adminUsername" required autocomplete="off" placeholder="Ej. luis" /></label>
               <label>Contraseña<input id="adminUserPassword" type="password" autocomplete="new-password" placeholder="Obligatoria al crear" /></label>
-              <label>Rol<select id="adminUserRole"><option value="usuario">Usuario</option><option value="admin">Administrador</option></select></label>
+              <label>Rol<select id="adminUserRole"></select></label>
               <label>Valor por hora ($)<input id="adminUserHourlyRate" type="number" min="0" step="0.01" value="0" /></label>
               <label>Foto de perfil<input id="adminUserPhoto" type="file" accept="image/*" /></label>
               <div class="admin-user-preview" id="adminUserPhotoPreview"><svg class="icon"><use href="#icon-user"></use></svg></div>
               <div class="inline-actions"><button type="submit" class="btn btn-dark small" id="adminUserSaveBtn">Guardar usuario</button><button type="button" class="btn btn-outline small" id="adminUserCancelBtn">Cancelar</button></div>
             </form>
             <div id="adminUsersList" class="admin-users-list"></div>
+          </section>
+
+          <section class="admin-section roles-admin-section admin-view" data-admin-view="roles" hidden>
+            <div class="admin-section-head">
+              <h3>Roles y permisos</h3>
+              <p>Crea roles y decide qué pestañas puede ver cada uno.</p>
+            </div>
+
+            <div class="roles-workspace">
+              <aside class="roles-list-pane">
+                <div class="roles-list-head">
+                  <strong>Roles</strong>
+                  <button type="button" class="icon-btn small" id="newRoleBtn" title="Crear rol">+</button>
+                </div>
+                <div id="rolesList" class="roles-list"></div>
+              </aside>
+
+              <section class="role-editor-pane">
+                <input type="hidden" id="roleId" />
+                <div class="role-editor-title">
+                  <label>Nombre del rol
+                    <input id="roleName" placeholder="Ej. Diseñador" />
+                  </label>
+                  <label class="role-admin-toggle">
+                    <input id="roleIsAdmin" type="checkbox" />
+                    <span><strong>Administrador</strong><small>Acceso a herramientas administrativas.</small></span>
+                  </label>
+                </div>
+
+                <div class="role-permission-list">
+                  <div class="role-permission-row">
+                    <div><strong>Home</strong><span>Ver la página inicial y el estado del equipo.</span></div>
+                    <label class="discord-switch"><input type="checkbox" data-role-permission="home" checked /><span></span></label>
+                  </div>
+                  <div class="role-permission-row">
+                    <div><strong>Tareas</strong><span>Ver y trabajar con pedidos y tareas.</span></div>
+                    <label class="discord-switch"><input type="checkbox" data-role-permission="tasks" checked /><span></span></label>
+                  </div>
+                  <div class="role-permission-row">
+                    <div><strong>Cotizador</strong><span>Acceder al cotizador y copiar cotizaciones.</span></div>
+                    <label class="discord-switch"><input type="checkbox" data-role-permission="quote" checked /><span></span></label>
+                  </div>
+                  <div class="role-permission-row">
+                    <div><strong>Diseños</strong><span>Acceder a la biblioteca de diseños.</span></div>
+                    <label class="discord-switch"><input type="checkbox" data-role-permission="designs" checked /><span></span></label>
+                  </div>
+                  <div class="role-permission-row">
+                    <div><strong>Check-in</strong><span>Mostrar el panel general de registros. Requiere rol administrador.</span></div>
+                    <label class="discord-switch"><input type="checkbox" data-role-permission="checkin" /><span></span></label>
+                  </div>
+                </div>
+
+                <div class="role-editor-actions">
+                  <button type="button" class="btn btn-danger" id="deleteRoleBtn">Eliminar rol</button>
+                  <span></span>
+                  <button type="button" class="btn btn-accent" id="saveRoleBtn">Guardar rol</button>
+                </div>
+              </section>
+            </div>
           </section>
 
           <section class="admin-section employee-admin admin-view" data-admin-view="empleados" hidden>
@@ -843,6 +958,6 @@
     </article>
   </template>
 
-  <script src="app.js?v=11.1"></script>
+  <script src="app.js?v=11.2"></script>
 </body>
 </html>
