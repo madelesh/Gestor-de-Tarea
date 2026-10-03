@@ -1,4 +1,4 @@
-const APP_VERSION = '11.2.2';
+const APP_VERSION = '11.2.3';
 const API_BASE = 'https://gestor-tareas-api.detodoec.workers.dev';
 const STORAGE_KEY = 'detodoec_tasks_v1';
 const SETTINGS_KEY = 'detodoec_tasks_settings_v3';
@@ -1422,6 +1422,56 @@ async function loginApp(username, password) {
   }
 }
 
+let loginFormBound = false;
+
+function bindLoginFormEarly() {
+  if (loginFormBound) return;
+  const form = $('#appLoginForm');
+  if (!form) return;
+
+  loginFormBound = true;
+
+  form.addEventListener('submit', async (e) => {
+    e.preventDefault();
+
+    const userInput = $('#appLoginUser');
+    const passwordInput = $('#appLoginPassword');
+    const user = userInput?.value.trim() || '';
+    const password = passwordInput?.value || '';
+    const submit = form.querySelector('[type="submit"]');
+    const label = submit?.querySelector('span');
+
+    if (!user || !password) {
+      showAuthGate('Escribe tu usuario y contraseña.');
+      return;
+    }
+
+    if (submit) submit.disabled = true;
+    if (label) label.textContent = 'Entrando…';
+
+    const errorBox = $('#appLoginError');
+    if (errorBox) {
+      errorBox.hidden = true;
+      errorBox.textContent = '';
+    }
+
+    try {
+      await loginApp(user, password);
+      if (passwordInput) passwordInput.value = '';
+    } catch (err) {
+      console.error(`[DeTodoEc V${APP_VERSION}] Login`, err);
+      showAuthGate(err?.message || 'No se pudo iniciar sesión.');
+    } finally {
+      if (submit) submit.disabled = false;
+      if (label) label.textContent = 'Entrar';
+    }
+  });
+}
+
+// Se conecta el formulario aquí, antes de inicializar el resto de módulos.
+bindLoginFormEarly();
+
+
 async function restoreSession() {
   if (!sessionToken) return false;
   try {
@@ -1984,7 +2034,7 @@ on('detailDeliver', 'click', () => markDelivered(detailTaskId));
 on('detailArchive', 'click', () => archiveTask(detailTaskId));
 on('detailDelete', 'click', () => requestDelete(detailTaskId));
 
-$('#paymentHistoryList').addEventListener('click', (e) => {
+$('#paymentHistoryList')?.addEventListener('click', (e) => {
   const editBtn = e.target.closest('[data-edit-payment]');
   if (editBtn) {
     editPayment(detailTaskId, editBtn.dataset.editPayment);
@@ -2171,7 +2221,7 @@ $('#defaultTaskImageInput')?.addEventListener('change', (e) => {
 on('saveDefaultTaskImage', 'click', saveTaskDefaultImage);
 on('resetDefaultTaskImage', 'click', resetTaskDefaultImage);
 
-$('#siteIconInput').addEventListener('change', (e) => {
+$('#siteIconInput')?.addEventListener('change', (e) => {
   const file = e.target.files?.[0];
   if (!file) return;
   if (file.size > 600_000) {
@@ -2201,42 +2251,8 @@ on('resetIcon', 'click', () => {
 // V11: credenciales administradas desde Usuarios y Mi perfil.
 
 
-$('#appLoginForm')?.addEventListener('submit', async (e) => {
-  e.preventDefault();
+// Login conectado previamente por bindLoginFormEarly().
 
-  const userInput = $('#appLoginUser');
-  const passwordInput = $('#appLoginPassword');
-  const user = userInput?.value.trim() || '';
-  const password = passwordInput?.value || '';
-  const submit = e.currentTarget.querySelector('[type="submit"]');
-
-  if (!user || !password) {
-    showAuthGate('Escribe tu usuario y contraseña.');
-    return;
-  }
-
-  if (submit) {
-    submit.disabled = true;
-    submit.querySelector('span') && (submit.querySelector('span').textContent = 'Entrando…');
-  }
-
-  const errorBox = $('#appLoginError');
-  if (errorBox) errorBox.hidden = true;
-
-  try {
-    await loginApp(user, password);
-    if (passwordInput) passwordInput.value = '';
-  } catch (err) {
-    console.error(`[DeTodoEc V${APP_VERSION}] Error de inicio de sesión`, err);
-    showAuthGate(err?.message || 'No se pudo iniciar sesión.');
-  } finally {
-    if (submit) {
-      submit.disabled = false;
-      const label = submit.querySelector('span');
-      if (label) label.textContent = 'Entrar';
-    }
-  }
-});
 
 $('#profilePhoto')?.addEventListener('change', (e) => {
   const file = e.target.files?.[0];
@@ -2310,7 +2326,7 @@ $('#adminUsersList')?.addEventListener('click', (e) => {
   if (del) deleteAdminUser(del);
 });
 
-$('#taskImage').addEventListener('change', (e) => {
+$('#taskImage')?.addEventListener('change', (e) => {
   const file = e.target.files?.[0];
   if (!file) return;
   editingImageFile = file;
@@ -2334,7 +2350,7 @@ on('removeImage', 'click', () => {
   syncEditorImageStage(false, '.editor-media-card:first-child .editor-image-stage');
 });
 
-$('#finishedTaskImage').addEventListener('change', (e) => {
+$('#finishedTaskImage')?.addEventListener('change', (e) => {
   const file = e.target.files?.[0];
   if (!file) return;
   editingFinishedImageFile = file;
@@ -2355,10 +2371,10 @@ on('removeFinishedImage', 'click', () => {
   finishedImagePreview.removeAttribute('src');
   syncEditorImageStage(false, '.editor-media-card:nth-child(2) .editor-image-stage');
 });
-$('#totalAmount').addEventListener('input', updateSplitPreview);
-taskForm.addEventListener('submit', saveTask);
+$('#totalAmount')?.addEventListener('input', updateSplitPreview);
+taskForm?.addEventListener('submit', saveTask);
 
-$('#employeePhoto').addEventListener('change', (e) => {
+$('#employeePhoto')?.addEventListener('change', (e) => {
   const file = e.target.files?.[0];
   if (!file) return;
   const reader = new FileReader();
@@ -2369,12 +2385,12 @@ $('#employeePhoto').addEventListener('change', (e) => {
   };
   reader.readAsDataURL(file);
 });
-$('#employeeName').addEventListener('input', () => {
+$('#employeeName')?.addEventListener('input', () => {
   if (!employeeEditingPhoto) setEmployeeAvatarBox($('#employeePhotoPreview'), '', $('#employeeName').value.trim());
 });
 on('employeeCancelBtn', 'click', clearEmployeeForm);
 
-employeeForm.addEventListener('submit', async (e) => {
+employeeForm?.addEventListener('submit', async (e) => {
   e.preventDefault();
   const id = $('#employeeId').value.trim();
   const name = $('#employeeName').value.trim();
@@ -2397,7 +2413,7 @@ employeeForm.addEventListener('submit', async (e) => {
   finally { btn.disabled=false; btn.textContent=original; }
 });
 
-$('#employeeList').addEventListener('click', (e) => {
+$('#employeeList')?.addEventListener('click', (e) => {
   const editId = e.target.closest('[data-edit-employee]')?.dataset.editEmployee;
   const deleteId = e.target.closest('[data-delete-employee]')?.dataset.deleteEmployee;
   if (editId) editEmployee(editId);
@@ -2607,16 +2623,24 @@ window.addEventListener('unhandledrejection', (event) => {
   console.error(`[DeTodoEc V${APP_VERSION}] Promesa rechazada`, event.reason);
 });
 
-populateDesignTimeValues('horas', 1);
-setDesignMaterials('');
+try { populateDesignTimeValues('horas', 1); } catch (err) { console.error('Diseños:', err); }
+try { setDesignMaterials(''); } catch (err) { console.error('Materiales:', err); }
 
-const initialSettings = loadSettings();
+let initialSettings = {};
+try { initialSettings = loadSettings() || {}; } catch (err) { console.error('Ajustes:', err); }
 const preferredTheme = initialSettings.theme || ((window.matchMedia && window.matchMedia('(prefers-color-scheme: dark)').matches) ? 'dark' : 'light');
-setTheme(preferredTheme, false);
-applySiteIcon(initialSettings.siteIcon || '');
-applyQuoteExtraIcons();
+
+try { setTheme(preferredTheme, false); } catch (err) { console.error('Tema:', err); }
+try { applySiteIcon(initialSettings.siteIcon || ''); } catch (err) { console.error('Icono:', err); }
+try { applyQuoteExtraIcons(); } catch (err) { console.error('Cotizador:', err); }
+
 showAuthGate();
-restoreSession().then((ok) => { if (!ok) showAuthGate(); });
+restoreSession()
+  .then((ok) => { if (!ok) showAuthGate(); })
+  .catch((err) => {
+    console.error(`[DeTodoEc V${APP_VERSION}] Inicio`, err);
+    showAuthGate('No se pudo restaurar la sesión. Puedes iniciar sesión nuevamente.');
+  });
 
 function escapeHtml(value) {
   return String(value)
