@@ -1,4 +1,4 @@
-const APP_VERSION = '11.2';
+const APP_VERSION = '11.2.2';
 const API_BASE = 'https://gestor-tareas-api.detodoec.workers.dev';
 const STORAGE_KEY = 'detodoec_tasks_v1';
 const SETTINGS_KEY = 'detodoec_tasks_settings_v3';
@@ -1356,6 +1356,7 @@ function updateNavigationPermissions() {
     ['navQuote', 'quote'],
     ['navDesigns', 'designs']
   ];
+
   mapping.forEach(([id, permission]) => {
     const el = $('#' + id);
     if (el) el.hidden = !userCan(permission);
@@ -1364,15 +1365,24 @@ function updateNavigationPermissions() {
   const checkin = $('#navCheckIn');
   if (checkin) checkin.hidden = !(currentUser?.rol === 'admin' && userCan('checkin'));
 
-  $('#profileAdminMenu').hidden = currentUser?.rol !== 'admin';
+  const adminMenu = $('#profileAdminMenu');
+  if (adminMenu) adminMenu.hidden = currentUser?.rol !== 'admin';
 }
 
 function updateCurrentUserUI() {
   if (!currentUser) return;
-  $('#topUserName').textContent = currentUser.nombre || currentUser.usuario || 'Usuario';
-  $('#topUserAvatar').innerHTML = userAvatarMarkup(currentUser);
-  $('#customizeBtn').hidden = currentUser.rol !== 'admin';
-  $('#homeGreetingName').textContent = currentUser.nombre || currentUser.usuario || 'Usuario';
+
+  const name = currentUser.nombre || currentUser.usuario || 'Usuario';
+  const topName = $('#topUserName');
+  const topAvatar = $('#topUserAvatar');
+  const adminBtn = $('#customizeBtn');
+  const greeting = $('#homeGreetingName');
+
+  if (topName) topName.textContent = name;
+  if (topAvatar) topAvatar.innerHTML = userAvatarMarkup(currentUser);
+  if (adminBtn) adminBtn.hidden = currentUser.rol !== 'admin';
+  if (greeting) greeting.textContent = name;
+
   updateNavigationPermissions();
 }
 
@@ -1382,24 +1392,55 @@ async function loginApp(username, password) {
     headers:{'Content-Type':'application/json'},
     body:JSON.stringify({ usuario:username, password })
   });
+
+  if (!result?.token || !result?.usuario) {
+    throw new Error('El servidor aceptó la solicitud pero no devolvió una sesión válida.');
+  }
+
   sessionToken = result.token;
   currentUser = result.usuario;
   localStorage.setItem(SESSION_KEY, sessionToken);
-  hideAuthGate();
+
+  // La sesión ya es válida: abre la aplicación inmediatamente.
   updateCurrentUserUI();
-  await bootstrapPrivateData();
+  hideAuthGate();
+
+  try {
+    if (userCan('home')) showMainView('home');
+    else if (userCan('tasks')) showMainView('tasks');
+    else if (userCan('quote')) showMainView('quote');
+    else if (userCan('designs')) showMainView('designs');
+
+    await bootstrapPrivateData();
+  } catch (err) {
+    // Un fallo de un módulo secundario no debe devolver al usuario al login.
+    console.error(`[DeTodoEc V${APP_VERSION}] Error cargando la aplicación después del login`, err);
+    showToast(
+      'La sesión se inició correctamente, pero una sección no pudo cargarse. Actualiza la página si algo no aparece.',
+      'Sesión iniciada'
+    );
+  }
 }
 
 async function restoreSession() {
   if (!sessionToken) return false;
   try {
     const result = await apiFetch('/api/auth/me');
+    if (!result?.usuario) throw new Error('Sesión inválida');
+
     currentUser = result.usuario;
-    hideAuthGate();
     updateCurrentUserUI();
-    await bootstrapPrivateData();
+    hideAuthGate();
+
+    try {
+      await bootstrapPrivateData();
+    } catch (err) {
+      console.error(`[DeTodoEc V${APP_VERSION}] Error restaurando módulos`, err);
+    }
+
     return true;
-  } catch {
+  } catch (err) {
+    console.error(`[DeTodoEc V${APP_VERSION}] No se pudo restaurar la sesión`, err);
     sessionToken = '';
     currentUser = null;
     localStorage.removeItem(SESSION_KEY);
@@ -1815,22 +1856,40 @@ async function deleteRole() {
 }
 
 async function bootstrapPrivateData() {
-  employees = loadEmployees();
-  renderEmployeeList();
-  renderEmployeeFilter();
-  render();
+  try {
+    employees = loadEmployees();
+    renderEmployeeList();
+    renderEmployeeFilter();
+    render();
+  } catch (err) {
+    console.error(`[DeTodoEc V${APP_VERSION}] Error preparando interfaz base`, err);
+  }
 
-  const jobs = [
-    refreshTasks(),
-    refreshEmployees(),
-    refreshQuoteConfig(),
-    refreshDesigns(),
-    refreshAttendance(),
-    refreshHomeUsers()
+  const jobFactories = [
+    () => refreshTasks(),
+    () => refreshEmployees(),
+    () => refreshQuoteConfig(),
+    () => refreshDesigns(),
+    () => refreshAttendance(),
+    () => refreshHomeUsers()
   ];
-  if (currentUser?.rol === 'admin') jobs.push(refreshRoles());
 
-  await Promise.allSettled(jobs);
+  if (currentUser?.rol === 'admin') jobFactories.push(() => refreshRoles());
+
+  const jobs = jobFactories.map((factory) => {
+    try {
+      return Promise.resolve(factory());
+    } catch (err) {
+      return Promise.reject(err);
+    }
+  });
+
+  const results = await Promise.allSettled(jobs);
+  results.forEach((result) => {
+    if (result.status === 'rejected') {
+      console.error(`[DeTodoEc V${APP_VERSION}] Módulo no cargado`, result.reason);
+    }
+  });
 
   const searchBox = $('#searchInput');
   if (searchBox) searchBox.value = '';
@@ -2144,17 +2203,38 @@ on('resetIcon', 'click', () => {
 
 $('#appLoginForm')?.addEventListener('submit', async (e) => {
   e.preventDefault();
-  const user = $('#appLoginUser').value.trim();
-  const password = $('#appLoginPassword').value;
+
+  const userInput = $('#appLoginUser');
+  const passwordInput = $('#appLoginPassword');
+  const user = userInput?.value.trim() || '';
+  const password = passwordInput?.value || '';
   const submit = e.currentTarget.querySelector('[type="submit"]');
-  submit.disabled = true;
+
+  if (!user || !password) {
+    showAuthGate('Escribe tu usuario y contraseña.');
+    return;
+  }
+
+  if (submit) {
+    submit.disabled = true;
+    submit.querySelector('span') && (submit.querySelector('span').textContent = 'Entrando…');
+  }
+
+  const errorBox = $('#appLoginError');
+  if (errorBox) errorBox.hidden = true;
+
   try {
     await loginApp(user, password);
-    $('#appLoginPassword').value = '';
+    if (passwordInput) passwordInput.value = '';
   } catch (err) {
-    showAuthGate(err.message || 'Usuario o contraseña incorrectos.');
+    console.error(`[DeTodoEc V${APP_VERSION}] Error de inicio de sesión`, err);
+    showAuthGate(err?.message || 'No se pudo iniciar sesión.');
   } finally {
-    submit.disabled = false;
+    if (submit) {
+      submit.disabled = false;
+      const label = submit.querySelector('span');
+      if (label) label.textContent = 'Entrar';
+    }
   }
 });
 
