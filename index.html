@@ -9,7 +9,7 @@
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700;800&display=swap" rel="stylesheet">
   <link id="dynamicFavicon" rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 64 64'%3E%3Crect width='64' height='64' rx='16' fill='%23b9ff39'/%3E%3Cpath d='M18 33l9 9 19-22' fill='none' stroke='%23111' stroke-width='7' stroke-linecap='round' stroke-linejoin='round'/%3E%3C/svg%3E" />
-  <link rel="stylesheet" href="styles.css?v=10.16.3" />
+  <link rel="stylesheet" href="styles.css?v=11.0" />
 </head>
 <body>
   <svg xmlns="http://www.w3.org/2000/svg" style="display:none" aria-hidden="true" focusable="false">
@@ -52,7 +52,30 @@
     <symbol id="icon-ruler" viewBox="0 0 24 24"><path fill="currentColor" d="m3 17 14-14 4 4L7 21H3v-4Zm4.5-1.5 1 1 1.5-1.5-1-1-1.5 1.5Zm3-3 1 1L13 12l-1-1-1.5 1.5Zm3-3 1 1L16 9l-1-1-1.5 1.5Z"/></symbol>
     <symbol id="icon-clock" viewBox="0 0 24 24"><path fill="currentColor" d="M12 2a10 10 0 1 0 0 20 10 10 0 0 0 0-20Zm1 5v5.59l3.7 2.14-1 1.73L11 13.75V7h2Z"/></symbol>
     <symbol id="icon-box" viewBox="0 0 24 24"><path fill="currentColor" d="m12 2 9 4.5v11L12 22l-9-4.5v-11L12 2Zm0 2.24L6.24 7.12 12 10l5.76-2.88L12 4.24ZM5 8.74v7.52l6 3v-7.52l-6-3Zm8 10.52 6-3V8.74l-6 3v7.52Z"/></symbol>
+    <symbol id="icon-login" viewBox="0 0 24 24"><path fill="currentColor" d="M10 3h9a2 2 0 0 1 2 2v14a2 2 0 0 1-2 2h-9v-2h9V5h-9V3Zm1.59 5.59L13 10l-2 2H3v2h8l2 2-1.41 1.41L7.17 13l4.42-4.41Z"/></symbol>
+    <symbol id="icon-logout" viewBox="0 0 24 24"><path fill="currentColor" d="M14 3H5a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h9v-2H5V5h9V3Zm1.41 5.59L14 10l2 2H8v2h8l-2 2 1.41 1.41L19.83 13l-4.42-4.41Z"/></symbol>
+    <symbol id="icon-users" viewBox="0 0 24 24"><path fill="currentColor" d="M16 11a4 4 0 1 0 0-8 4 4 0 0 0 0 8ZM8 12a4 4 0 1 0 0-8 4 4 0 0 0 0 8Zm8 1c-2.67 0-8 1.34-8 4v3h14v-3c0-2.66-3.33-4-6-4ZM8 14c-3.11 0-6 1.56-6 4v2h4v-3c0-1.15.43-2.15 1.17-3H8Z"/></symbol>
   </svg>
+
+  <section class="auth-gate" id="authGate" aria-label="Iniciar sesión">
+    <div class="auth-card">
+      <div class="auth-brand">
+        <span class="auth-brand-icon"><svg class="icon"><use href="#icon-brand"></use></svg></span>
+        <div><strong>DeTodoEc</strong><span>Gestión de trabajo</span></div>
+      </div>
+      <div class="auth-copy">
+        <span class="eyebrow">Acceso</span>
+        <h1>Iniciar sesión</h1>
+        <p>Ingresa con tu usuario para acceder a tareas, cotizaciones, diseños y asistencia.</p>
+      </div>
+      <form id="appLoginForm" class="app-login-form" autocomplete="on">
+        <label>Usuario<input id="appLoginUser" name="username" autocomplete="username" required /></label>
+        <label>Contraseña<input id="appLoginPassword" name="password" type="password" autocomplete="current-password" required /></label>
+        <p id="appLoginError" class="form-error" hidden></p>
+        <button type="submit" class="btn btn-accent auth-submit"><svg class="icon"><use href="#icon-login"></use></svg><span>Entrar</span></button>
+      </form>
+    </div>
+  </section>
 
   <div class="app-shell">
     <header class="topbar">
@@ -68,6 +91,7 @@
         <button type="button" class="main-nav-btn active" id="navTasks"><svg class="icon"><use href="#icon-task"></use></svg><span>Tareas</span></button>
         <button type="button" class="main-nav-btn" id="navQuote"><svg class="icon"><use href="#icon-calculator"></use></svg><span>Cotizador</span></button>
         <button type="button" class="main-nav-btn" id="navDesigns"><svg class="icon"><use href="#icon-library"></use></svg><span>Diseños</span></button>
+        <button type="button" class="main-nav-btn" id="navAttendance"><svg class="icon"><use href="#icon-clock"></use></svg><span>Asistencia</span></button>
       </nav>
 
       <div class="topbar-actions">
@@ -77,6 +101,13 @@
         </button>
         <button type="button" class="icon-btn square" id="refreshCloud" title="Actualizar desde la nube" aria-label="Actualizar desde la nube"><svg class="icon"><use href="#icon-refresh"></use></svg></button>
         <button type="button" class="icon-btn square" id="themeToggle" title="Cambiar tema" aria-label="Cambiar tema"><span id="themeIconSlot"></span></button>
+        <button type="button" class="attendance-quick-btn" id="attendanceQuickBtn" title="Registrar asistencia">
+          <svg class="icon"><use href="#icon-clock"></use></svg><span id="attendanceQuickText">Entrada</span>
+        </button>
+        <button type="button" class="user-menu-btn" id="profileBtn" title="Mi perfil">
+          <span class="top-user-avatar" id="topUserAvatar"><svg class="icon"><use href="#icon-user"></use></svg></span>
+          <span class="top-user-copy"><small>Usuario</small><strong id="topUserName">—</strong></span>
+        </button>
         <button type="button" class="icon-btn square admin-access" id="customizeBtn" title="Panel de administrador" aria-label="Panel de administrador"><svg class="icon"><use href="#icon-admin"></use></svg></button>
       </div>
     </header>
@@ -265,12 +296,41 @@
       </section>
 
 
+      <section class="section attendance-section" id="asistencia" hidden>
+        <div class="attendance-heading">
+          <div><span class="eyebrow">Asistencia</span><h1>Ingreso y salida</h1><p>Registro diario de jornada por usuario.</p></div>
+          <button type="button" class="btn btn-accent attendance-main-action" id="attendanceMainBtn"><svg class="icon"><use href="#icon-clock"></use></svg><span id="attendanceMainText">Registrar entrada</span></button>
+        </div>
+
+        <div class="attendance-today-grid">
+          <article class="attendance-self-card">
+            <div class="attendance-self-user"><span class="attendance-user-avatar" id="attendanceUserAvatar"><svg class="icon"><use href="#icon-user"></use></svg></span><div><small>Mi jornada de hoy</small><strong id="attendanceUserName">—</strong></div></div>
+            <div class="attendance-self-metrics">
+              <div><span>Entrada</span><strong id="attendanceEntry">—</strong></div>
+              <div><span>Salida</span><strong id="attendanceExit">—</strong></div>
+              <div><span>Minutos trabajados</span><strong id="attendanceMinutes">0 min</strong></div>
+            </div>
+          </article>
+        </div>
+
+        <div class="attendance-list-card">
+          <div class="attendance-list-head"><div><h2>Registro de hoy</h2><p id="attendanceDateLabel"></p></div><button type="button" class="btn btn-outline small" id="refreshAttendance"><svg class="icon"><use href="#icon-refresh"></use></svg><span>Actualizar</span></button></div>
+          <div class="attendance-table-wrap">
+            <table class="attendance-table">
+              <thead><tr><th>Usuario</th><th>Entrada</th><th>Salida</th><th>Minutos</th><th>Estado</th></tr></thead>
+              <tbody id="attendanceTableBody"></tbody>
+            </table>
+          </div>
+          <div id="attendanceEmpty" class="attendance-empty" hidden>No hay registros de asistencia todavía.</div>
+        </div>
+      </section>
+
     </main>
 
     <footer class="app-version-footer" aria-label="Versión de la aplicación">
       <span>DeTodoEc</span>
       <span class="version-separator">•</span>
-      <strong>Versión 10.16.3</strong>
+      <strong>Versión 11.0</strong>
     </footer>
   </div>
 
@@ -475,6 +535,20 @@
     </form>
   </dialog>
 
+  <dialog id="profileDialog" class="profile-dialog">
+    <form method="dialog" id="profileForm" class="profile-form">
+      <div class="dialog-head"><div><span class="eyebrow">Cuenta</span><h2>Mi perfil</h2></div><button type="button" class="icon-btn" id="closeProfile" aria-label="Cerrar">✕</button></div>
+      <div class="profile-hero"><div class="profile-avatar-large" id="profileAvatarPreview"><svg class="icon"><use href="#icon-user"></use></svg></div><div><strong id="profileHeroName">—</strong><span id="profileHeroRole">Usuario</span></div></div>
+      <div class="form-grid">
+        <label>Nombre<input id="profileName" required /></label>
+        <label>Usuario<input id="profileUsername" required autocomplete="username" /></label>
+        <label class="full">Nueva contraseña<input id="profileNewPassword" type="password" autocomplete="new-password" placeholder="Déjalo vacío si no quieres cambiarla" /></label>
+        <label class="full">Foto de perfil<input id="profilePhoto" type="file" accept="image/*" /></label>
+      </div>
+      <div class="dialog-actions profile-actions"><button type="button" class="btn btn-danger" id="logoutBtn"><svg class="icon"><use href="#icon-logout"></use></svg><span>Cerrar sesión</span></button><span class="profile-action-spacer"></span><button type="button" class="btn btn-outline" id="cancelProfile">Cancelar</button><button type="submit" class="btn btn-accent">Guardar cambios</button></div>
+    </form>
+  </dialog>
+
   <dialog id="loginDialog" class="login-dialog">
     <form method="dialog" id="loginForm" class="login-form">
       <div class="dialog-head">
@@ -508,7 +582,7 @@
       <div class="admin-workspace">
         <aside class="admin-sidebar" aria-label="Secciones del administrador">
           <button type="button" class="admin-nav-btn active" data-admin-target="apariencia"><svg class="icon"><use href="#icon-image"></use></svg><span>Apariencia</span></button>
-          <button type="button" class="admin-nav-btn" data-admin-target="acceso"><svg class="icon"><use href="#icon-lock"></use></svg><span>Acceso</span></button>
+          <button type="button" class="admin-nav-btn" data-admin-target="acceso"><svg class="icon"><use href="#icon-users"></use></svg><span>Usuarios</span></button>
           <button type="button" class="admin-nav-btn" data-admin-target="empleados"><svg class="icon"><use href="#icon-user"></use></svg><span>Empleados</span></button>
           <button type="button" class="admin-nav-btn" data-admin-target="cotizador"><svg class="icon"><use href="#icon-calculator"></use></svg><span>Cotizador</span></button>
           <button type="button" class="admin-nav-btn" data-admin-target="disenos"><svg class="icon"><use href="#icon-library"></use></svg><span>Diseños</span></button>
@@ -538,12 +612,18 @@
           </section>
 
           <section class="admin-section admin-view" data-admin-view="acceso" hidden>
-            <div class="admin-section-head"><h3>Acceso</h3><p>Usuario y contraseña del panel.</p></div>
-            <div class="form-grid">
-              <label>Usuario<input id="customUser" /></label>
-              <label>Nueva contraseña<input id="customPass" type="password" placeholder="Dejar vacío para conservar" /></label>
-            </div>
-            <div class="inline-actions"><button type="button" class="btn btn-outline small" id="saveAccess">Guardar acceso</button></div>
+            <div class="admin-section-head"><h3>Usuarios</h3><p>Crea cuentas para ingresar al sistema y registrar asistencia.</p></div>
+            <form id="adminUserForm" class="admin-user-form">
+              <input type="hidden" id="adminUserId" />
+              <label>Nombre<input id="adminUserName" required placeholder="Ej. Luis Segura" /></label>
+              <label>Usuario<input id="adminUsername" required autocomplete="off" placeholder="Ej. luis" /></label>
+              <label>Contraseña<input id="adminUserPassword" type="password" autocomplete="new-password" placeholder="Obligatoria al crear" /></label>
+              <label>Rol<select id="adminUserRole"><option value="usuario">Usuario</option><option value="admin">Administrador</option></select></label>
+              <label>Foto de perfil<input id="adminUserPhoto" type="file" accept="image/*" /></label>
+              <div class="admin-user-preview" id="adminUserPhotoPreview"><svg class="icon"><use href="#icon-user"></use></svg></div>
+              <div class="inline-actions"><button type="submit" class="btn btn-dark small" id="adminUserSaveBtn">Guardar usuario</button><button type="button" class="btn btn-outline small" id="adminUserCancelBtn">Cancelar</button></div>
+            </form>
+            <div id="adminUsersList" class="admin-users-list"></div>
           </section>
 
           <section class="admin-section employee-admin admin-view" data-admin-view="empleados" hidden>
@@ -737,6 +817,6 @@
     </article>
   </template>
 
-  <script src="app.js?v=10.16"></script>
+  <script src="app.js?v=11.0"></script>
 </body>
 </html>

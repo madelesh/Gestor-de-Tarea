@@ -1,9 +1,17 @@
-const APP_VERSION = '10.15.3';
+const APP_VERSION = '11.0';
 const API_BASE = 'https://gestor-tareas-api.detodoec.workers.dev';
 const STORAGE_KEY = 'detodoec_tasks_v1';
 const SETTINGS_KEY = 'detodoec_tasks_settings_v3';
 const EMPLOYEES_KEY = 'detodoec_employees_v1';
 const MIGRATION_KEY = 'detodoec_cloud_migration_v8';
+const SESSION_KEY = 'detodoec_session_v11';
+let sessionToken = localStorage.getItem(SESSION_KEY) || '';
+let currentUser = null;
+let attendanceState = null;
+let adminUsers = [];
+let profilePhotoFile = null;
+let adminUserPhotoFile = null;
+let adminUserPhotoUrl = '';
 
 let tasks = [];
 let employees = [];
@@ -277,9 +285,17 @@ function showToast(message, title = 'Guardado correctamente') {
 }
 
 async function apiFetch(path, options = {}) {
-  const res = await fetch(API_BASE + path, { ...options, headers: { ...(options.headers || {}) } });
+  const headers = { ...(options.headers || {}) };
+  if (sessionToken) headers.Authorization = `Bearer ${sessionToken}`;
+  const res = await fetch(API_BASE + path, { ...options, headers });
   const type = res.headers.get('content-type') || '';
   const data = type.includes('application/json') ? await res.json() : await res.text();
+  if (res.status === 401 && path !== '/api/auth/login') {
+    sessionToken = '';
+    currentUser = null;
+    localStorage.removeItem(SESSION_KEY);
+    showAuthGate();
+  }
   if (!res.ok) {
     throw new Error(data?.error || data?.message || String(data) || `Error ${res.status}`);
   }
@@ -1238,14 +1254,17 @@ function showMainView(view) {
   const isTasks = view === 'tasks';
   const isQuote = view === 'quote';
   const isDesigns = view === 'designs';
+  const isAttendance = view === 'attendance';
   $('#resumen').hidden = !isTasks;
   $('#tareas').hidden = !isTasks;
   $('#archivados').hidden = true;
   $('#cotizador').hidden = !isQuote;
   $('#disenos').hidden = !isDesigns;
+  $('#asistencia').hidden = !isAttendance;
   $('#navTasks')?.classList.toggle('active', isTasks);
   $('#navQuote')?.classList.toggle('active', isQuote);
   $('#navDesigns')?.classList.toggle('active', isDesigns);
+  $('#navAttendance')?.classList.toggle('active', isAttendance);
   if (isQuote) {
     renderQuoteCustomerPicker();
     renderQuoteMaterialSelect();
@@ -1253,6 +1272,7 @@ function showMainView(view) {
     calculateQuote();
   }
   if (isDesigns) renderDesigns();
+  if (isAttendance) refreshAttendance();
 }
 
 function copyQuoteSummary() {
@@ -2156,6 +2176,242 @@ function setArchiveView(show) {
   }
 }
 
+
+function showAuthGate(message = '') {
+  const gate = $('#authGate');
+  if (gate) gate.hidden = false;
+  document.body.classList.add('auth-locked');
+  if ($('#appLoginError')) {
+    $('#appLoginError').hidden = !message;
+    $('#appLoginError').textContent = message || '';
+  }
+  setTimeout(() => $('#appLoginUser')?.focus(), 50);
+}
+
+function hideAuthGate() {
+  const gate = $('#authGate');
+  if (gate) gate.hidden = true;
+  document.body.classList.remove('auth-locked');
+}
+
+function userAvatarMarkup(user = currentUser) {
+  if (user?.foto_url) return `<img src="${escapeHtml(user.foto_url)}" alt="" />`;
+  return iconUse('icon-user');
+}
+
+function updateCurrentUserUI() {
+  if (!currentUser) return;
+  $('#topUserName').textContent = currentUser.nombre || currentUser.usuario || 'Usuario';
+  $('#topUserAvatar').innerHTML = userAvatarMarkup(currentUser);
+  $('#attendanceUserName').textContent = currentUser.nombre || currentUser.usuario || 'Usuario';
+  $('#attendanceUserAvatar').innerHTML = userAvatarMarkup(currentUser);
+  $('#customizeBtn').hidden = currentUser.rol !== 'admin';
+}
+
+async function loginApp(username, password) {
+  const result = await apiFetch('/api/auth/login', {
+    method:'POST',
+    headers:{'Content-Type':'application/json'},
+    body:JSON.stringify({ usuario:username, password })
+  });
+  sessionToken = result.token;
+  currentUser = result.usuario;
+  localStorage.setItem(SESSION_KEY, sessionToken);
+  hideAuthGate();
+  updateCurrentUserUI();
+  await bootstrapPrivateData();
+}
+
+async function restoreSession() {
+  if (!sessionToken) return false;
+  try {
+    const result = await apiFetch('/api/auth/me');
+    currentUser = result.usuario;
+    hideAuthGate();
+    updateCurrentUserUI();
+    await bootstrapPrivateData();
+    return true;
+  } catch {
+    sessionToken = '';
+    currentUser = null;
+    localStorage.removeItem(SESSION_KEY);
+    return false;
+  }
+}
+
+async function logoutApp() {
+  try { await apiFetch('/api/auth/logout', { method:'POST' }); } catch {}
+  sessionToken = '';
+  currentUser = null;
+  attendanceState = null;
+  localStorage.removeItem(SESSION_KEY);
+  $('#profileDialog')?.close();
+  showAuthGate();
+}
+
+function openProfile() {
+  if (!currentUser) return;
+  $('#profileName').value = currentUser.nombre || '';
+  $('#profileUsername').value = currentUser.usuario || '';
+  $('#profileNewPassword').value = '';
+  $('#profileHeroName').textContent = currentUser.nombre || currentUser.usuario || 'Usuario';
+  $('#profileHeroRole').textContent = currentUser.rol === 'admin' ? 'Administrador' : 'Usuario';
+  $('#profileAvatarPreview').innerHTML = userAvatarMarkup(currentUser);
+  profilePhotoFile = null;
+  $('#profilePhoto').value = '';
+  $('#profileDialog').showModal();
+}
+
+function formatTime(value) {
+  if (!value) return '—';
+  const date = new Date(value);
+  return new Intl.DateTimeFormat('es-EC', { hour:'2-digit', minute:'2-digit', hour12:false }).format(date);
+}
+
+function formatAttendanceDate(value = todayLocal()) {
+  const [y,m,d] = value.split('-').map(Number);
+  return new Intl.DateTimeFormat('es-EC', { weekday:'long', day:'2-digit', month:'long', year:'numeric' }).format(new Date(y,m-1,d));
+}
+
+function renderAttendanceState() {
+  const state = attendanceState || {};
+  const open = Boolean(state.abierto);
+  $('#attendanceEntry').textContent = formatTime(state.entrada);
+  $('#attendanceExit').textContent = formatTime(state.salida);
+  $('#attendanceMinutes').textContent = `${Number(state.minutos || 0)} min`;
+  $('#attendanceQuickText').textContent = open ? 'Salida' : 'Entrada';
+  $('#attendanceMainText').textContent = open ? 'Registrar salida' : 'Registrar entrada';
+  $('#attendanceQuickBtn')?.classList.toggle('is-clocked-in', open);
+  $('#attendanceMainBtn')?.classList.toggle('is-clocked-in', open);
+}
+
+function renderAttendanceRows(rows = []) {
+  const tbody = $('#attendanceTableBody');
+  if (!tbody) return;
+  tbody.innerHTML = '';
+  rows.forEach((row) => {
+    const tr = document.createElement('tr');
+    tr.innerHTML = `
+      <td><div class="attendance-table-user"><span class="attendance-table-avatar">${row.foto_url ? `<img src="${escapeHtml(row.foto_url)}" alt="" />` : iconUse('icon-user')}</span><span><strong>${escapeHtml(row.nombre || row.usuario)}</strong><small>@${escapeHtml(row.usuario)}</small></span></div></td>
+      <td>${formatTime(row.entrada)}</td>
+      <td>${formatTime(row.salida)}</td>
+      <td><strong>${Number(row.minutos || 0)} min</strong></td>
+      <td><span class="attendance-status ${row.salida ? 'closed' : 'open'}">${row.salida ? 'Finalizada' : 'Trabajando'}</span></td>`;
+    tbody.appendChild(tr);
+  });
+  $('#attendanceEmpty').hidden = rows.length > 0;
+}
+
+async function refreshAttendance() {
+  if (!currentUser) return;
+  const fecha = todayLocal();
+  $('#attendanceDateLabel').textContent = formatAttendanceDate(fecha);
+  try {
+    const [state, rows] = await Promise.all([
+      apiFetch('/api/asistencia/estado'),
+      apiFetch(`/api/asistencia?fecha=${encodeURIComponent(fecha)}`)
+    ]);
+    attendanceState = state;
+    renderAttendanceState();
+    renderAttendanceRows(Array.isArray(rows) ? rows : []);
+  } catch (err) {
+    showToast(err.message, 'No se pudo cargar la asistencia');
+  }
+}
+
+async function toggleAttendance() {
+  if (!currentUser) return;
+  const isOpen = Boolean(attendanceState?.abierto);
+  const btns = [$('#attendanceQuickBtn'), $('#attendanceMainBtn')].filter(Boolean);
+  btns.forEach((btn) => btn.disabled = true);
+  try {
+    const endpoint = isOpen ? '/api/asistencia/salida' : '/api/asistencia/entrada';
+    const result = await apiFetch(endpoint, { method:'POST' });
+    showToast(result.mensaje || (isOpen ? 'Salida registrada.' : 'Entrada registrada.'), isOpen ? 'Salida registrada' : 'Entrada registrada');
+    await refreshAttendance();
+  } catch (err) {
+    showToast(err.message, 'Asistencia');
+  } finally {
+    btns.forEach((btn) => btn.disabled = false);
+  }
+}
+
+async function refreshAdminUsers() {
+  if (!currentUser || currentUser.rol !== 'admin') return;
+  try {
+    adminUsers = await apiFetch('/api/usuarios');
+    renderAdminUsers();
+  } catch (err) {
+    console.error(err);
+  }
+}
+
+function renderAdminUserPhoto(url = '') {
+  const box = $('#adminUserPhotoPreview');
+  if (!box) return;
+  box.innerHTML = url ? `<img src="${escapeHtml(url)}" alt="" />` : iconUse('icon-user');
+}
+
+function clearAdminUserForm() {
+  $('#adminUserForm')?.reset();
+  if ($('#adminUserId')) $('#adminUserId').value = '';
+  adminUserPhotoFile = null;
+  adminUserPhotoUrl = '';
+  renderAdminUserPhoto('');
+  if ($('#adminUserSaveBtn')) $('#adminUserSaveBtn').textContent = 'Guardar usuario';
+}
+
+function renderAdminUsers() {
+  const list = $('#adminUsersList');
+  if (!list) return;
+  list.innerHTML = '';
+  adminUsers.forEach((user) => {
+    const card = document.createElement('article');
+    card.className = 'admin-user-card';
+    card.innerHTML = `
+      <span class="admin-user-avatar">${user.foto_url ? `<img src="${escapeHtml(user.foto_url)}" alt="" />` : iconUse('icon-user')}</span>
+      <div class="admin-user-info"><strong>${escapeHtml(user.nombre)}</strong><span>@${escapeHtml(user.usuario)} · ${user.rol === 'admin' ? 'Administrador' : 'Usuario'}</span></div>
+      <div class="admin-user-actions"><button type="button" class="btn btn-outline small" data-edit-app-user="${user.id}">Editar</button>${String(user.id) !== String(currentUser?.id) ? `<button type="button" class="btn btn-danger small" data-delete-app-user="${user.id}">Eliminar</button>` : ''}</div>`;
+    list.appendChild(card);
+  });
+}
+
+function editAdminUser(id) {
+  const user = adminUsers.find((item) => String(item.id) === String(id));
+  if (!user) return;
+  $('#adminUserId').value = user.id;
+  $('#adminUserName').value = user.nombre;
+  $('#adminUsername').value = user.usuario;
+  $('#adminUserPassword').value = '';
+  $('#adminUserRole').value = user.rol || 'usuario';
+  adminUserPhotoUrl = user.foto_url || '';
+  adminUserPhotoFile = null;
+  renderAdminUserPhoto(adminUserPhotoUrl);
+  $('#adminUserSaveBtn').textContent = 'Actualizar usuario';
+}
+
+async function deleteAdminUser(id) {
+  const user = adminUsers.find((item) => String(item.id) === String(id));
+  if (!user || !confirm(`¿Eliminar el usuario "${user.nombre}"?`)) return;
+  try {
+    await apiFetch(`/api/usuarios/${id}`, { method:'DELETE' });
+    showToast(`${user.nombre} fue eliminado.`, 'Usuario eliminado');
+    await refreshAdminUsers();
+  } catch (err) {
+    showToast(err.message, 'No se pudo eliminar el usuario');
+  }
+}
+
+async function bootstrapPrivateData() {
+  employees = loadEmployees();
+  renderEmployeeList();
+  renderEmployeeFilter();
+  render();
+  await Promise.allSettled([refreshTasks(), refreshEmployees(), refreshQuoteConfig(), refreshDesigns(), refreshAttendance()]);
+  const searchBox = $('#searchInput');
+  if (searchBox) searchBox.value = '';
+}
+
 function setTheme(theme, persist = true) {
   const next = theme === 'dark' ? 'dark' : 'light';
   document.documentElement.setAttribute('data-theme', next);
@@ -2190,39 +2446,21 @@ function applySiteIcon(dataUrl) {
 }
 
 function requestAdminPanel(section = 'apariencia') {
+  if (!currentUser || currentUser.rol !== 'admin') {
+    showToast('Solo un administrador puede abrir este panel.', 'Acceso restringido');
+    return;
+  }
   pendingAdminSection = section || 'apariencia';
-  $('#loginUser').value = '';
-  $('#loginPass').value = '';
-  $('#loginError').hidden = true;
-  loginDialog.showModal();
-  setTimeout(() => $('#loginUser').focus(), 50);
+  openAdminPanel(section);
 }
-function currentCredentials() {
-  const settings = loadSettings();
-  return { user: settings.adminUser || 'admin', pass: settings.adminPass || '1234' };
-}
-function openAdminPanel() {
-  const settings = loadSettings();
-  $('#customUser').value = settings.adminUser || 'admin';
-  $('#customPass').value = '';
+function openAdminPanel(section = pendingAdminSection || 'apariencia') {
   renderEmployeeList();
   renderQuotePriceAdmin();
   clearEmployeeForm();
-  showAdminSection('apariencia');
+  refreshAdminUsers();
+  showAdminSection(section);
   adminDialog.showModal();
 }
-
-$('#loginForm').addEventListener('submit', (e) => {
-  e.preventDefault();
-  const credentials = currentCredentials();
-  if ($('#loginUser').value === credentials.user && $('#loginPass').value === credentials.pass) {
-    loginDialog.close();
-    openAdminPanel();
-  } else {
-    $('#loginError').hidden = false;
-    $('#loginPass').select();
-  }
-});
 
 function on(id, event, handler) {
   const el = $('#' + id);
@@ -2286,6 +2524,14 @@ on('detailImageNext', 'click', () => {
 on('navQuote', 'click', () => showMainView('quote'));
 on('navTasks', 'click', () => showMainView('tasks'));
 on('navDesigns', 'click', () => showMainView('designs'));
+on('navAttendance', 'click', () => showMainView('attendance'));
+on('attendanceQuickBtn', 'click', toggleAttendance);
+on('attendanceMainBtn', 'click', toggleAttendance);
+on('refreshAttendance', 'click', refreshAttendance);
+on('profileBtn', 'click', openProfile);
+on('closeProfile', 'click', () => $('#profileDialog').close());
+on('cancelProfile', 'click', () => $('#profileDialog').close());
+on('logoutBtn', 'click', logoutApp);
 on('manageDesignsBtn', 'click', () => requestAdminPanel('disenos'));
 on('designSearchInput', 'input', renderDesigns);
 
@@ -2430,20 +2676,95 @@ on('resetIcon', 'click', () => {
   showToast('Se restauró el icono original.');
 });
 
-on('saveAccess', 'click', () => {
-  const user = $('#customUser').value.trim();
-  const pass = $('#customPass').value;
-  if (!user) {
-    showToast('Escribe un usuario válido.', 'No se guardó');
-    return;
+// V11: credenciales administradas desde Usuarios y Mi perfil.
+
+
+$('#appLoginForm')?.addEventListener('submit', async (e) => {
+  e.preventDefault();
+  const user = $('#appLoginUser').value.trim();
+  const password = $('#appLoginPassword').value;
+  const submit = e.currentTarget.querySelector('[type="submit"]');
+  submit.disabled = true;
+  try {
+    await loginApp(user, password);
+    $('#appLoginPassword').value = '';
+  } catch (err) {
+    showAuthGate(err.message || 'Usuario o contraseña incorrectos.');
+  } finally {
+    submit.disabled = false;
   }
-  const settings = loadSettings();
-  settings.adminUser = user;
-  if (pass) settings.adminPass = pass;
-  else if (!settings.adminPass) settings.adminPass = '1234';
-  saveSettings(settings);
-  $('#customPass').value = '';
-  showToast('Usuario y contraseña actualizados.', 'Acceso actualizado');
+});
+
+$('#profilePhoto')?.addEventListener('change', (e) => {
+  const file = e.target.files?.[0];
+  if (!file) return;
+  profilePhotoFile = file;
+  $('#profileAvatarPreview').innerHTML = `<img src="${URL.createObjectURL(file)}" alt="" />`;
+});
+
+$('#profileForm')?.addEventListener('submit', async (e) => {
+  e.preventDefault();
+  const submit = e.currentTarget.querySelector('[type="submit"]');
+  submit.disabled = true;
+  try {
+    let foto_url = currentUser?.foto_url || '';
+    if (profilePhotoFile) foto_url = await uploadImage(profilePhotoFile);
+    const payload = {
+      nombre: $('#profileName').value.trim(),
+      usuario: $('#profileUsername').value.trim(),
+      foto_url,
+      password: $('#profileNewPassword').value || undefined
+    };
+    const result = await apiFetch('/api/auth/perfil', { method:'PUT', headers:{'Content-Type':'application/json'}, body:JSON.stringify(payload) });
+    currentUser = result.usuario;
+    updateCurrentUserUI();
+    $('#profileDialog').close();
+    showToast('Tus datos fueron actualizados.', 'Perfil actualizado');
+    await refreshAttendance();
+  } catch (err) {
+    showToast(err.message, 'No se pudo actualizar el perfil');
+  } finally {
+    submit.disabled = false;
+  }
+});
+
+$('#adminUserPhoto')?.addEventListener('change', (e) => {
+  const file = e.target.files?.[0];
+  if (!file) return;
+  adminUserPhotoFile = file;
+  renderAdminUserPhoto(URL.createObjectURL(file));
+});
+
+on('adminUserCancelBtn', 'click', clearAdminUserForm);
+$('#adminUserForm')?.addEventListener('submit', async (e) => {
+  e.preventDefault();
+  const id = $('#adminUserId').value.trim();
+  const nombre = $('#adminUserName').value.trim();
+  const usuario = $('#adminUsername').value.trim();
+  const password = $('#adminUserPassword').value;
+  if (!id && !password) { showToast('Escribe una contraseña para el nuevo usuario.', 'Falta contraseña'); return; }
+  const btn = $('#adminUserSaveBtn');
+  btn.disabled = true;
+  try {
+    let foto_url = adminUserPhotoUrl || '';
+    if (adminUserPhotoFile) foto_url = await uploadImage(adminUserPhotoFile);
+    const payload = { nombre, usuario, rol:$('#adminUserRole').value, foto_url, password:password || undefined };
+    await apiFetch(id ? `/api/usuarios/${id}` : '/api/usuarios', { method:id ? 'PUT':'POST', headers:{'Content-Type':'application/json'}, body:JSON.stringify(payload) });
+    clearAdminUserForm();
+    await refreshAdminUsers();
+    showToast(id ? 'Usuario actualizado correctamente.' : 'Usuario creado correctamente.', id ? 'Usuario actualizado' : 'Usuario creado');
+  } catch (err) {
+    showToast(err.message, 'No se pudo guardar el usuario');
+  } finally {
+    btn.disabled = false;
+  }
+});
+
+$('#adminUsersList')?.addEventListener('click', (e) => {
+  const edit = e.target.closest('[data-edit-app-user]')?.dataset.editAppUser;
+  const del = e.target.closest('[data-delete-app-user]')?.dataset.deleteAppUser;
+  if (edit) editAdminUser(edit);
+  if (del) deleteAdminUser(del);
 });
 
 $('#taskImage').addEventListener('change', (e) => {
@@ -2747,20 +3068,12 @@ populateDesignTimeValues('horas', 1);
 setDesignMaterials('');
 
 const initialSettings = loadSettings();
-employees = loadEmployees();
 const preferredTheme = initialSettings.theme || ((window.matchMedia && window.matchMedia('(prefers-color-scheme: dark)').matches) ? 'dark' : 'light');
 setTheme(preferredTheme, false);
 applySiteIcon(initialSettings.siteIcon || '');
 applyQuoteExtraIcons();
-renderEmployeeList();
-renderEmployeeFilter();
-render();
-refreshTasks();
-refreshEmployees();
-refreshQuoteConfig();
-refreshDesigns();
-const searchBox = $('#searchInput');
-if (searchBox) { searchBox.value = ''; setTimeout(() => { if (searchBox.value.includes('@')) { searchBox.value=''; render(); } }, 300); }
+showAuthGate();
+restoreSession().then((ok) => { if (!ok) showAuthGate(); });
 
 function escapeHtml(value) {
   return String(value)
