@@ -9,7 +9,7 @@
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700;800&display=swap" rel="stylesheet">
   <link id="dynamicFavicon" rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 64 64'%3E%3Crect width='64' height='64' rx='16' fill='%23b9ff39'/%3E%3Cpath d='M18 33l9 9 19-22' fill='none' stroke='%23111' stroke-width='7' stroke-linecap='round' stroke-linejoin='round'/%3E%3C/svg%3E" />
-  <link rel="stylesheet" href="styles.css?v=11.0" />
+  <link rel="stylesheet" href="styles.css?v=11.1" />
 </head>
 <body>
   <svg xmlns="http://www.w3.org/2000/svg" style="display:none" aria-hidden="true" focusable="false">
@@ -91,7 +91,7 @@
         <button type="button" class="main-nav-btn active" id="navTasks"><svg class="icon"><use href="#icon-task"></use></svg><span>Tareas</span></button>
         <button type="button" class="main-nav-btn" id="navQuote"><svg class="icon"><use href="#icon-calculator"></use></svg><span>Cotizador</span></button>
         <button type="button" class="main-nav-btn" id="navDesigns"><svg class="icon"><use href="#icon-library"></use></svg><span>Diseños</span></button>
-        <button type="button" class="main-nav-btn" id="navAttendance"><svg class="icon"><use href="#icon-clock"></use></svg><span>Asistencia</span></button>
+        <button type="button" class="main-nav-btn" id="navCheckIn" hidden><svg class="icon"><use href="#icon-clock"></use></svg><span>Check-in</span></button>
       </nav>
 
       <div class="topbar-actions">
@@ -296,32 +296,46 @@
       </section>
 
 
-      <section class="section attendance-section" id="asistencia" hidden>
+      <section class="section attendance-section checkin-admin-section" id="checkin" hidden>
         <div class="attendance-heading">
-          <div><span class="eyebrow">Asistencia</span><h1>Ingreso y salida</h1><p>Registro diario de jornada por usuario.</p></div>
-          <button type="button" class="btn btn-accent attendance-main-action" id="attendanceMainBtn"><svg class="icon"><use href="#icon-clock"></use></svg><span id="attendanceMainText">Registrar entrada</span></button>
+          <div>
+            <span class="eyebrow">Administrador</span>
+            <h1>Check-in</h1>
+            <p>Registro de entrada, salida, tiempo trabajado y valor estimado por usuario.</p>
+          </div>
+          <button type="button" class="btn btn-outline small" id="refreshAttendance">
+            <svg class="icon"><use href="#icon-refresh"></use></svg><span>Actualizar</span>
+          </button>
         </div>
 
-        <div class="attendance-today-grid">
-          <article class="attendance-self-card">
-            <div class="attendance-self-user"><span class="attendance-user-avatar" id="attendanceUserAvatar"><svg class="icon"><use href="#icon-user"></use></svg></span><div><small>Mi jornada de hoy</small><strong id="attendanceUserName">—</strong></div></div>
-            <div class="attendance-self-metrics">
-              <div><span>Entrada</span><strong id="attendanceEntry">—</strong></div>
-              <div><span>Salida</span><strong id="attendanceExit">—</strong></div>
-              <div><span>Minutos trabajados</span><strong id="attendanceMinutes">0 min</strong></div>
-            </div>
-          </article>
+        <div class="checkin-summary-grid">
+          <article><span>Usuarios registrados</span><strong id="checkinUsersCount">0</strong></article>
+          <article><span>Trabajando ahora</span><strong id="checkinOpenCount">0</strong></article>
+          <article><span>Horas acumuladas</span><strong id="checkinHoursTotal">0 h</strong></article>
+          <article><span>Valor estimado</span><strong id="checkinPayTotal">$0,00</strong></article>
         </div>
 
         <div class="attendance-list-card">
-          <div class="attendance-list-head"><div><h2>Registro de hoy</h2><p id="attendanceDateLabel"></p></div><button type="button" class="btn btn-outline small" id="refreshAttendance"><svg class="icon"><use href="#icon-refresh"></use></svg><span>Actualizar</span></button></div>
+          <div class="attendance-list-head">
+            <div><h2>Registro del día</h2><p id="attendanceDateLabel"></p></div>
+          </div>
           <div class="attendance-table-wrap">
-            <table class="attendance-table">
-              <thead><tr><th>Usuario</th><th>Entrada</th><th>Salida</th><th>Minutos</th><th>Estado</th></tr></thead>
+            <table class="attendance-table checkin-table">
+              <thead>
+                <tr>
+                  <th>Usuario</th>
+                  <th>Entrada</th>
+                  <th>Salida</th>
+                  <th>Tiempo trabajado</th>
+                  <th>Valor / hora</th>
+                  <th>Valor a pagar</th>
+                  <th>Estado</th>
+                </tr>
+              </thead>
               <tbody id="attendanceTableBody"></tbody>
             </table>
           </div>
-          <div id="attendanceEmpty" class="attendance-empty" hidden>No hay registros de asistencia todavía.</div>
+          <div id="attendanceEmpty" class="attendance-empty" hidden>No hay registros de check-in para hoy.</div>
         </div>
       </section>
 
@@ -330,7 +344,7 @@
     <footer class="app-version-footer" aria-label="Versión de la aplicación">
       <span>DeTodoEc</span>
       <span class="version-separator">•</span>
-      <strong>Versión 11.0</strong>
+      <strong>Versión 11.1</strong>
     </footer>
   </div>
 
@@ -539,6 +553,17 @@
     <form method="dialog" id="profileForm" class="profile-form">
       <div class="dialog-head"><div><span class="eyebrow">Cuenta</span><h2>Mi perfil</h2></div><button type="button" class="icon-btn" id="closeProfile" aria-label="Cerrar">✕</button></div>
       <div class="profile-hero"><div class="profile-avatar-large" id="profileAvatarPreview"><svg class="icon"><use href="#icon-user"></use></svg></div><div><strong id="profileHeroName">—</strong><span id="profileHeroRole">Usuario</span></div></div>
+      <section class="profile-attendance-card">
+        <div class="profile-attendance-head">
+          <div><small>Mi jornada de hoy</small><strong id="profileAttendanceStatus">Sin entrada registrada</strong></div>
+          <span class="profile-attendance-state" id="profileAttendanceBadge">—</span>
+        </div>
+        <div class="profile-attendance-grid">
+          <div><span>Entrada</span><strong id="profileAttendanceEntry">—</strong></div>
+          <div><span>Salida</span><strong id="profileAttendanceExit">—</strong></div>
+          <div><span>Tiempo</span><strong id="profileAttendanceTime">0 min</strong></div>
+        </div>
+      </section>
       <div class="form-grid">
         <label>Nombre<input id="profileName" required /></label>
         <label>Usuario<input id="profileUsername" required autocomplete="username" /></label>
@@ -619,6 +644,7 @@
               <label>Usuario<input id="adminUsername" required autocomplete="off" placeholder="Ej. luis" /></label>
               <label>Contraseña<input id="adminUserPassword" type="password" autocomplete="new-password" placeholder="Obligatoria al crear" /></label>
               <label>Rol<select id="adminUserRole"><option value="usuario">Usuario</option><option value="admin">Administrador</option></select></label>
+              <label>Valor por hora ($)<input id="adminUserHourlyRate" type="number" min="0" step="0.01" value="0" /></label>
               <label>Foto de perfil<input id="adminUserPhoto" type="file" accept="image/*" /></label>
               <div class="admin-user-preview" id="adminUserPhotoPreview"><svg class="icon"><use href="#icon-user"></use></svg></div>
               <div class="inline-actions"><button type="submit" class="btn btn-dark small" id="adminUserSaveBtn">Guardar usuario</button><button type="button" class="btn btn-outline small" id="adminUserCancelBtn">Cancelar</button></div>
@@ -817,6 +843,6 @@
     </article>
   </template>
 
-  <script src="app.js?v=11.0"></script>
+  <script src="app.js?v=11.1"></script>
 </body>
 </html>

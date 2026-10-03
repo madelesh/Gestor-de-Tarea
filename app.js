@@ -1,4 +1,4 @@
-const APP_VERSION = '11.0';
+const APP_VERSION = '11.1';
 const API_BASE = 'https://gestor-tareas-api.detodoec.workers.dev';
 const STORAGE_KEY = 'detodoec_tasks_v1';
 const SETTINGS_KEY = 'detodoec_tasks_settings_v3';
@@ -1254,17 +1254,21 @@ function showMainView(view) {
   const isTasks = view === 'tasks';
   const isQuote = view === 'quote';
   const isDesigns = view === 'designs';
-  const isAttendance = view === 'attendance';
+  const isCheckIn = view === 'checkin' && currentUser?.rol === 'admin';
+  if (view === 'checkin' && currentUser?.rol !== 'admin') {
+    showToast('Solo el administrador puede abrir Check-in.', 'Acceso restringido');
+    return showMainView('tasks');
+  }
   $('#resumen').hidden = !isTasks;
   $('#tareas').hidden = !isTasks;
   $('#archivados').hidden = true;
   $('#cotizador').hidden = !isQuote;
   $('#disenos').hidden = !isDesigns;
-  $('#asistencia').hidden = !isAttendance;
+  $('#checkin').hidden = !isCheckIn;
   $('#navTasks')?.classList.toggle('active', isTasks);
   $('#navQuote')?.classList.toggle('active', isQuote);
   $('#navDesigns')?.classList.toggle('active', isDesigns);
-  $('#navAttendance')?.classList.toggle('active', isAttendance);
+  $('#navCheckIn')?.classList.toggle('active', isCheckIn);
   if (isQuote) {
     renderQuoteCustomerPicker();
     renderQuoteMaterialSelect();
@@ -1272,7 +1276,7 @@ function showMainView(view) {
     calculateQuote();
   }
   if (isDesigns) renderDesigns();
-  if (isAttendance) refreshAttendance();
+  if (isCheckIn) refreshAttendance();
 }
 
 function copyQuoteSummary() {
@@ -2203,9 +2207,8 @@ function updateCurrentUserUI() {
   if (!currentUser) return;
   $('#topUserName').textContent = currentUser.nombre || currentUser.usuario || 'Usuario';
   $('#topUserAvatar').innerHTML = userAvatarMarkup(currentUser);
-  $('#attendanceUserName').textContent = currentUser.nombre || currentUser.usuario || 'Usuario';
-  $('#attendanceUserAvatar').innerHTML = userAvatarMarkup(currentUser);
   $('#customizeBtn').hidden = currentUser.rol !== 'admin';
+  $('#navCheckIn').hidden = currentUser.rol !== 'admin';
 }
 
 async function loginApp(username, password) {
@@ -2273,47 +2276,92 @@ function formatAttendanceDate(value = todayLocal()) {
   return new Intl.DateTimeFormat('es-EC', { weekday:'long', day:'2-digit', month:'long', year:'numeric' }).format(new Date(y,m-1,d));
 }
 
+function formatWorkedTime(minutes = 0) {
+  const total = Math.max(0, Number(minutes || 0));
+  const hours = Math.floor(total / 60);
+  const mins = Math.round(total % 60);
+  if (!hours) return `${mins} min`;
+  return `${hours} h ${mins} min`;
+}
+
+function attendancePay(minutes = 0, hourlyRate = 0) {
+  return (Number(minutes || 0) / 60) * Number(hourlyRate || 0);
+}
+
 function renderAttendanceState() {
   const state = attendanceState || {};
   const open = Boolean(state.abierto);
-  $('#attendanceEntry').textContent = formatTime(state.entrada);
-  $('#attendanceExit').textContent = formatTime(state.salida);
-  $('#attendanceMinutes').textContent = `${Number(state.minutos || 0)} min`;
+  const worked = Number(state.minutos || 0);
+
   $('#attendanceQuickText').textContent = open ? 'Salida' : 'Entrada';
-  $('#attendanceMainText').textContent = open ? 'Registrar salida' : 'Registrar entrada';
   $('#attendanceQuickBtn')?.classList.toggle('is-clocked-in', open);
-  $('#attendanceMainBtn')?.classList.toggle('is-clocked-in', open);
+
+  if ($('#profileAttendanceEntry')) $('#profileAttendanceEntry').textContent = formatTime(state.entrada);
+  if ($('#profileAttendanceExit')) $('#profileAttendanceExit').textContent = formatTime(state.salida);
+  if ($('#profileAttendanceTime')) $('#profileAttendanceTime').textContent = formatWorkedTime(worked);
+  if ($('#profileAttendanceStatus')) {
+    $('#profileAttendanceStatus').textContent = open
+      ? 'Jornada en curso'
+      : state.entrada
+        ? 'Jornada finalizada'
+        : 'Sin entrada registrada';
+  }
+  if ($('#profileAttendanceBadge')) {
+    $('#profileAttendanceBadge').textContent = open ? 'Trabajando' : state.entrada ? 'Finalizada' : 'Pendiente';
+    $('#profileAttendanceBadge').className = `profile-attendance-state ${open ? 'open' : state.entrada ? 'closed' : 'pending'}`;
+  }
 }
 
 function renderAttendanceRows(rows = []) {
   const tbody = $('#attendanceTableBody');
   if (!tbody) return;
   tbody.innerHTML = '';
+
+  let totalMinutes = 0;
+  let totalPay = 0;
+  let openCount = 0;
+
   rows.forEach((row) => {
+    const minutes = Number(row.minutos || 0);
+    const rate = Number(row.valor_hora || 0);
+    const pay = attendancePay(minutes, rate);
+    totalMinutes += minutes;
+    totalPay += pay;
+    if (!row.salida) openCount += 1;
+
     const tr = document.createElement('tr');
     tr.innerHTML = `
       <td><div class="attendance-table-user"><span class="attendance-table-avatar">${row.foto_url ? `<img src="${escapeHtml(row.foto_url)}" alt="" />` : iconUse('icon-user')}</span><span><strong>${escapeHtml(row.nombre || row.usuario)}</strong><small>@${escapeHtml(row.usuario)}</small></span></div></td>
       <td>${formatTime(row.entrada)}</td>
       <td>${formatTime(row.salida)}</td>
-      <td><strong>${Number(row.minutos || 0)} min</strong></td>
+      <td><strong>${formatWorkedTime(minutes)}</strong></td>
+      <td>${money(rate)}</td>
+      <td><strong>${money(pay)}</strong></td>
       <td><span class="attendance-status ${row.salida ? 'closed' : 'open'}">${row.salida ? 'Finalizada' : 'Trabajando'}</span></td>`;
     tbody.appendChild(tr);
   });
+
   $('#attendanceEmpty').hidden = rows.length > 0;
+  if ($('#checkinUsersCount')) $('#checkinUsersCount').textContent = String(new Set(rows.map((r) => r.usuario_id)).size);
+  if ($('#checkinOpenCount')) $('#checkinOpenCount').textContent = String(openCount);
+  if ($('#checkinHoursTotal')) $('#checkinHoursTotal').textContent = formatWorkedTime(totalMinutes);
+  if ($('#checkinPayTotal')) $('#checkinPayTotal').textContent = money(totalPay);
 }
 
 async function refreshAttendance() {
   if (!currentUser) return;
   const fecha = todayLocal();
-  $('#attendanceDateLabel').textContent = formatAttendanceDate(fecha);
+  if ($('#attendanceDateLabel')) $('#attendanceDateLabel').textContent = formatAttendanceDate(fecha);
+
   try {
-    const [state, rows] = await Promise.all([
-      apiFetch('/api/asistencia/estado'),
-      apiFetch(`/api/asistencia?fecha=${encodeURIComponent(fecha)}`)
-    ]);
+    const state = await apiFetch('/api/asistencia/estado');
     attendanceState = state;
     renderAttendanceState();
-    renderAttendanceRows(Array.isArray(rows) ? rows : []);
+
+    if (currentUser.rol === 'admin') {
+      const rows = await apiFetch(`/api/asistencia?fecha=${encodeURIComponent(fecha)}`);
+      renderAttendanceRows(Array.isArray(rows) ? rows : []);
+    }
   } catch (err) {
     showToast(err.message, 'No se pudo cargar la asistencia');
   }
@@ -2322,7 +2370,7 @@ async function refreshAttendance() {
 async function toggleAttendance() {
   if (!currentUser) return;
   const isOpen = Boolean(attendanceState?.abierto);
-  const btns = [$('#attendanceQuickBtn'), $('#attendanceMainBtn')].filter(Boolean);
+  const btns = [$('#attendanceQuickBtn')].filter(Boolean);
   btns.forEach((btn) => btn.disabled = true);
   try {
     const endpoint = isOpen ? '/api/asistencia/salida' : '/api/asistencia/entrada';
@@ -2358,6 +2406,7 @@ function clearAdminUserForm() {
   adminUserPhotoFile = null;
   adminUserPhotoUrl = '';
   renderAdminUserPhoto('');
+  if ($('#adminUserHourlyRate')) $('#adminUserHourlyRate').value = '0';
   if ($('#adminUserSaveBtn')) $('#adminUserSaveBtn').textContent = 'Guardar usuario';
 }
 
@@ -2370,7 +2419,7 @@ function renderAdminUsers() {
     card.className = 'admin-user-card';
     card.innerHTML = `
       <span class="admin-user-avatar">${user.foto_url ? `<img src="${escapeHtml(user.foto_url)}" alt="" />` : iconUse('icon-user')}</span>
-      <div class="admin-user-info"><strong>${escapeHtml(user.nombre)}</strong><span>@${escapeHtml(user.usuario)} · ${user.rol === 'admin' ? 'Administrador' : 'Usuario'}</span></div>
+      <div class="admin-user-info"><strong>${escapeHtml(user.nombre)}</strong><span>@${escapeHtml(user.usuario)} · ${user.rol === 'admin' ? 'Administrador' : 'Usuario'} · ${money(Number(user.valor_hora || 0))}/h</span></div>
       <div class="admin-user-actions"><button type="button" class="btn btn-outline small" data-edit-app-user="${user.id}">Editar</button>${String(user.id) !== String(currentUser?.id) ? `<button type="button" class="btn btn-danger small" data-delete-app-user="${user.id}">Eliminar</button>` : ''}</div>`;
     list.appendChild(card);
   });
@@ -2384,6 +2433,7 @@ function editAdminUser(id) {
   $('#adminUsername').value = user.usuario;
   $('#adminUserPassword').value = '';
   $('#adminUserRole').value = user.rol || 'usuario';
+  $('#adminUserHourlyRate').value = Number(user.valor_hora || 0);
   adminUserPhotoUrl = user.foto_url || '';
   adminUserPhotoFile = null;
   renderAdminUserPhoto(adminUserPhotoUrl);
@@ -2524,9 +2574,8 @@ on('detailImageNext', 'click', () => {
 on('navQuote', 'click', () => showMainView('quote'));
 on('navTasks', 'click', () => showMainView('tasks'));
 on('navDesigns', 'click', () => showMainView('designs'));
-on('navAttendance', 'click', () => showMainView('attendance'));
+on('navCheckIn', 'click', () => showMainView('checkin'));
 on('attendanceQuickBtn', 'click', toggleAttendance);
-on('attendanceMainBtn', 'click', toggleAttendance);
 on('refreshAttendance', 'click', refreshAttendance);
 on('profileBtn', 'click', openProfile);
 on('closeProfile', 'click', () => $('#profileDialog').close());
@@ -2748,7 +2797,7 @@ $('#adminUserForm')?.addEventListener('submit', async (e) => {
   try {
     let foto_url = adminUserPhotoUrl || '';
     if (adminUserPhotoFile) foto_url = await uploadImage(adminUserPhotoFile);
-    const payload = { nombre, usuario, rol:$('#adminUserRole').value, foto_url, password:password || undefined };
+    const payload = { nombre, usuario, rol:$('#adminUserRole').value, valor_hora:Number($('#adminUserHourlyRate').value || 0), foto_url, password:password || undefined };
     await apiFetch(id ? `/api/usuarios/${id}` : '/api/usuarios', { method:id ? 'PUT':'POST', headers:{'Content-Type':'application/json'}, body:JSON.stringify(payload) });
     clearAdminUserForm();
     await refreshAdminUsers();
