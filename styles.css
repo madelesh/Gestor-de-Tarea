@@ -3653,3 +3653,107 @@ body,
     grid-template-columns:1fr!important;
   }
 }
+
+
+/* =========================================================
+   V11.5.1 — Botón Entrada/Salida estilo Home
+   ========================================================= */
+
+.home-attendance-widget{
+  display:flex!important;
+  flex-direction:column!important;
+  align-items:flex-start!important;
+  gap:7px!important;
+}
+
+.home-attendance-btn{
+  width:auto!important;
+  min-width:0!important;
+  min-height:0!important;
+  height:46px!important;
+  display:inline-flex!important;
+  align-items:center!important;
+  justify-content:center!important;
+  grid-template-columns:none!important;
+  gap:9px!important;
+  padding:0 16px!important;
+  border:0!important;
+  border-radius:14px!important;
+  background:var(--accent)!important;
+  color:#111!important;
+  box-shadow:none!important;
+  font-weight:900!important;
+  cursor:pointer!important;
+  transition:transform .16s ease, filter .16s ease!important;
+}
+
+.home-attendance-btn:hover{
+  background:var(--accent)!important;
+  border-color:transparent!important;
+  filter:brightness(.97)!important;
+  transform:translateY(-1px)!important;
+}
+
+.home-attendance-btn:active{
+  transform:translateY(0)!important;
+}
+
+.home-attendance-btn .home-attendance-icon{
+  width:20px!important;
+  height:20px!important;
+  min-width:20px!important;
+  display:grid!important;
+  place-items:center!important;
+  border-radius:0!important;
+  background:transparent!important;
+  color:#111!important;
+}
+
+.home-attendance-btn .home-attendance-icon .icon{
+  width:17px!important;
+  height:17px!important;
+}
+
+.home-attendance-btn strong{
+  margin:0!important;
+  padding:0!important;
+  color:#111!important;
+  font-size:16px!important;
+  line-height:1!important;
+  font-weight:900!important;
+}
+
+.home-attendance-btn.is-clocked-in{
+  background:#ff6472!important;
+  color:#111!important;
+}
+
+.home-attendance-btn.is-clocked-in .home-attendance-icon{
+  color:#111!important;
+  background:transparent!important;
+}
+
+.home-attendance-btn.is-completed{
+  background:var(--accent)!important;
+  color:#111!important;
+  border:0!important;
+  opacity:1!important;
+}
+
+.home-attendance-subtext{
+  display:block!important;
+  margin-left:3px!important;
+  color:var(--muted)!important;
+  font-size:11px!important;
+  font-weight:700!important;
+  line-height:1.25!important;
+}
+
+@media(max-width:620px){
+  .home-attendance-widget{
+    width:100%!important;
+  }
+  .home-attendance-btn{
+    width:100%!important;
+  }
+}
