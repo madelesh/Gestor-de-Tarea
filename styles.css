@@ -3519,3 +3519,137 @@ body,
     flex-direction:column;
   }
 }
+
+
+/* =========================================================
+   V11.5 — Mi Check-in + Check-in administrador
+   ========================================================= */
+
+/* El punto de presencia queda por fuera de la foto */
+.home-worker-avatar{
+  overflow:visible!important;
+}
+
+.home-worker-avatar img{
+  overflow:hidden!important;
+  border-radius:50%!important;
+}
+
+.home-worker-avatar .presence-dot{
+  right:-3px!important;
+  bottom:1px!important;
+  width:13px!important;
+  height:13px!important;
+  border:3px solid var(--surface-2)!important;
+  z-index:5!important;
+}
+
+/* Botón Entrada/Salida más limpio */
+.home-attendance-btn{
+  min-height:76px!important;
+  grid-template-columns:46px minmax(0,1fr)!important;
+  width:min(340px,100%)!important;
+}
+
+.home-attendance-action{
+  display:none!important;
+}
+
+.home-attendance-copy strong{
+  font-size:18px!important;
+}
+
+.home-attendance-copy > span{
+  font-size:11px!important;
+}
+
+/* Mi Check-in */
+.my-checkin-page{
+  padding:24px 32px 42px;
+}
+
+.my-checkin-header{
+  display:flex;
+  align-items:flex-start;
+  justify-content:space-between;
+  gap:18px;
+  margin-bottom:20px;
+}
+
+.my-checkin-header h1{
+  margin:7px 0 5px;
+  font-size:clamp(34px,5vw,54px);
+}
+
+.my-checkin-header p{
+  margin:0;
+  color:var(--muted);
+}
+
+.my-checkin-today{
+  display:grid;
+  grid-template-columns:repeat(4,minmax(0,1fr));
+  gap:12px;
+  margin-bottom:18px;
+}
+
+.my-checkin-today article{
+  padding:16px;
+  border:1px solid var(--line);
+  border-radius:18px;
+  background:var(--surface-2);
+}
+
+.my-checkin-today span{
+  display:block;
+  color:var(--muted);
+  font-size:11px;
+  margin-bottom:6px;
+}
+
+.my-checkin-today strong{
+  font-size:18px;
+}
+
+/* Admin Check-in integrado */
+.admin-page [data-admin-view="checkin"]{
+  width:100%;
+}
+
+.admin-page [data-admin-view="checkin"] .attendance-heading{
+  margin-bottom:16px;
+}
+
+.checkin-edit-grid{
+  grid-template-columns:repeat(2,minmax(0,1fr))!important;
+}
+
+.checkin-edit-dialog .profile-form{
+  width:min(760px,calc(100vw - 24px));
+}
+
+/* Perfil menu */
+#profileMyCheckinMenu .icon{
+  color:var(--accent);
+}
+
+@media(max-width:800px){
+  .my-checkin-today{
+    grid-template-columns:repeat(2,1fr);
+  }
+}
+
+@media(max-width:560px){
+  .my-checkin-page{
+    padding:18px 14px 32px;
+  }
+  .my-checkin-header{
+    flex-direction:column;
+  }
+  .my-checkin-today{
+    grid-template-columns:1fr;
+  }
+  .checkin-edit-grid{
+    grid-template-columns:1fr!important;
+  }
+}

@@ -1,4 +1,4 @@
-const APP_VERSION = '11.4';
+const APP_VERSION = '11.5';
 const API_BASE = 'https://gestor-tareas-api.detodoec.workers.dev';
 const STORAGE_KEY = 'detodoec_tasks_v1';
 const SETTINGS_KEY = 'detodoec_tasks_settings_v3';
@@ -99,6 +99,7 @@ const detailDialog = $('#detailDialog');
 const adminPage = $('#adminPage');
 const loginDialog = $('#loginDialog');
 const settingsPage = $('#settingsPage');
+const myCheckinPage = $('#myCheckinPage');
 const checkinEditDialog = $('#checkinEditDialog');
 const paymentDialog = $('#paymentDialog');
 const deleteDialog = $('#deleteDialog');
@@ -2167,13 +2168,67 @@ async function migrateLocalTasks() {
 
 function hideStandalonePages() {
   if (settingsPage) settingsPage.hidden = true;
+  if (myCheckinPage) myCheckinPage.hidden = true;
   if (adminPage) adminPage.hidden = true;
   document.body.classList.remove('standalone-open');
 }
 
+async function refreshMyCheckin() {
+  if (!currentUser) return;
+
+  try {
+    const [state, rows] = await Promise.all([
+      apiFetch('/api/asistencia/estado'),
+      apiFetch(`/api/mi-checkin?_=${Date.now()}`, { cache:'no-store' })
+    ]);
+
+    const open = Boolean(state?.abierto);
+    const had = Boolean(state?.entrada);
+
+    $('#myCheckinStatus').textContent = open ? 'Trabajando' : had ? 'Jornada cerrada' : 'Sin registro';
+    $('#myCheckinEntry').textContent = formatTime(state?.entrada);
+    $('#myCheckinExit').textContent = formatTime(state?.salida);
+    $('#myCheckinWorked').textContent = formatWorkedTime(Number(state?.minutos || 0));
+
+    const tbody = $('#myCheckinTableBody');
+    if (tbody) {
+      tbody.innerHTML = '';
+      (Array.isArray(rows) ? rows : []).forEach((row) => {
+        const tr = document.createElement('tr');
+        tr.innerHTML = `
+          <td>${escapeHtml(formatAttendanceDate(row.fecha_local))}</td>
+          <td>${formatTime(row.entrada)}</td>
+          <td>${formatTime(row.salida)}</td>
+          <td><strong>${formatWorkedTime(Number(row.minutos || 0))}</strong></td>
+          <td><span class="attendance-status ${row.salida ? 'closed' : 'open'}">${row.salida ? 'Finalizada' : 'Trabajando'}</span></td>
+        `;
+        tbody.appendChild(tr);
+      });
+    }
+
+    if ($('#myCheckinEmpty')) $('#myCheckinEmpty').hidden = Array.isArray(rows) && rows.length > 0;
+  } catch (err) {
+    showToast(err.message || 'No se pudo cargar Mi Check-in.', 'Mi Check-in');
+  }
+}
+
+function showMyCheckinPage() {
+  hideStandalonePages();
+
+  ['home','resumen','tareas','archivados','cotizador','disenos'].forEach((id) => {
+    const el = $('#' + id);
+    if (el) el.hidden = true;
+  });
+
+  if (myCheckinPage) myCheckinPage.hidden = false;
+  document.body.classList.add('standalone-open');
+  window.scrollTo({ top:0, behavior:'instant' });
+  refreshMyCheckin();
+}
+
 function showSettingsPage() {
   hideStandalonePages();
-  ['home','resumen','tareas','archivados','cotizador','disenos','checkin'].forEach((id) => {
+  ['home','resumen','tareas','archivados','cotizador','disenos'].forEach((id) => {
     const el = $('#' + id);
     if (el) el.hidden = true;
   });
@@ -2196,16 +2251,10 @@ function showMainView(view) {
     return;
   }
 
-  if (view === 'checkin' && !(currentUser?.rol === 'admin' && userCan('checkin'))) {
-    showToast('Solo un administrador con permiso puede abrir Check-in.', 'Acceso restringido');
-    return;
-  }
-
   const isHome = view === 'home';
   const isTasks = view === 'tasks';
   const isQuote = view === 'quote';
   const isDesigns = view === 'designs';
-  const isCheckIn = view === 'checkin';
 
   $('#home').hidden = !isHome;
   $('#resumen').hidden = !isTasks;
@@ -2213,13 +2262,11 @@ function showMainView(view) {
   $('#archivados').hidden = true;
   $('#cotizador').hidden = !isQuote;
   $('#disenos').hidden = !isDesigns;
-  $('#checkin').hidden = !isCheckIn;
 
   $('#navHome')?.classList.toggle('active', isHome);
   $('#navTasks')?.classList.toggle('active', isTasks);
   $('#navQuote')?.classList.toggle('active', isQuote);
   $('#navDesigns')?.classList.toggle('active', isDesigns);
-  $('#navCheckIn')?.classList.toggle('active', isCheckIn);
 
   if (homeRefreshTimer) {
     clearInterval(homeRefreshTimer);
@@ -2243,7 +2290,6 @@ function showMainView(view) {
     calculateQuote();
   }
   if (isDesigns) refreshDesigns({ silent:true });
-  if (isCheckIn) refreshAttendance();
 }
 function setArchiveView(show) {
   const archive = $('#archivados');
@@ -2304,9 +2350,6 @@ function updateNavigationPermissions() {
     const el = $('#' + id);
     if (el) el.hidden = !userCan(permission);
   });
-
-  const checkin = $('#navCheckIn');
-  if (checkin) checkin.hidden = !(currentUser?.rol === 'admin' && userCan('checkin'));
 
   const adminMenu = $('#profileAdminMenu');
   if (adminMenu) adminMenu.hidden = currentUser?.rol !== 'admin';
@@ -2494,7 +2537,6 @@ function bindCoreNavigationEarly() {
   safeBind('navTasks', () => showMainView('tasks'));
   safeBind('navQuote', () => showMainView('quote'));
   safeBind('navDesigns', () => showMainView('designs'));
-  safeBind('navCheckIn', () => showMainView('checkin'));
 
   safeBind('profileBtn', () => {
     const menu = $('#profileDropdown');
@@ -2505,6 +2547,12 @@ function bindCoreNavigationEarly() {
     const menu = $('#profileDropdown');
     if (menu) menu.hidden = true;
     openProfile();
+  });
+
+  safeBind('profileMyCheckinMenu', () => {
+    const menu = $('#profileDropdown');
+    if (menu) menu.hidden = true;
+    showMyCheckinPage();
   });
 
   safeBind('profileThemeMenu', () => {
@@ -2663,7 +2711,7 @@ function renderHomeUsers() {
 
       const openCheckin = async () => {
         focusedCheckinUserId = String(user.id);
-        showMainView('checkin');
+        requestAdminPanel('checkin');
         await refreshAttendance();
         requestAnimationFrame(() => focusCheckinRows(user.id));
       };
@@ -2725,17 +2773,12 @@ function renderAttendanceState() {
   const worked = Number(state.minutos || 0);
   const quickBtn = $('#homeAttendanceBtn');
 
-  const mainText = open
-    ? 'Marcar salida'
-    : hadSession
-      ? 'Marcar otra entrada'
-      : 'Marcar entrada';
-
+  const mainText = open ? 'Salida' : 'Entrada';
   const subText = open
-    ? `Entrada registrada a las ${formatTime(state.entrada)}`
+    ? `Entrada: ${formatTime(state.entrada)}`
     : hadSession
-      ? `Última jornada: ${formatTime(state.entrada)} – ${formatTime(state.salida)} · ${formatWorkedTime(worked)}`
-      : 'Aún no has marcado entrada';
+      ? `Trabajado hoy: ${formatWorkedTime(worked)}`
+      : 'Pulsa para marcar tu entrada';
 
   const mainLabel = $('#homeAttendanceText');
   const subLabel = $('#homeAttendanceSubtext');
@@ -2747,7 +2790,7 @@ function renderAttendanceState() {
 
   if (quickBtn) {
     quickBtn.disabled = false;
-    quickBtn.title = open ? 'Registrar salida' : 'Registrar entrada';
+    quickBtn.title = open ? 'Marcar salida' : 'Marcar entrada';
   }
 
   if ($('#profileAttendanceEntry')) $('#profileAttendanceEntry').textContent = formatTime(state.entrada);
@@ -2779,8 +2822,8 @@ function renderAttendanceRows(rows = []) {
 
   rows.forEach((row) => {
     const minutes = Number(row.minutos || 0);
-    const rate = Number(row.valor_hora || 0);
-    const pay = attendancePay(minutes, rate);
+    const rate = Number(row.valor_hora_efectivo ?? row.valor_hora ?? 0);
+    const pay = Number(row.valor_pagado ?? attendancePay(minutes, rate));
     totalMinutes += minutes;
     totalPay += pay;
     if (!row.salida) openCount += 1;
@@ -2876,6 +2919,16 @@ function openCheckinEdit(id) {
   $('#checkinEditDate').value = row.fecha_local || entry.date || todayLocal();
   $('#checkinEditEntry').value = entry.time;
   $('#checkinEditExit').value = row.salida ? exit.time : '';
+
+  const minutes = Number(row.minutos || 0);
+  const hourlyRate = Number(row.valor_hora_efectivo ?? row.valor_hora ?? 0);
+  const paid = Number(row.valor_pagado ?? attendancePay(minutes, hourlyRate));
+
+  $('#checkinEditMinutes').value = String(Math.round(minutes));
+  $('#checkinEditHours').value = (minutes / 60).toFixed(2);
+  $('#checkinEditHourlyRate').value = hourlyRate.toFixed(2);
+  $('#checkinEditPaid').value = paid.toFixed(2);
+
   $('#checkinEditUser').textContent = `${row.nombre || row.usuario} · @${row.usuario}`;
   checkinEditDialog?.showModal();
 }
@@ -2887,6 +2940,9 @@ async function saveCheckinEdit() {
   const fecha = $('#checkinEditDate').value;
   const entrada = $('#checkinEditEntry').value;
   const salida = $('#checkinEditExit').value;
+  const minutos = Math.max(0, Number($('#checkinEditMinutes').value || 0));
+  const valorHora = Math.max(0, Number($('#checkinEditHourlyRate').value || 0));
+  const valorPagado = Math.max(0, Number($('#checkinEditPaid').value || 0));
 
   if (!id || !fecha || !entrada) {
     showToast('Completa la fecha y la hora de entrada.', 'Check-in');
@@ -2900,7 +2956,10 @@ async function saveCheckinEdit() {
       body:JSON.stringify({
         fecha_local:fecha,
         entrada_local:`${fecha}T${entrada}`,
-        salida_local:salida ? `${fecha}T${salida}` : null
+        salida_local:salida ? `${fecha}T${salida}` : null,
+        minutos_override:minutos,
+        valor_hora_override:valorHora,
+        valor_pagado_override:valorPagado
       })
     });
 
@@ -2932,10 +2991,17 @@ async function toggleAttendance() {
     const endpoint = isOpen ? '/api/asistencia/salida' : '/api/asistencia/entrada';
     const result = await apiFetch(endpoint, { method:'POST' });
 
-    showToast(
-      result.mensaje || (isOpen ? 'Salida registrada.' : 'Entrada registrada.'),
-      isOpen ? 'Salida registrada' : 'Entrada registrada'
-    );
+    if (isOpen) {
+      showToast(
+        `Salida marcada. Tiempo trabajado: ${formatWorkedTime(Number(result.minutos || 0))}.`,
+        'Salida registrada'
+      );
+    } else {
+      showToast(
+        `Entrada marcada a las ${formatTime(result.entrada)}.`,
+        'Entrada registrada'
+      );
+    }
 
     await Promise.allSettled([
       refreshAttendance(),
@@ -3235,6 +3301,7 @@ function showAdminSection(section = 'apariencia') {
 
   if (target === 'acceso') refreshAdminUsers();
   if (target === 'roles') refreshRoles();
+  if (target === 'checkin') refreshAttendance();
   if (target === 'cotizador') {
     renderQuotePriceAdmin();
     renderQuoteClientAdmin();
@@ -3254,7 +3321,7 @@ function requestAdminPanel(section = 'apariencia') {
 }
 function openAdminPanel(section = pendingAdminSection || 'apariencia') {
   // Primero abre la página; después carga los módulos.
-  ['home','resumen','tareas','archivados','cotizador','disenos','checkin'].forEach((id) => {
+  ['home','resumen','tareas','archivados','cotizador','disenos'].forEach((id) => {
     const el = $('#' + id);
     if (el) el.hidden = true;
   });
@@ -3333,6 +3400,9 @@ on('detailImageNext', 'click', () => {
   renderDetailImage(task);
 });
 on('refreshAttendance', 'click', refreshAttendance);
+on('closeMyCheckin', 'click', () => showMainView('home'));
+on('refreshMyCheckin', 'click', refreshMyCheckin);
+
 on('checkinDateInput', 'change', refreshAttendance);
 on('closeCheckinEdit', 'click', () => checkinEditDialog?.close());
 on('cancelCheckinEdit', 'click', () => checkinEditDialog?.close());
@@ -3340,6 +3410,15 @@ $('#checkinEditForm')?.addEventListener('submit', async (e) => {
   e.preventDefault();
   await saveCheckinEdit();
 });
+$('#checkinEditMinutes')?.addEventListener('input', () => {
+  const minutes = Math.max(0, Number($('#checkinEditMinutes').value || 0));
+  $('#checkinEditHours').value = (minutes / 60).toFixed(2);
+});
+$('#checkinEditHours')?.addEventListener('input', () => {
+  const hours = Math.max(0, Number($('#checkinEditHours').value || 0));
+  $('#checkinEditMinutes').value = String(Math.round(hours * 60));
+});
+
 $('#attendanceTableBody')?.addEventListener('click', (e) => {
   const btn = e.target.closest('[data-edit-checkin]');
   if (btn) openCheckinEdit(btn.dataset.editCheckin);
