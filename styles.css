@@ -4450,3 +4450,72 @@ body.admin-page-open{
     grid-template-columns:repeat(auto-fill,minmax(175px,1fr))!important;
   }
 }
+
+
+/* =========================================================
+   V11.7.1 — Edición de usuario enfocada
+   ========================================================= */
+
+/* Al editar, la sección se convierte en una vista exclusiva */
+.users-admin-v2.users-editing-mode{
+  padding:0!important;
+  border:0!important;
+  background:transparent!important;
+}
+
+/* Oculta el encabezado, botón Crear y el listado de usuarios durante la edición */
+.users-admin-v2.users-editing-mode .admin-users-heading,
+.users-admin-v2.users-editing-mode .admin-users-cards-v2{
+  display:none!important;
+}
+
+/* El editor deja de verse como una caja dentro de otra caja */
+.users-admin-v2.users-editing-mode .admin-user-editor{
+  margin:0!important;
+  padding:10px 0 28px!important;
+  border:0!important;
+  border-radius:0!important;
+  background:transparent!important;
+  box-shadow:none!important;
+}
+
+/* Encabezado del editor más limpio */
+.users-admin-v2.users-editing-mode .admin-user-editor-head{
+  margin-bottom:24px!important;
+  padding-bottom:18px!important;
+  border-bottom:1px solid var(--line)!important;
+}
+
+/* La zona de foto también deja de ser una caja pesada */
+.users-admin-v2.users-editing-mode .admin-user-editor-profile{
+  margin-bottom:22px!important;
+  padding:0 0 20px!important;
+  border:0!important;
+  border-bottom:1px solid var(--line)!important;
+  border-radius:0!important;
+  background:transparent!important;
+}
+
+/* Los campos ocupan mejor el ancho disponible */
+.users-admin-v2.users-editing-mode .admin-user-editor-grid{
+  grid-template-columns:repeat(2,minmax(0,1fr))!important;
+  gap:18px!important;
+}
+
+/* Acciones al final de la vista */
+.users-admin-v2.users-editing-mode .admin-user-editor-actions{
+  margin-top:28px!important;
+  padding-top:20px!important;
+  border-top:1px solid var(--line)!important;
+}
+
+/* En creación se conserva la lista debajo, como antes */
+.users-admin-v2.users-creating-mode .admin-user-editor{
+  display:block;
+}
+
+@media(max-width:760px){
+  .users-admin-v2.users-editing-mode .admin-user-editor-grid{
+    grid-template-columns:1fr!important;
+  }
+}

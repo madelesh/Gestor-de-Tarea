@@ -1,4 +1,4 @@
-const APP_VERSION = '11.7';
+const APP_VERSION = '11.7.1';
 const API_BASE = 'https://gestor-tareas-api.detodoec.workers.dev';
 const STORAGE_KEY = 'detodoec_tasks_v1';
 const SETTINGS_KEY = 'detodoec_tasks_settings_v3';
@@ -3178,15 +3178,26 @@ function closeAdminUserMenus() {
 
 function showAdminUserEditor(mode = 'create') {
   const form = $('#adminUserForm');
+  const section = document.querySelector('[data-admin-view="acceso"]');
   if (!form) return;
-  form.hidden = false;
 
   const editing = mode === 'edit';
+
+  form.hidden = false;
+  section?.classList.toggle('users-editing-mode', editing);
+  section?.classList.toggle('users-creating-mode', !editing);
+
   $('#adminUserEditorEyebrow').textContent = editing ? 'Editar cuenta' : 'Nuevo usuario';
   $('#adminUserEditorTitle').textContent = editing ? 'Editar usuario' : 'Crear usuario';
   $('#adminUserSaveBtn').textContent = editing ? 'Guardar cambios' : 'Crear usuario';
 
-  requestAnimationFrame(() => form.scrollIntoView({ behavior:'smooth', block:'start' }));
+  requestAnimationFrame(() => {
+    if (editing) {
+      window.scrollTo({ top:0, behavior:'smooth' });
+    } else {
+      form.scrollIntoView({ behavior:'smooth', block:'start' });
+    }
+  });
 }
 
 function clearAdminUserForm({ hide = true } = {}) {
@@ -3199,6 +3210,10 @@ function clearAdminUserForm({ hide = true } = {}) {
   if ($('#adminUserSaveBtn')) $('#adminUserSaveBtn').textContent = 'Crear usuario';
   if ($('#adminUserEditorEyebrow')) $('#adminUserEditorEyebrow').textContent = 'Nuevo usuario';
   if ($('#adminUserEditorTitle')) $('#adminUserEditorTitle').textContent = 'Crear usuario';
+
+  const section = document.querySelector('[data-admin-view="acceso"]');
+  section?.classList.remove('users-editing-mode', 'users-creating-mode');
+
   if (hide && $('#adminUserForm')) $('#adminUserForm').hidden = true;
 }
 
