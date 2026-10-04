@@ -1,4 +1,4 @@
-const APP_VERSION = '11.6.1';
+const APP_VERSION = '11.6.3';
 const API_BASE = 'https://gestor-tareas-api.detodoec.workers.dev';
 const STORAGE_KEY = 'detodoec_tasks_v1';
 const SETTINGS_KEY = 'detodoec_tasks_settings_v3';
@@ -3037,6 +3037,76 @@ async function saveInlineCheckinEdit(id) {
 }
 
 
+function themedConfirm({
+  title = 'Confirmar acción',
+  message = '¿Deseas continuar?',
+  confirmText = 'Confirmar',
+  danger = false
+} = {}) {
+  return new Promise((resolve) => {
+    const dialog = $('#confirmDialog');
+    const titleEl = $('#confirmTitle');
+    const messageEl = $('#confirmMessage');
+    const acceptEl = $('#confirmAccept');
+    const cancelEl = $('#confirmCancel');
+
+    if (!dialog || typeof dialog.showModal !== 'function') {
+      resolve(window.confirm(message));
+      return;
+    }
+
+    if (titleEl) titleEl.textContent = title;
+    if (messageEl) messageEl.textContent = message;
+
+    if (acceptEl) {
+      acceptEl.textContent = confirmText;
+      acceptEl.className = danger ? 'btn btn-danger' : 'btn btn-accent';
+    }
+
+    let settled = false;
+
+    const finish = (value) => {
+      if (settled) return;
+      settled = true;
+
+      acceptEl?.removeEventListener('click', acceptHandler);
+      cancelEl?.removeEventListener('click', cancelHandler);
+      dialog.removeEventListener('cancel', cancelEventHandler);
+      dialog.removeEventListener('close', closeHandler);
+
+      if (dialog.open) dialog.close();
+      resolve(Boolean(value));
+    };
+
+    const acceptHandler = () => finish(true);
+    const cancelHandler = () => finish(false);
+    const cancelEventHandler = (event) => {
+      event.preventDefault();
+      finish(false);
+    };
+    const closeHandler = () => {
+      if (!settled) finish(false);
+    };
+
+    acceptEl?.addEventListener('click', acceptHandler, { once:true });
+    cancelEl?.addEventListener('click', cancelHandler, { once:true });
+    dialog.addEventListener('cancel', cancelEventHandler, { once:true });
+    dialog.addEventListener('close', closeHandler, { once:true });
+
+    dialog.showModal();
+  });
+}
+
+function closeThemedConfirm(value) {
+  const dialog = $('#confirmDialog');
+  if (dialog?.open) dialog.close();
+  if (confirmResolver) {
+    const resolve = confirmResolver;
+    confirmResolver = null;
+    resolve(Boolean(value));
+  }
+}
+
 async function toggleAttendance() {
   if (!currentUser) return;
   const isOpen = Boolean(attendanceState?.abierto);
@@ -3506,9 +3576,6 @@ on('refreshHomeUsers', 'click', refreshHomeUsers);
 on('closeProfile', 'click', () => $('#profileDialog').close());
 on('cancelProfile', 'click', () => $('#profileDialog').close());
 on('logoutBtn', 'click', logoutApp);
-on('confirmCancel', 'click', () => closeThemedConfirm(false));
-on('confirmAccept', 'click', () => closeThemedConfirm(true));
-confirmDialog?.addEventListener('cancel', (e) => { e.preventDefault(); closeThemedConfirm(false); });
 on('manageDesignsBtn', 'click', () => requestAdminPanel('disenos'));
 on('newRoleBtn', 'click', clearRoleEditor);
 on('saveRoleBtn', 'click', saveRole);
