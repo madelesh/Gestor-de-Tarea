@@ -1,10 +1,11 @@
-const APP_VERSION = '11.2.6';
+const APP_VERSION = '11.3';
 const API_BASE = 'https://gestor-tareas-api.detodoec.workers.dev';
 const STORAGE_KEY = 'detodoec_tasks_v1';
 const SETTINGS_KEY = 'detodoec_tasks_settings_v3';
 const EMPLOYEES_KEY = 'detodoec_employees_v1';
 const MIGRATION_KEY = 'detodoec_cloud_migration_v8';
 const SESSION_KEY = 'detodoec_session_v11';
+const SESSION_USER_KEY = 'detodoec_session_user_v11';
 let sessionToken = localStorage.getItem(SESSION_KEY) || '';
 let currentUser = null;
 let attendanceState = null;
@@ -12,6 +13,7 @@ let adminUsers = [];
 let appRoles = [];
 let selectedRoleId = '';
 let homeUsers = [];
+let homeRefreshTimer = null;
 let profilePhotoFile = null;
 let adminUserPhotoFile = null;
 let adminUserPhotoUrl = '';
@@ -294,21 +296,22 @@ async function apiFetch(path, options = {}) {
 
   try {
     setSyncState('loading');
-
     const res = await fetch(API_BASE + path, { ...options, headers });
 
-    // Si el servidor respondió, la nube está accesible aunque la petición
-    // concreta devuelva un 4xx por permisos/validación.
+    // Una respuesta HTTP significa que Cloudflare está accesible.
     setSyncState('ok');
 
     const type = res.headers.get('content-type') || '';
     const data = type.includes('application/json') ? await res.json() : await res.text();
 
-    if (res.status === 401 && path !== '/api/auth/login') {
+    // Solo invalida la sesión cuando el endpoint de sesión confirma que expiró.
+    // Un 401 de otro módulo no debe sacar al usuario de la página.
+    if (res.status === 401 && path === '/api/auth/me') {
       sessionToken = '';
       currentUser = null;
       localStorage.removeItem(SESSION_KEY);
-      showAuthGate();
+      localStorage.removeItem(SESSION_USER_KEY);
+      showAuthGate('Tu sesión expiró. Inicia sesión nuevamente.');
     }
 
     if (!res.ok) {
@@ -317,8 +320,6 @@ async function apiFetch(path, options = {}) {
 
     return data;
   } catch (error) {
-    // Solo se marca como desconectada cuando no se obtuvo respuesta real
-    // del servidor (red, DNS, Worker caído, etc.).
     if (
       error instanceof TypeError ||
       /fetch|network|failed|load/i.test(String(error?.message || ''))
@@ -327,20 +328,6 @@ async function apiFetch(path, options = {}) {
     }
     throw error;
   }
-}
-
-async function uploadImage(file) {
-  const fd = new FormData();
-  fd.append('imagen', file);
-  const data = await apiFetch('/api/imagenes', { method: 'POST', body: fd });
-  return data.url || '';
-}
-
-async function uploadDesignFile(file) {
-  const fd = new FormData();
-  fd.append('archivo', file);
-  const data = await apiFetch('/api/archivos', { method: 'POST', body: fd });
-  return { url: data.url || '', name: data.nombre || file.name || '', type: data.tipo || file.type || '' };
 }
 
 function fromDesignApi(item) {
@@ -1333,7 +1320,21 @@ function showMainView(view) {
   $('#navDesigns')?.classList.toggle('active', isDesigns);
   $('#navCheckIn')?.classList.toggle('active', isCheckIn);
 
-  if (isHome) refreshHomeUsers();
+  if (homeRefreshTimer) {
+    clearInterval(homeRefreshTimer);
+    homeRefreshTimer = null;
+  }
+
+  if (isHome) {
+    Promise.allSettled([refreshAttendance(), refreshHomeUsers()]);
+    homeRefreshTimer = setInterval(() => {
+      if (currentUser && !$('#home')?.hidden) {
+        refreshHomeUsers();
+        refreshAttendance();
+      }
+    }, 30000);
+  }
+
   if (isQuote) {
     renderQuoteCustomerPicker();
     renderQuoteMaterialSelect();
@@ -1442,6 +1443,7 @@ async function loginApp(username, password) {
   sessionToken = result.token;
   currentUser = result.usuario;
   localStorage.setItem(SESSION_KEY, sessionToken);
+  localStorage.setItem(SESSION_USER_KEY, JSON.stringify(currentUser));
 
   // La sesión ya es válida: abre la aplicación inmediatamente.
   updateCurrentUserUI();
@@ -1513,6 +1515,50 @@ function bindLoginFormEarly() {
 // Se conecta el formulario aquí, antes de inicializar el resto de módulos.
 bindLoginFormEarly();
 
+async function refreshCloudData({ notify = true } = {}) {
+  const button = $('#refreshCloud');
+  if (button) button.disabled = true;
+  setSyncState('loading');
+
+  try {
+    const health = await fetch(API_BASE + '/', { cache:'no-store' });
+    if (!health.ok) throw new Error('Cloudflare no respondió correctamente');
+
+    const jobs = [];
+    if (currentUser) {
+      jobs.push(refreshTasks());
+      jobs.push(refreshEmployees());
+      jobs.push(refreshAttendance());
+      jobs.push(refreshHomeUsers());
+      jobs.push(refreshQuoteConfig({ silent:true }));
+      jobs.push(refreshDesigns({ silent:true }));
+      if (currentUser.rol === 'admin') {
+        jobs.push(refreshAdminUsers());
+        jobs.push(refreshRoles());
+      }
+    }
+
+    const results = await Promise.allSettled(jobs);
+    const failures = results.filter((r) => r.status === 'rejected');
+
+    setSyncState('ok');
+
+    if (notify) {
+      showToast(
+        failures.length
+          ? `Nube conectada. ${failures.length} módulo(s) no pudieron actualizarse.`
+          : 'Todos los datos fueron actualizados desde Cloudflare.',
+        failures.length ? 'Actualización parcial' : 'Nube actualizada'
+      );
+    }
+  } catch (err) {
+    setSyncState('error');
+    if (notify) showToast(err.message || 'No se pudo conectar con Cloudflare.', 'Sin conexión');
+  } finally {
+    if (button) button.disabled = false;
+  }
+}
+
 let coreNavigationBound = false;
 
 function bindCoreNavigationEarly() {
@@ -1571,7 +1617,7 @@ function bindCoreNavigationEarly() {
   });
 
   safeBind('homeAttendanceBtn', () => toggleAttendance());
-  safeBind('refreshCloud', () => refreshTasks());
+  safeBind('refreshCloud', () => refreshCloudData());
 }
 
 bindCoreNavigationEarly();
@@ -1589,11 +1635,25 @@ document.addEventListener('pointerdown', (e) => {
 
 async function restoreSession() {
   if (!sessionToken) return false;
+
+  // Restaura la interfaz inmediatamente para no pedir login en cada recarga.
+  try {
+    const cached = JSON.parse(localStorage.getItem(SESSION_USER_KEY) || 'null');
+    if (cached) {
+      currentUser = cached;
+      updateCurrentUserUI();
+      hideAuthGate();
+      if (userCan('home')) showMainView('home');
+      else if (userCan('tasks')) showMainView('tasks');
+    }
+  } catch {}
+
   try {
     const result = await apiFetch('/api/auth/me');
     if (!result?.usuario) throw new Error('Sesión inválida');
 
     currentUser = result.usuario;
+    localStorage.setItem(SESSION_USER_KEY, JSON.stringify(currentUser));
     updateCurrentUserUI();
     hideAuthGate();
 
@@ -1605,20 +1665,28 @@ async function restoreSession() {
 
     return true;
   } catch (err) {
-    console.error(`[DeTodoEc V${APP_VERSION}] No se pudo restaurar la sesión`, err);
+    console.error(`[DeTodoEc V${APP_VERSION}] No se pudo validar la sesión`, err);
+
+    // Si fue un error de red, conserva la sesión local y deja usar la interfaz.
+    if (sessionToken && currentUser && /fetch|network|failed|load/i.test(String(err?.message || ''))) {
+      setSyncState('error');
+      return true;
+    }
+
     sessionToken = '';
     currentUser = null;
     localStorage.removeItem(SESSION_KEY);
+    localStorage.removeItem(SESSION_USER_KEY);
     return false;
   }
 }
-
 async function logoutApp() {
   try { await apiFetch('/api/auth/logout', { method:'POST' }); } catch {}
   sessionToken = '';
   currentUser = null;
   attendanceState = null;
   localStorage.removeItem(SESSION_KEY);
+  localStorage.removeItem(SESSION_USER_KEY);
   $('#profileDialog')?.close();
   showAuthGate();
 }
@@ -1665,7 +1733,10 @@ function renderHomeUsers() {
 async function refreshHomeUsers() {
   if (!currentUser || !userCan('home')) return;
   try {
-    homeUsers = await apiFetch('/api/home/usuarios');
+    const rows = await apiFetch(`/api/home/usuarios?_=${Date.now()}`, { cache:'no-store' });
+    homeUsers = Array.isArray(rows)
+      ? rows.map((user) => ({ ...user, online:Boolean(Number(user.online)) }))
+      : [];
     renderHomeUsers();
     const now = new Date();
     const label = new Intl.DateTimeFormat('es-EC', {
@@ -2033,23 +2104,21 @@ async function bootstrapPrivateData() {
   const jobFactories = [
     () => refreshTasks(),
     () => refreshEmployees(),
-    () => refreshQuoteConfig(),
-    () => refreshDesigns(),
+    () => refreshQuoteConfig({ silent:true }),
+    () => refreshDesigns({ silent:true }),
     () => refreshAttendance(),
     () => refreshHomeUsers()
   ];
 
-  if (currentUser?.rol === 'admin') jobFactories.push(() => refreshRoles());
+  if (currentUser?.rol === 'admin') {
+    jobFactories.push(() => refreshRoles());
+    jobFactories.push(() => refreshAdminUsers());
+  }
 
-  const jobs = jobFactories.map((factory) => {
-    try {
-      return Promise.resolve(factory());
-    } catch (err) {
-      return Promise.reject(err);
-    }
-  });
+  const results = await Promise.allSettled(
+    jobFactories.map((factory) => Promise.resolve().then(factory))
+  );
 
-  const results = await Promise.allSettled(jobs);
   results.forEach((result) => {
     if (result.status === 'rejected') {
       console.error(`[DeTodoEc V${APP_VERSION}] Módulo no cargado`, result.reason);
@@ -2064,7 +2133,6 @@ async function bootstrapPrivateData() {
   else if (userCan('quote')) showMainView('quote');
   else if (userCan('designs')) showMainView('designs');
 }
-
 function setTheme(theme, persist = true) {
   const next = theme === 'dark' ? 'dark' : 'light';
   document.documentElement.setAttribute('data-theme', next);
@@ -2098,6 +2166,30 @@ function applySiteIcon(dataUrl) {
   }
 }
 
+function showAdminSection(section = 'apariencia') {
+  const target = section || 'apariencia';
+
+  $$('.admin-view').forEach((view) => {
+    view.hidden = view.dataset.adminView !== target;
+  });
+
+  $$('.admin-nav-btn').forEach((btn) => {
+    btn.classList.toggle('active', btn.dataset.adminTarget === target);
+  });
+
+  pendingAdminSection = target;
+
+  if (target === 'acceso') refreshAdminUsers();
+  if (target === 'roles') refreshRoles();
+  if (target === 'cotizador') {
+    renderQuotePriceAdmin();
+    renderQuoteClientAdmin();
+  }
+  if (target === 'disenos') {
+    renderAdminDesigns();
+  }
+}
+
 function requestAdminPanel(section = 'apariencia') {
   if (!currentUser || currentUser.rol !== 'admin') {
     showToast('Solo un administrador puede abrir este panel.', 'Acceso restringido');
@@ -2107,13 +2199,7 @@ function requestAdminPanel(section = 'apariencia') {
   openAdminPanel(section);
 }
 function openAdminPanel(section = pendingAdminSection || 'apariencia') {
-  renderEmployeeList();
-  renderQuotePriceAdmin();
-  clearEmployeeForm();
-  refreshAdminUsers();
-  refreshRoles();
-  showAdminSection(section);
-
+  // Primero abre la página; después carga los módulos.
   ['home','resumen','tareas','archivados','cotizador','disenos','checkin'].forEach((id) => {
     const el = $('#' + id);
     if (el) el.hidden = true;
@@ -2122,6 +2208,17 @@ function openAdminPanel(section = pendingAdminSection || 'apariencia') {
   if (settingsPage) settingsPage.hidden = true;
   if (adminPage) adminPage.hidden = false;
   document.body.classList.add('standalone-open');
+
+  try { showAdminSection(section); } catch (err) { console.error('Admin navegación:', err); }
+  try { renderEmployeeList(); } catch (err) { console.error('Admin empleados:', err); }
+  try { renderQuotePriceAdmin(); } catch (err) { console.error('Admin cotizador:', err); }
+  try { clearEmployeeForm(); } catch (err) { console.error('Admin formulario:', err); }
+
+  Promise.allSettled([
+    Promise.resolve().then(() => refreshAdminUsers()),
+    Promise.resolve().then(() => refreshRoles())
+  ]);
+
   window.scrollTo({ top:0, behavior:'instant' });
 }
 
@@ -2370,6 +2467,7 @@ $('#profileForm')?.addEventListener('submit', async (e) => {
     };
     const result = await apiFetch('/api/auth/perfil', { method:'PUT', headers:{'Content-Type':'application/json'}, body:JSON.stringify(payload) });
     currentUser = result.usuario;
+    localStorage.setItem(SESSION_USER_KEY, JSON.stringify(currentUser));
     updateCurrentUserUI();
     $('#profileDialog').close();
     showToast('Tus datos fueron actualizados.', 'Perfil actualizado');

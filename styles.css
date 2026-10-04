@@ -3193,186 +3193,31 @@ body,
 
 
 /* =========================================================
-   V11.2.5 — Perfil limpio + Check-in en Home + páginas completas
+   V11.3 — Estabilidad y estados de interfaz
    ========================================================= */
 
-.profile-dropdown button{
-  position:relative;
+#refreshCloud:disabled{
+  opacity:.55;
+  cursor:wait;
 }
 
-.profile-dropdown button small{
-  margin-left:auto;
-  font-size:10px;
-  color:var(--muted);
-  font-weight:800;
+.admin-page:not([hidden]){
+  display:block!important;
 }
 
-/* El registro de jornada vive únicamente en Home */
-.home-hero-actions{
-  display:flex;
-  align-items:stretch;
-  gap:10px;
-}
-
-.home-attendance-btn{
-  min-width:210px;
-  display:grid;
-  grid-template-columns:42px minmax(0,1fr);
-  align-items:center;
-  gap:10px;
-  padding:10px 13px;
-  border:1px solid var(--line);
-  border-radius:18px;
-  background:var(--surface-2);
-  color:var(--ink);
-  cursor:pointer;
-  text-align:left;
-  transition:.16s ease;
-}
-
-.home-attendance-btn:hover{
-  border-color:color-mix(in srgb,var(--accent) 48%,var(--line));
-  transform:translateY(-1px);
-}
-
-.home-attendance-btn:disabled{
-  cursor:not-allowed;
-  opacity:.72;
-  transform:none;
-}
-
-.home-attendance-icon{
-  width:42px;
-  height:42px;
-  display:grid;
-  place-items:center;
-  border-radius:13px;
-  background:color-mix(in srgb,var(--accent) 13%,var(--surface));
-  color:var(--accent);
-}
-
-.home-attendance-icon .icon{
-  width:18px;
-  height:18px;
-}
-
-.home-attendance-copy{
-  display:flex;
-  flex-direction:column;
-  min-width:0;
-}
-
-.home-attendance-copy small{
-  color:var(--muted);
-  font-size:10px;
-  font-weight:700;
-}
-
-.home-attendance-copy strong{
-  margin-top:2px;
-  font-size:14px;
-}
-
-.home-attendance-btn.is-clocked-in{
-  border-color:rgba(255,91,104,.36);
-}
-
-.home-attendance-btn.is-clocked-in .home-attendance-icon{
-  color:#ff6372;
-  background:rgba(255,83,100,.11);
-}
-
-/* Ajustes y Administrador ya no son dialogs/cajas */
-.standalone-page{
-  width:100%;
-  min-height:calc(100vh - 78px);
-  padding:24px 32px 42px;
-  background:var(--bg);
-}
-
-.standalone-page[hidden]{
+.admin-view[hidden]{
   display:none!important;
 }
 
-.standalone-page-inner{
-  width:100%;
-  max-width:none;
-  margin:0;
+.admin-nav-btn.active{
+  background:var(--accent)!important;
+  color:#111!important;
 }
 
-.settings-page .dialog-head,
-.admin-page .admin-topbar{
-  position:sticky;
-  top:0;
-  z-index:25;
-  padding:14px 0 18px;
-  background:linear-gradient(var(--bg) 82%,transparent);
+.home-worker-card.online{
+  border-color:rgba(57,214,101,.28);
 }
 
-.settings-page-inner{
-  display:grid;
-  gap:14px;
-}
-
-.settings-page .settings-option-card{
-  width:100%;
-  max-width:none;
-  margin:0;
-  padding:18px;
-}
-
-.admin-page{
-  padding:0;
-}
-
-.admin-page .admin-shell{
-  width:100%;
-  max-width:none;
-  min-height:calc(100vh - 78px);
-  border:0;
-  border-radius:0;
-  background:var(--bg);
-}
-
-.admin-page .admin-topbar{
-  padding:18px 28px;
-}
-
-.admin-page .admin-workspace{
-  min-height:calc(100vh - 170px);
-}
-
-.admin-page .admin-sidebar{
-  border-radius:0;
-}
-
-/* Evita cualquier estilo modal heredado */
-.settings-page::backdrop,
-.admin-page::backdrop{
-  display:none;
-}
-
-body.standalone-open .app-version-footer{
-  display:none;
-}
-
-@media(max-width:820px){
-  .home-hero-actions{
-    width:100%;
-    flex-direction:column;
-  }
-
-  .home-attendance-btn,
-  .home-current-time{
-    width:100%;
-    min-width:0;
-  }
-
-  .standalone-page{
-    padding:18px 14px 32px;
-  }
-
-  .admin-page{
-    padding:0;
-  }
+.home-worker-card.offline{
+  border-color:var(--line);
 }
