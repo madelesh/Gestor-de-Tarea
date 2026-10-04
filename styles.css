@@ -3324,3 +3324,198 @@ body,
     min-height:84px!important;
   }
 }
+
+
+/* =========================================================
+   V11.4 — Home/check-in refinado
+   ========================================================= */
+
+.profile-dropdown-separator{
+  height:1px;
+  margin:6px 4px;
+  background:var(--line);
+}
+
+.profile-dropdown .profile-logout-menu{
+  color:#ff6876;
+}
+
+.profile-dropdown .profile-logout-menu .icon{
+  color:#ff6876;
+}
+
+/* Avatar del equipo: todo queda contenido dentro del círculo */
+.home-worker-avatar{
+  overflow:hidden!important;
+  isolation:isolate;
+}
+
+.home-worker-avatar img{
+  display:block!important;
+  width:100%!important;
+  height:100%!important;
+  max-width:100%!important;
+  max-height:100%!important;
+  object-fit:cover!important;
+  border-radius:50%!important;
+}
+
+.home-worker-avatar .presence-dot{
+  right:3px!important;
+  bottom:3px!important;
+  z-index:3;
+  border:2px solid var(--surface-2)!important;
+  width:12px!important;
+  height:12px!important;
+}
+
+/* Botón de jornada acorde al diseño */
+.home-hero-actions{
+  align-items:center!important;
+}
+
+.home-attendance-btn{
+  width:min(390px,100%)!important;
+  min-width:310px!important;
+  min-height:82px!important;
+  grid-template-columns:46px minmax(0,1fr) 24px!important;
+  gap:12px!important;
+  padding:13px 15px!important;
+  border:1px solid var(--line)!important;
+  border-radius:20px!important;
+  background:var(--surface-2)!important;
+  color:var(--ink)!important;
+  box-shadow:none!important;
+}
+
+.home-attendance-btn:hover{
+  background:color-mix(in srgb,var(--surface-2) 92%,var(--accent) 8%)!important;
+  border-color:color-mix(in srgb,var(--accent) 40%,var(--line))!important;
+}
+
+.home-attendance-btn .home-attendance-icon{
+  width:46px!important;
+  height:46px!important;
+  border-radius:14px!important;
+  background:color-mix(in srgb,var(--accent) 14%,var(--surface))!important;
+  color:var(--accent)!important;
+}
+
+.home-attendance-btn.is-clocked-in .home-attendance-icon{
+  background:rgba(255,83,100,.12)!important;
+  color:#ff6372!important;
+}
+
+.home-attendance-copy small{
+  color:var(--muted)!important;
+  font-size:10px!important;
+  text-transform:uppercase;
+  letter-spacing:.045em;
+}
+
+.home-attendance-copy strong{
+  font-size:16px!important;
+  line-height:1.2!important;
+}
+
+.home-attendance-copy > span{
+  margin-top:4px!important;
+  font-size:11px!important;
+  color:var(--muted)!important;
+}
+
+.home-attendance-action{
+  width:24px;
+  height:24px;
+  display:grid;
+  place-items:center;
+  border-radius:8px;
+  background:var(--surface);
+  font-size:18px!important;
+}
+
+/* Ya no existe caja de fecha en Home */
+.home-current-time{
+  display:none!important;
+}
+
+/* Check-in */
+.checkin-toolbar{
+  display:flex;
+  align-items:flex-end;
+  gap:10px;
+}
+
+.checkin-date-field{
+  display:flex;
+  flex-direction:column;
+  gap:5px;
+  color:var(--muted);
+  font-size:10px;
+  font-weight:800;
+  text-transform:uppercase;
+  letter-spacing:.04em;
+}
+
+.checkin-date-field input{
+  min-height:38px;
+  padding:7px 10px;
+  border:1px solid var(--line);
+  border-radius:11px;
+  background:var(--surface-2);
+  color:var(--ink);
+}
+
+.checkin-edit-btn{
+  width:36px;
+  height:36px;
+  display:grid;
+  place-items:center;
+  border:1px solid var(--line);
+  border-radius:11px;
+  background:var(--surface-2);
+  color:var(--ink);
+  cursor:pointer;
+}
+
+.checkin-edit-btn:hover{
+  border-color:var(--accent);
+  color:var(--accent);
+}
+
+.checkin-edit-btn .icon{
+  width:16px;
+  height:16px;
+}
+
+.checkin-edit-user{
+  margin-bottom:14px;
+  padding:12px 14px;
+  border:1px solid var(--line);
+  border-radius:14px;
+  background:var(--surface-2);
+  font-weight:800;
+}
+
+/* Tiempo puede crecer sin romper tabla */
+.checkin-table td:nth-child(4){
+  min-width:160px;
+}
+
+/* Valor/hora y pago se mantienen dentro del panel exclusivo de admin */
+.checkin-table th:nth-child(5),
+.checkin-table th:nth-child(6){
+  white-space:nowrap;
+}
+
+@media(max-width:760px){
+  .home-attendance-btn{
+    min-width:0!important;
+    width:100%!important;
+  }
+  .checkin-toolbar{
+    width:100%;
+    align-items:stretch;
+    flex-direction:column;
+  }
+}

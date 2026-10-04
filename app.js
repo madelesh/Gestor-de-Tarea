@@ -1,4 +1,4 @@
-const APP_VERSION = '11.3.2';
+const APP_VERSION = '11.4';
 const API_BASE = 'https://gestor-tareas-api.detodoec.workers.dev';
 const STORAGE_KEY = 'detodoec_tasks_v1';
 const SETTINGS_KEY = 'detodoec_tasks_settings_v3';
@@ -15,6 +15,7 @@ let selectedRoleId = '';
 let homeUsers = [];
 let homeRefreshTimer = null;
 let focusedCheckinUserId = null;
+let currentAttendanceRows = [];
 let profilePhotoFile = null;
 let adminUserPhotoFile = null;
 let adminUserPhotoUrl = '';
@@ -98,6 +99,7 @@ const detailDialog = $('#detailDialog');
 const adminPage = $('#adminPage');
 const loginDialog = $('#loginDialog');
 const settingsPage = $('#settingsPage');
+const checkinEditDialog = $('#checkinEditDialog');
 const paymentDialog = $('#paymentDialog');
 const deleteDialog = $('#deleteDialog');
 const paymentForm = $('#paymentForm');
@@ -2513,6 +2515,13 @@ function bindCoreNavigationEarly() {
     if (themeState) themeState.textContent = document.documentElement.dataset.theme === 'dark' ? 'Claro' : 'Oscuro';
   });
 
+  safeBind('profileLogoutMenu', async () => {
+    const menu = $('#profileDropdown');
+    if (menu) menu.hidden = true;
+    const sure = window.confirm('¿Quieres cerrar sesión?');
+    if (sure) await logoutApp();
+  });
+
   safeBind('profileSettingsMenu', () => {
     const menu = $('#profileDropdown');
     if (menu) menu.hidden = true;
@@ -2681,11 +2690,6 @@ async function refreshHomeUsers() {
       ? rows.map((user) => ({ ...user, online:Boolean(Number(user.online)) }))
       : [];
     renderHomeUsers();
-    const now = new Date();
-    const label = new Intl.DateTimeFormat('es-EC', {
-      weekday:'long', day:'2-digit', month:'long', year:'numeric'
-    }).format(now);
-    if ($('#homeCurrentDate')) $('#homeCurrentDate').textContent = label;
   } catch (err) {
     console.error(err);
     showToast(err.message, 'No se pudo actualizar Home');
@@ -2704,11 +2708,10 @@ function formatAttendanceDate(value = todayLocal()) {
 }
 
 function formatWorkedTime(minutes = 0) {
-  const total = Math.max(0, Number(minutes || 0));
+  const total = Math.max(0, Math.round(Number(minutes || 0)));
   const hours = Math.floor(total / 60);
-  const mins = Math.round(total % 60);
-  if (!hours) return `${mins} min`;
-  return `${hours} h ${mins} min`;
+  const mins = total % 60;
+  return `${total} min · ${hours} h ${mins} min`;
 }
 
 function attendancePay(minutes = 0, hourlyRate = 0) {
@@ -2765,6 +2768,7 @@ function renderAttendanceState() {
   }
 }
 function renderAttendanceRows(rows = []) {
+  currentAttendanceRows = Array.isArray(rows) ? rows : [];
   const tbody = $('#attendanceTableBody');
   if (!tbody) return;
   tbody.innerHTML = '';
@@ -2790,7 +2794,8 @@ function renderAttendanceRows(rows = []) {
       <td><strong>${formatWorkedTime(minutes)}</strong></td>
       <td>${money(rate)}</td>
       <td><strong>${money(pay)}</strong></td>
-      <td><span class="attendance-status ${row.salida ? 'closed' : 'open'}">${row.salida ? 'Finalizada' : 'Trabajando'}</span></td>`;
+      <td><span class="attendance-status ${row.salida ? 'closed' : 'open'}">${row.salida ? 'Finalizada' : 'Trabajando'}</span></td>
+      <td><button type="button" class="checkin-edit-btn" data-edit-checkin="${row.id}" title="Editar entrada y salida">${iconUse('icon-edit')}</button></td>`;
     tbody.appendChild(tr);
   });
 
@@ -2820,7 +2825,10 @@ function focusCheckinRows(userId) {
 
 async function refreshAttendance() {
   if (!currentUser) return;
-  const fecha = todayLocal();
+  const dateInput = $('#checkinDateInput');
+  const fecha = (currentUser.rol === 'admin' && dateInput?.value) ? dateInput.value : todayLocal();
+
+  if (dateInput && !dateInput.value) dateInput.value = todayLocal();
   if ($('#attendanceDateLabel')) $('#attendanceDateLabel').textContent = formatAttendanceDate(fecha);
 
   try {
@@ -2829,11 +2837,82 @@ async function refreshAttendance() {
     renderAttendanceState();
 
     if (currentUser.rol === 'admin') {
-      const rows = await apiFetch(`/api/asistencia?fecha=${encodeURIComponent(fecha)}`);
+      const rows = await apiFetch(`/api/asistencia?fecha=${encodeURIComponent(fecha)}&_=${Date.now()}`, { cache:'no-store' });
       renderAttendanceRows(Array.isArray(rows) ? rows : []);
     }
   } catch (err) {
     showToast(err.message, 'No se pudo cargar la asistencia');
+  }
+}
+
+function localDateTimeParts(isoValue) {
+  if (!isoValue) return { date:'', time:'' };
+  const date = new Date(isoValue);
+  const parts = new Intl.DateTimeFormat('en-CA', {
+    timeZone:'America/Guayaquil',
+    year:'numeric', month:'2-digit', day:'2-digit',
+    hour:'2-digit', minute:'2-digit', hour12:false
+  }).formatToParts(date);
+  const get = (type) => parts.find((p) => p.type === type)?.value || '';
+  return {
+    date:`${get('year')}-${get('month')}-${get('day')}`,
+    time:`${get('hour')}:${get('minute')}`
+  };
+}
+
+function openCheckinEdit(id) {
+  if (currentUser?.rol !== 'admin') return;
+
+  const row = currentAttendanceRows.find((item) => String(item.id) === String(id));
+  if (!row) {
+    showToast('No se encontró el registro.', 'Check-in');
+    return;
+  }
+
+  const entry = localDateTimeParts(row.entrada);
+  const exit = localDateTimeParts(row.salida);
+
+  $('#checkinEditId').value = String(row.id);
+  $('#checkinEditDate').value = row.fecha_local || entry.date || todayLocal();
+  $('#checkinEditEntry').value = entry.time;
+  $('#checkinEditExit').value = row.salida ? exit.time : '';
+  $('#checkinEditUser').textContent = `${row.nombre || row.usuario} · @${row.usuario}`;
+  checkinEditDialog?.showModal();
+}
+
+async function saveCheckinEdit() {
+  if (currentUser?.rol !== 'admin') return;
+
+  const id = $('#checkinEditId').value;
+  const fecha = $('#checkinEditDate').value;
+  const entrada = $('#checkinEditEntry').value;
+  const salida = $('#checkinEditExit').value;
+
+  if (!id || !fecha || !entrada) {
+    showToast('Completa la fecha y la hora de entrada.', 'Check-in');
+    return;
+  }
+
+  try {
+    const result = await apiFetch(`/api/asistencia/${id}`, {
+      method:'PUT',
+      headers:{'Content-Type':'application/json'},
+      body:JSON.stringify({
+        fecha_local:fecha,
+        entrada_local:`${fecha}T${entrada}`,
+        salida_local:salida ? `${fecha}T${salida}` : null
+      })
+    });
+
+    checkinEditDialog?.close();
+    showToast(result.mensaje || 'Registro actualizado.', 'Check-in actualizado');
+
+    await Promise.allSettled([
+      refreshAttendance(),
+      refreshHomeUsers()
+    ]);
+  } catch (err) {
+    showToast(err.message, 'No se pudo editar el check-in');
   }
 }
 
@@ -3119,7 +3198,7 @@ function setTheme(theme, persist = true) {
   }
 }
 function toggleTheme() {
-  const current = document.documentElement.getAttribute('data-theme') || 'light';
+  const current = document.documentElement.getAttribute('data-theme') || 'dark';
   setTheme(current === 'dark' ? 'light' : 'dark');
 }
 
@@ -3254,6 +3333,17 @@ on('detailImageNext', 'click', () => {
   renderDetailImage(task);
 });
 on('refreshAttendance', 'click', refreshAttendance);
+on('checkinDateInput', 'change', refreshAttendance);
+on('closeCheckinEdit', 'click', () => checkinEditDialog?.close());
+on('cancelCheckinEdit', 'click', () => checkinEditDialog?.close());
+$('#checkinEditForm')?.addEventListener('submit', async (e) => {
+  e.preventDefault();
+  await saveCheckinEdit();
+});
+$('#attendanceTableBody')?.addEventListener('click', (e) => {
+  const btn = e.target.closest('[data-edit-checkin]');
+  if (btn) openCheckinEdit(btn.dataset.editCheckin);
+});
 // Navegación y menú de perfil conectados por bindCoreNavigationEarly().
 
 on('closeSettings', 'click', () => showMainView('home'));
@@ -3799,7 +3889,7 @@ try { setDesignMaterials(''); } catch (err) { console.error('Materiales:', err);
 
 let initialSettings = {};
 try { initialSettings = loadSettings() || {}; } catch (err) { console.error('Ajustes:', err); }
-const preferredTheme = initialSettings.theme || ((window.matchMedia && window.matchMedia('(prefers-color-scheme: dark)').matches) ? 'dark' : 'light');
+const preferredTheme = initialSettings.theme || 'dark';
 
 try { setTheme(preferredTheme, false); } catch (err) { console.error('Tema:', err); }
 try { applySiteIcon(initialSettings.siteIcon || ''); } catch (err) { console.error('Icono:', err); }
