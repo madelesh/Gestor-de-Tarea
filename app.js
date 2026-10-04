@@ -1,4 +1,4 @@
-const APP_VERSION = '11.5';
+const APP_VERSION = '11.6';
 const API_BASE = 'https://gestor-tareas-api.detodoec.workers.dev';
 const STORAGE_KEY = 'detodoec_tasks_v1';
 const SETTINGS_KEY = 'detodoec_tasks_settings_v3';
@@ -16,6 +16,8 @@ let homeUsers = [];
 let homeRefreshTimer = null;
 let focusedCheckinUserId = null;
 let currentAttendanceRows = [];
+let editingCheckinId = null;
+let confirmResolver = null;
 let profilePhotoFile = null;
 let adminUserPhotoFile = null;
 let adminUserPhotoUrl = '';
@@ -100,7 +102,7 @@ const adminPage = $('#adminPage');
 const loginDialog = $('#loginDialog');
 const settingsPage = $('#settingsPage');
 const myCheckinPage = $('#myCheckinPage');
-const checkinEditDialog = $('#checkinEditDialog');
+const confirmDialog = $('#confirmDialog');
 const paymentDialog = $('#paymentDialog');
 const deleteDialog = $('#deleteDialog');
 const paymentForm = $('#paymentForm');
@@ -2170,7 +2172,7 @@ function hideStandalonePages() {
   if (settingsPage) settingsPage.hidden = true;
   if (myCheckinPage) myCheckinPage.hidden = true;
   if (adminPage) adminPage.hidden = true;
-  document.body.classList.remove('standalone-open');
+  document.body.classList.remove('standalone-open', 'admin-page-open');
 }
 
 async function refreshMyCheckin() {
@@ -2566,7 +2568,12 @@ function bindCoreNavigationEarly() {
   safeBind('profileLogoutMenu', async () => {
     const menu = $('#profileDropdown');
     if (menu) menu.hidden = true;
-    const sure = window.confirm('¿Quieres cerrar sesión?');
+    const sure = await themedConfirm({
+      title:'Cerrar sesión',
+      message:'¿Estás seguro de que quieres cerrar tu sesión?',
+      confirmText:'Cerrar sesión',
+      danger:true
+    });
     if (sure) await logoutApp();
   });
 
@@ -2830,15 +2837,44 @@ function renderAttendanceRows(rows = []) {
 
     const tr = document.createElement('tr');
     tr.dataset.userId = String(row.usuario_id);
-    tr.innerHTML = `
-      <td><div class="attendance-table-user"><span class="attendance-table-avatar">${row.foto_url ? `<img src="${escapeHtml(row.foto_url)}" alt="" />` : iconUse('icon-user')}</span><span><strong>${escapeHtml(row.nombre || row.usuario)}</strong><small>@${escapeHtml(row.usuario)}</small></span></div></td>
-      <td>${formatTime(row.entrada)}</td>
-      <td>${formatTime(row.salida)}</td>
-      <td><strong>${formatWorkedTime(minutes)}</strong></td>
-      <td>${money(rate)}</td>
-      <td><strong>${money(pay)}</strong></td>
-      <td><span class="attendance-status ${row.salida ? 'closed' : 'open'}">${row.salida ? 'Finalizada' : 'Trabajando'}</span></td>
-      <td><button type="button" class="checkin-edit-btn" data-edit-checkin="${row.id}" title="Editar entrada y salida">${iconUse('icon-edit')}</button></td>`;
+    tr.dataset.checkinId = String(row.id);
+
+    if (String(editingCheckinId) === String(row.id)) {
+      const entry = localDateTimeParts(row.entrada);
+      const exit = localDateTimeParts(row.salida);
+      tr.classList.add('checkin-inline-editing');
+      tr.innerHTML = `
+        <td><div class="attendance-table-user"><span class="attendance-table-avatar">${row.foto_url ? `<img src="${escapeHtml(row.foto_url)}" alt="" />` : iconUse('icon-user')}</span><span><strong>${escapeHtml(row.nombre || row.usuario)}</strong><small>@${escapeHtml(row.usuario)}</small></span></div></td>
+        <td><input class="checkin-inline-input" data-field="entrada" type="time" value="${escapeHtml(entry.time)}" /></td>
+        <td><input class="checkin-inline-input" data-field="salida" type="time" value="${escapeHtml(row.salida ? exit.time : '')}" /></td>
+        <td>
+          <div class="checkin-inline-time">
+            <input class="checkin-inline-input" data-field="minutos" type="number" min="0" step="1" value="${Math.round(minutes)}" />
+            <span>min</span>
+            <input class="checkin-inline-input" data-field="horas" type="number" min="0" step="0.01" value="${(minutes/60).toFixed(2)}" />
+            <span>h</span>
+          </div>
+        </td>
+        <td><input class="checkin-inline-input money" data-field="valor_hora" type="number" min="0" step="0.01" value="${rate.toFixed(2)}" /></td>
+        <td><input class="checkin-inline-input money" data-field="valor_pagado" type="number" min="0" step="0.01" value="${pay.toFixed(2)}" /></td>
+        <td><span class="attendance-status ${row.salida ? 'closed' : 'open'}">${row.salida ? 'Finalizada' : 'Trabajando'}</span></td>
+        <td>
+          <div class="checkin-inline-actions">
+            <button type="button" class="checkin-save-btn" data-save-checkin="${row.id}" title="Guardar">${iconUse('icon-check')}</button>
+            <button type="button" class="checkin-cancel-btn" data-cancel-checkin="${row.id}" title="Cancelar">×</button>
+          </div>
+        </td>`;
+    } else {
+      tr.innerHTML = `
+        <td><div class="attendance-table-user"><span class="attendance-table-avatar">${row.foto_url ? `<img src="${escapeHtml(row.foto_url)}" alt="" />` : iconUse('icon-user')}</span><span><strong>${escapeHtml(row.nombre || row.usuario)}</strong><small>@${escapeHtml(row.usuario)}</small></span></div></td>
+        <td>${formatTime(row.entrada)}</td>
+        <td>${formatTime(row.salida)}</td>
+        <td><strong>${formatWorkedTime(minutes)}</strong></td>
+        <td>${money(rate)}</td>
+        <td><strong>${money(pay)}</strong></td>
+        <td><span class="attendance-status ${row.salida ? 'closed' : 'open'}">${row.salida ? 'Finalizada' : 'Trabajando'}</span></td>
+        <td><button type="button" class="checkin-edit-btn" data-edit-checkin="${row.id}" title="Editar">${iconUse('icon-edit')}</button></td>`;
+    }
     tbody.appendChild(tr);
   });
 
@@ -2848,9 +2884,7 @@ function renderAttendanceRows(rows = []) {
   if ($('#checkinHoursTotal')) $('#checkinHoursTotal').textContent = formatWorkedTime(totalMinutes);
   if ($('#checkinPayTotal')) $('#checkinPayTotal').textContent = money(totalPay);
 
-  if (focusedCheckinUserId) {
-    requestAnimationFrame(() => focusCheckinRows(focusedCheckinUserId));
-  }
+  if (focusedCheckinUserId) requestAnimationFrame(() => focusCheckinRows(focusedCheckinUserId));
 }
 
 function focusCheckinRows(userId) {
@@ -2866,13 +2900,26 @@ function focusCheckinRows(userId) {
   }
 }
 
+function populateCheckinUserFilter(rows = []) {
+  const select = $('#checkinUserFilter');
+  if (!select) return;
+  const current = select.value;
+  const users = new Map();
+
+  adminUsers.forEach((user) => users.set(String(user.id), user.nombre || user.usuario));
+  rows.forEach((row) => users.set(String(row.usuario_id), row.nombre || row.usuario));
+
+  select.innerHTML = '<option value="">Todos los usuarios</option>' +
+    [...users.entries()]
+      .sort((a,b) => a[1].localeCompare(b[1], 'es'))
+      .map(([id,name]) => `<option value="${escapeHtml(id)}">${escapeHtml(name)}</option>`)
+      .join('');
+
+  if (current && [...select.options].some((o) => o.value === current)) select.value = current;
+}
+
 async function refreshAttendance() {
   if (!currentUser) return;
-  const dateInput = $('#checkinDateInput');
-  const fecha = (currentUser.rol === 'admin' && dateInput?.value) ? dateInput.value : todayLocal();
-
-  if (dateInput && !dateInput.value) dateInput.value = todayLocal();
-  if ($('#attendanceDateLabel')) $('#attendanceDateLabel').textContent = formatAttendanceDate(fecha);
 
   try {
     const state = await apiFetch('/api/asistencia/estado');
@@ -2880,8 +2927,30 @@ async function refreshAttendance() {
     renderAttendanceState();
 
     if (currentUser.rol === 'admin') {
-      const rows = await apiFetch(`/api/asistencia?fecha=${encodeURIComponent(fecha)}&_=${Date.now()}`, { cache:'no-store' });
+      const startInput = $('#checkinStartDate');
+      const endInput = $('#checkinEndDate');
+      const userInput = $('#checkinUserFilter');
+
+      if (startInput && !startInput.value) startInput.value = todayLocal();
+      if (endInput && !endInput.value) endInput.value = todayLocal();
+
+      const params = new URLSearchParams();
+      params.set('inicio', startInput?.value || todayLocal());
+      params.set('fin', endInput?.value || startInput?.value || todayLocal());
+      if (userInput?.value) params.set('usuario_id', userInput.value);
+      params.set('_', Date.now());
+
+      const rows = await apiFetch(`/api/asistencia?${params.toString()}`, { cache:'no-store' });
+      populateCheckinUserFilter(Array.isArray(rows) ? rows : []);
       renderAttendanceRows(Array.isArray(rows) ? rows : []);
+
+      if ($('#attendanceDateLabel')) {
+        const ini = startInput?.value || '';
+        const fin = endInput?.value || '';
+        $('#attendanceDateLabel').textContent = ini === fin
+          ? formatAttendanceDate(ini)
+          : `${formatAttendanceDate(ini)} — ${formatAttendanceDate(fin)}`;
+      }
     }
   } catch (err) {
     showToast(err.message, 'No se pudo cargar la asistencia');
@@ -2905,47 +2974,30 @@ function localDateTimeParts(isoValue) {
 
 function openCheckinEdit(id) {
   if (currentUser?.rol !== 'admin') return;
-
-  const row = currentAttendanceRows.find((item) => String(item.id) === String(id));
-  if (!row) {
-    showToast('No se encontró el registro.', 'Check-in');
-    return;
-  }
-
-  const entry = localDateTimeParts(row.entrada);
-  const exit = localDateTimeParts(row.salida);
-
-  $('#checkinEditId').value = String(row.id);
-  $('#checkinEditDate').value = row.fecha_local || entry.date || todayLocal();
-  $('#checkinEditEntry').value = entry.time;
-  $('#checkinEditExit').value = row.salida ? exit.time : '';
-
-  const minutes = Number(row.minutos || 0);
-  const hourlyRate = Number(row.valor_hora_efectivo ?? row.valor_hora ?? 0);
-  const paid = Number(row.valor_pagado ?? attendancePay(minutes, hourlyRate));
-
-  $('#checkinEditMinutes').value = String(Math.round(minutes));
-  $('#checkinEditHours').value = (minutes / 60).toFixed(2);
-  $('#checkinEditHourlyRate').value = hourlyRate.toFixed(2);
-  $('#checkinEditPaid').value = paid.toFixed(2);
-
-  $('#checkinEditUser').textContent = `${row.nombre || row.usuario} · @${row.usuario}`;
-  checkinEditDialog?.showModal();
+  editingCheckinId = String(id);
+  renderAttendanceRows(currentAttendanceRows);
 }
 
-async function saveCheckinEdit() {
+function cancelInlineCheckinEdit() {
+  editingCheckinId = null;
+  renderAttendanceRows(currentAttendanceRows);
+}
+
+async function saveInlineCheckinEdit(id) {
   if (currentUser?.rol !== 'admin') return;
+  const row = currentAttendanceRows.find((item) => String(item.id) === String(id));
+  const tr = document.querySelector(`tr[data-checkin-id="${CSS.escape(String(id))}"]`);
+  if (!row || !tr) return;
 
-  const id = $('#checkinEditId').value;
-  const fecha = $('#checkinEditDate').value;
-  const entrada = $('#checkinEditEntry').value;
-  const salida = $('#checkinEditExit').value;
-  const minutos = Math.max(0, Number($('#checkinEditMinutes').value || 0));
-  const valorHora = Math.max(0, Number($('#checkinEditHourlyRate').value || 0));
-  const valorPagado = Math.max(0, Number($('#checkinEditPaid').value || 0));
+  const get = (field) => tr.querySelector(`[data-field="${field}"]`)?.value ?? '';
+  const entrada = get('entrada');
+  const salida = get('salida');
+  const minutos = Math.max(0, Number(get('minutos') || 0));
+  const valorHora = Math.max(0, Number(get('valor_hora') || 0));
+  const valorPagado = Math.max(0, Number(get('valor_pagado') || 0));
 
-  if (!id || !fecha || !entrada) {
-    showToast('Completa la fecha y la hora de entrada.', 'Check-in');
+  if (!entrada) {
+    showToast('La hora de entrada es obligatoria.', 'Check-in');
     return;
   }
 
@@ -2954,33 +3006,35 @@ async function saveCheckinEdit() {
       method:'PUT',
       headers:{'Content-Type':'application/json'},
       body:JSON.stringify({
-        fecha_local:fecha,
-        entrada_local:`${fecha}T${entrada}`,
-        salida_local:salida ? `${fecha}T${salida}` : null,
+        fecha_local:row.fecha_local,
+        entrada_local:`${row.fecha_local}T${entrada}`,
+        salida_local:salida ? `${row.fecha_local}T${salida}` : null,
         minutos_override:minutos,
         valor_hora_override:valorHora,
         valor_pagado_override:valorPagado
       })
     });
 
-    checkinEditDialog?.close();
+    editingCheckinId = null;
     showToast(result.mensaje || 'Registro actualizado.', 'Check-in actualizado');
-
-    await Promise.allSettled([
-      refreshAttendance(),
-      refreshHomeUsers()
-    ]);
+    await Promise.allSettled([refreshAttendance(), refreshHomeUsers()]);
   } catch (err) {
     showToast(err.message, 'No se pudo editar el check-in');
   }
 }
+
 
 async function toggleAttendance() {
   if (!currentUser) return;
   const isOpen = Boolean(attendanceState?.abierto);
 
   if (isOpen) {
-    const sure = window.confirm('¿Estás seguro de que quieres marcar tu salida?');
+    const sure = await themedConfirm({
+      title:'Marcar salida',
+      message:'¿Estás seguro de que quieres registrar tu salida ahora?',
+      confirmText:'Marcar salida',
+      danger:true
+    });
     if (!sure) return;
   }
 
@@ -3018,6 +3072,7 @@ async function refreshAdminUsers() {
   try {
     adminUsers = await apiFetch('/api/usuarios');
     renderAdminUsers();
+    populateCheckinUserFilter(currentAttendanceRows);
   } catch (err) {
     console.error(err);
   }
@@ -3328,7 +3383,7 @@ function openAdminPanel(section = pendingAdminSection || 'apariencia') {
 
   if (settingsPage) settingsPage.hidden = true;
   if (adminPage) adminPage.hidden = false;
-  document.body.classList.add('standalone-open');
+  document.body.classList.add('standalone-open', 'admin-page-open');
 
   try { showAdminSection(section); } catch (err) { console.error('Admin navegación:', err); }
   try { renderEmployeeList(); } catch (err) { console.error('Admin empleados:', err); }
@@ -3400,28 +3455,34 @@ on('detailImageNext', 'click', () => {
   renderDetailImage(task);
 });
 on('refreshAttendance', 'click', refreshAttendance);
+on('checkinStartDate', 'change', refreshAttendance);
+on('checkinEndDate', 'change', refreshAttendance);
+on('checkinUserFilter', 'change', refreshAttendance);
 on('closeMyCheckin', 'click', () => showMainView('home'));
 on('refreshMyCheckin', 'click', refreshMyCheckin);
 
-on('checkinDateInput', 'change', refreshAttendance);
-on('closeCheckinEdit', 'click', () => checkinEditDialog?.close());
-on('cancelCheckinEdit', 'click', () => checkinEditDialog?.close());
-$('#checkinEditForm')?.addEventListener('submit', async (e) => {
-  e.preventDefault();
-  await saveCheckinEdit();
-});
-$('#checkinEditMinutes')?.addEventListener('input', () => {
-  const minutes = Math.max(0, Number($('#checkinEditMinutes').value || 0));
-  $('#checkinEditHours').value = (minutes / 60).toFixed(2);
-});
-$('#checkinEditHours')?.addEventListener('input', () => {
-  const hours = Math.max(0, Number($('#checkinEditHours').value || 0));
-  $('#checkinEditMinutes').value = String(Math.round(hours * 60));
-});
 
 $('#attendanceTableBody')?.addEventListener('click', (e) => {
-  const btn = e.target.closest('[data-edit-checkin]');
-  if (btn) openCheckinEdit(btn.dataset.editCheckin);
+  const edit = e.target.closest('[data-edit-checkin]');
+  const save = e.target.closest('[data-save-checkin]');
+  const cancel = e.target.closest('[data-cancel-checkin]');
+  if (edit) openCheckinEdit(edit.dataset.editCheckin);
+  if (save) saveInlineCheckinEdit(save.dataset.saveCheckin);
+  if (cancel) cancelInlineCheckinEdit();
+});
+
+$('#attendanceTableBody')?.addEventListener('input', (e) => {
+  const tr = e.target.closest('tr[data-checkin-id]');
+  if (!tr) return;
+  if (e.target.dataset.field === 'minutos') {
+    const minutes = Math.max(0, Number(e.target.value || 0));
+    const hours = tr.querySelector('[data-field="horas"]');
+    if (hours) hours.value = (minutes / 60).toFixed(2);
+  } else if (e.target.dataset.field === 'horas') {
+    const hours = Math.max(0, Number(e.target.value || 0));
+    const minutes = tr.querySelector('[data-field="minutos"]');
+    if (minutes) minutes.value = String(Math.round(hours * 60));
+  }
 });
 // Navegación y menú de perfil conectados por bindCoreNavigationEarly().
 
@@ -3432,6 +3493,9 @@ on('refreshHomeUsers', 'click', refreshHomeUsers);
 on('closeProfile', 'click', () => $('#profileDialog').close());
 on('cancelProfile', 'click', () => $('#profileDialog').close());
 on('logoutBtn', 'click', logoutApp);
+on('confirmCancel', 'click', () => closeThemedConfirm(false));
+on('confirmAccept', 'click', () => closeThemedConfirm(true));
+confirmDialog?.addEventListener('cancel', (e) => { e.preventDefault(); closeThemedConfirm(false); });
 on('manageDesignsBtn', 'click', () => requestAdminPanel('disenos'));
 on('newRoleBtn', 'click', clearRoleEditor);
 on('saveRoleBtn', 'click', saveRole);

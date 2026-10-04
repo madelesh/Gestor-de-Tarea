@@ -3656,102 +3656,181 @@ body,
 
 
 /* =========================================================
-   V11.5.1 — Botón Entrada/Salida estilo Home
+   V11.6 — Check-in admin, confirmaciones y foco de panel
    ========================================================= */
 
-.home-attendance-widget{
-  display:flex!important;
-  flex-direction:column!important;
-  align-items:flex-start!important;
-  gap:7px!important;
-}
-
+/* Botón Entrada/Salida grande, alineado al sistema */
 .home-attendance-btn{
-  width:auto!important;
-  min-width:0!important;
-  min-height:0!important;
-  height:46px!important;
-  display:inline-flex!important;
-  align-items:center!important;
-  justify-content:center!important;
-  grid-template-columns:none!important;
-  gap:9px!important;
-  padding:0 16px!important;
-  border:0!important;
-  border-radius:14px!important;
-  background:var(--accent)!important;
-  color:#111!important;
-  box-shadow:none!important;
-  font-weight:900!important;
-  cursor:pointer!important;
-  transition:transform .16s ease, filter .16s ease!important;
+  min-width:220px!important;
+  height:58px!important;
+  padding:0 22px!important;
+  border-radius:16px!important;
+  font-size:18px!important;
+  box-shadow:0 8px 28px rgba(0,0,0,.15)!important;
 }
-
-.home-attendance-btn:hover{
-  background:var(--accent)!important;
-  border-color:transparent!important;
-  filter:brightness(.97)!important;
-  transform:translateY(-1px)!important;
-}
-
-.home-attendance-btn:active{
-  transform:translateY(0)!important;
-}
-
 .home-attendance-btn .home-attendance-icon{
-  width:20px!important;
-  height:20px!important;
-  min-width:20px!important;
-  display:grid!important;
-  place-items:center!important;
-  border-radius:0!important;
-  background:transparent!important;
-  color:#111!important;
+  width:24px!important;
+  height:24px!important;
 }
-
 .home-attendance-btn .home-attendance-icon .icon{
-  width:17px!important;
-  height:17px!important;
+  width:19px!important;
+  height:19px!important;
 }
-
 .home-attendance-btn strong{
-  margin:0!important;
-  padding:0!important;
-  color:#111!important;
-  font-size:16px!important;
-  line-height:1!important;
-  font-weight:900!important;
+  font-size:18px!important;
 }
 
-.home-attendance-btn.is-clocked-in{
-  background:#ff6472!important;
-  color:#111!important;
+/* Confirmación temática: reemplaza alert/confirm del navegador */
+.confirm-dialog{
+  border:0;
+  padding:0;
+  background:transparent;
+}
+.confirm-dialog::backdrop{
+  background:rgba(3,7,14,.72);
+  backdrop-filter:blur(6px);
+}
+.confirm-card{
+  width:min(460px,calc(100vw - 28px));
+  padding:22px;
+  border:1px solid var(--line);
+  border-radius:22px;
+  background:var(--surface);
+  color:var(--ink);
+  box-shadow:0 30px 100px rgba(0,0,0,.45);
+}
+.confirm-icon{
+  width:46px;
+  height:46px;
+  display:grid;
+  place-items:center;
+  border-radius:15px;
+  background:color-mix(in srgb,var(--accent) 14%,var(--surface-2));
+  color:var(--accent);
+  margin-bottom:14px;
+}
+.confirm-icon .icon{width:21px;height:21px}
+.confirm-copy h3{margin:0 0 7px;font-size:22px}
+.confirm-copy p{margin:0;color:var(--muted);line-height:1.5}
+.confirm-actions{
+  display:flex;
+  justify-content:flex-end;
+  gap:10px;
+  margin-top:22px;
 }
 
-.home-attendance-btn.is-clocked-in .home-attendance-icon{
-  color:#111!important;
-  background:transparent!important;
-}
-
-.home-attendance-btn.is-completed{
-  background:var(--accent)!important;
-  color:#111!important;
-  border:0!important;
-  opacity:1!important;
-}
-
-.home-attendance-subtext{
+/* Icono de Roles */
+.admin-nav-btn[data-admin-target="roles"] .icon{
   display:block!important;
-  margin-left:3px!important;
-  color:var(--muted)!important;
-  font-size:11px!important;
-  font-weight:700!important;
-  line-height:1.25!important;
+  width:18px!important;
+  height:18px!important;
 }
 
+/* Filtros Check-in */
+.checkin-filters{
+  display:grid!important;
+  grid-template-columns:minmax(180px,1.2fr) minmax(145px,.8fr) minmax(145px,.8fr) auto;
+  gap:10px!important;
+  align-items:end!important;
+}
+.checkin-filters label{
+  display:flex;
+  flex-direction:column;
+  gap:5px;
+  color:var(--muted);
+  font-size:10px;
+  font-weight:800;
+  text-transform:uppercase;
+  letter-spacing:.04em;
+}
+.checkin-filters select,
+.checkin-filters input{
+  min-height:40px;
+  padding:8px 10px;
+  border:1px solid var(--line);
+  border-radius:11px;
+  background:var(--surface-2);
+  color:var(--ink);
+}
+
+/* Edición inline de Check-in */
+.checkin-inline-editing{
+  background:color-mix(in srgb,var(--accent) 6%,var(--surface))!important;
+}
+.checkin-inline-input{
+  width:100%;
+  min-width:86px;
+  height:38px;
+  padding:7px 8px;
+  border:1px solid var(--line);
+  border-radius:10px;
+  background:var(--surface-2);
+  color:var(--ink);
+  font:inherit;
+}
+.checkin-inline-input:focus{
+  outline:2px solid color-mix(in srgb,var(--accent) 48%,transparent);
+  border-color:var(--accent);
+}
+.checkin-inline-input.money{min-width:82px}
+.checkin-inline-time{
+  display:grid;
+  grid-template-columns:minmax(70px,1fr) auto minmax(70px,1fr) auto;
+  align-items:center;
+  gap:5px;
+}
+.checkin-inline-time span{
+  color:var(--muted);
+  font-size:10px;
+  font-weight:800;
+}
+.checkin-inline-actions{
+  display:flex;
+  gap:6px;
+}
+.checkin-save-btn,
+.checkin-cancel-btn{
+  width:34px;
+  height:34px;
+  display:grid;
+  place-items:center;
+  border-radius:10px;
+  cursor:pointer;
+}
+.checkin-save-btn{
+  border:0;
+  background:var(--accent);
+  color:#111;
+}
+.checkin-cancel-btn{
+  border:1px solid var(--line);
+  background:var(--surface-2);
+  color:var(--ink);
+  font-size:20px;
+}
+
+/* Panel admin completamente aislado de la navegación normal */
+body.admin-page-open .app-shell > .topbar,
+body.admin-page-open .app-shell > .page-content,
+body.admin-page-open .app-version-footer{
+  display:none!important;
+}
+body.admin-page-open #adminPage{
+  display:block!important;
+  min-height:100vh!important;
+}
+body.admin-page-open{
+  overflow:auto;
+}
+
+@media(max-width:1000px){
+  .checkin-filters{
+    grid-template-columns:1fr 1fr;
+  }
+}
 @media(max-width:620px){
-  .home-attendance-widget{
-    width:100%!important;
+  .checkin-filters{
+    grid-template-columns:1fr;
   }
   .home-attendance-btn{
     width:100%!important;
