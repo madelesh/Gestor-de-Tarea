@@ -1,4 +1,4 @@
-const APP_VERSION = '11.2.4';
+const APP_VERSION = '11.2.5';
 const API_BASE = 'https://gestor-tareas-api.detodoec.workers.dev';
 const STORAGE_KEY = 'detodoec_tasks_v1';
 const SETTINGS_KEY = 'detodoec_tasks_settings_v3';
@@ -92,9 +92,9 @@ const archiveGrid = $('#archiveGrid');
 const archiveEmpty = $('#archiveEmpty');
 const dialog = $('#taskDialog');
 const detailDialog = $('#detailDialog');
-const adminDialog = $('#adminDialog');
+const adminPage = $('#adminPage');
 const loginDialog = $('#loginDialog');
-const settingsDialog = $('#settingsDialog');
+const settingsPage = $('#settingsPage');
 const paymentDialog = $('#paymentDialog');
 const deleteDialog = $('#deleteDialog');
 const paymentForm = $('#paymentForm');
@@ -1254,7 +1254,25 @@ async function saveQuotePrices() {
   }
 }
 
+function hideStandalonePages() {
+  if (settingsPage) settingsPage.hidden = true;
+  if (adminPage) adminPage.hidden = true;
+  document.body.classList.remove('standalone-open');
+}
+
+function showSettingsPage() {
+  hideStandalonePages();
+  ['home','resumen','tareas','archivados','cotizador','disenos','checkin'].forEach((id) => {
+    const el = $('#' + id);
+    if (el) el.hidden = true;
+  });
+  if (settingsPage) settingsPage.hidden = false;
+  document.body.classList.add('standalone-open');
+  window.scrollTo({ top:0, behavior:'instant' });
+}
+
 function showMainView(view) {
+  hideStandalonePages();
   const permissionMap = {
     home:'home',
     tasks:'tasks',
@@ -1375,13 +1393,14 @@ function updateCurrentUserUI() {
   const name = currentUser.nombre || currentUser.usuario || 'Usuario';
   const topName = $('#topUserName');
   const topAvatar = $('#topUserAvatar');
-  const adminBtn = $('#customizeBtn');
   const greeting = $('#homeGreetingName');
 
   if (topName) topName.textContent = name;
   if (topAvatar) topAvatar.innerHTML = userAvatarMarkup(currentUser);
-  if (adminBtn) adminBtn.hidden = currentUser.rol !== 'admin';
   if (greeting) greeting.textContent = name;
+
+  const themeState = $('#profileThemeState');
+  if (themeState) themeState.textContent = document.documentElement.dataset.theme === 'dark' ? 'Claro' : 'Oscuro';
 
   updateNavigationPermissions();
 }
@@ -1508,10 +1527,18 @@ function bindCoreNavigationEarly() {
     openProfile();
   });
 
+  safeBind('profileThemeMenu', () => {
+    const menu = $('#profileDropdown');
+    if (menu) menu.hidden = true;
+    toggleTheme();
+    const themeState = $('#profileThemeState');
+    if (themeState) themeState.textContent = document.documentElement.dataset.theme === 'dark' ? 'Claro' : 'Oscuro';
+  });
+
   safeBind('profileSettingsMenu', () => {
     const menu = $('#profileDropdown');
     if (menu) menu.hidden = true;
-    settingsDialog?.showModal();
+    showSettingsPage();
   });
 
   safeBind('profileAdminMenu', () => {
@@ -1520,12 +1547,21 @@ function bindCoreNavigationEarly() {
     requestAdminPanel('apariencia');
   });
 
-  safeBind('attendanceQuickBtn', () => toggleAttendance());
+  safeBind('homeAttendanceBtn', () => toggleAttendance());
   safeBind('refreshCloud', () => refreshTasks());
-  safeBind('themeToggle', () => toggleTheme());
 }
 
 bindCoreNavigationEarly();
+
+document.addEventListener('pointerdown', (e) => {
+  const menu = $('#profileDropdown');
+  const button = $('#profileBtn');
+  if (!menu || menu.hidden) return;
+  if (!menu.contains(e.target) && !button?.contains(e.target)) {
+    menu.hidden = true;
+  }
+}, true);
+
 
 
 async function restoreSession() {
@@ -1647,9 +1683,9 @@ function renderAttendanceState() {
   const open = Boolean(state.abierto);
   const completed = Boolean(state.cerrado_dia);
   const worked = Number(state.minutos || 0);
-  const quickBtn = $('#attendanceQuickBtn');
+  const quickBtn = $('#homeAttendanceBtn');
 
-  $('#attendanceQuickText').textContent = open ? 'Salida' : completed ? 'Completado' : 'Entrada';
+  $('#homeAttendanceText').textContent = open ? 'Marcar salida' : completed ? 'Jornada completada' : 'Marcar entrada';
   quickBtn?.classList.toggle('is-clocked-in', open);
   if (quickBtn) {
     quickBtn.disabled = completed;
@@ -1743,7 +1779,7 @@ async function toggleAttendance() {
     if (!sure) return;
   }
 
-  const btns = [$('#attendanceQuickBtn')].filter(Boolean);
+  const btns = [$('#homeAttendanceBtn')].filter(Boolean);
   btns.forEach((btn) => btn.disabled = true);
 
   try {
@@ -2054,7 +2090,16 @@ function openAdminPanel(section = pendingAdminSection || 'apariencia') {
   refreshAdminUsers();
   refreshRoles();
   showAdminSection(section);
-  adminDialog.showModal();
+
+  ['home','resumen','tareas','archivados','cotizador','disenos','checkin'].forEach((id) => {
+    const el = $('#' + id);
+    if (el) el.hidden = true;
+  });
+
+  if (settingsPage) settingsPage.hidden = true;
+  if (adminPage) adminPage.hidden = false;
+  document.body.classList.add('standalone-open');
+  window.scrollTo({ top:0, behavior:'instant' });
 }
 
 function on(id, event, handler) {
@@ -2065,11 +2110,10 @@ function on(id, event, handler) {
 on('archiveNav', 'click', () => setArchiveView(true));
 on('closeArchive', 'click', () => setArchiveView(false));
 on('archiveSearchInput', 'input', renderArchive);
-on('customizeBtn', 'click', () => requestAdminPanel('apariencia'));
 on('closeLogin', 'click', () => loginDialog.close());
 on('cancelLogin', 'click', () => loginDialog.close());
-on('closeAdmin', 'click', () => adminDialog.close());
-on('closeAdminFooter', 'click', () => adminDialog.close());
+on('closeAdmin', 'click', () => showMainView('home'));
+on('closeAdminFooter', 'click', () => showMainView('home'));
 on('closePaymentDialog', 'click', () => paymentDialog.close());
 on('cancelPaymentDialog', 'click', () => paymentDialog.close());
 on('closeDialog', 'click', () => dialog.close());
@@ -2117,19 +2161,13 @@ on('detailImageNext', 'click', () => {
 on('refreshAttendance', 'click', refreshAttendance);
 // Navegación y menú de perfil conectados por bindCoreNavigationEarly().
 
-on('closeSettings', 'click', () => settingsDialog?.close());
+on('closeSettings', 'click', () => showMainView('home'));
 on('settingsLightTheme', 'click', () => setTheme('light'));
 on('settingsDarkTheme', 'click', () => setTheme('dark'));
 on('refreshHomeUsers', 'click', refreshHomeUsers);
 on('closeProfile', 'click', () => $('#profileDialog').close());
 on('cancelProfile', 'click', () => $('#profileDialog').close());
 on('logoutBtn', 'click', logoutApp);
-document.addEventListener('click', (e) => {
-  const menu = $('#profileDropdown');
-  const button = $('#profileBtn');
-  if (!menu || menu.hidden) return;
-  if (!menu.contains(e.target) && !button?.contains(e.target)) menu.hidden = true;
-});
 on('manageDesignsBtn', 'click', () => requestAdminPanel('disenos'));
 on('newRoleBtn', 'click', clearRoleEditor);
 on('saveRoleBtn', 'click', saveRole);
