@@ -1,4 +1,4 @@
-const APP_VERSION = '11.3';
+const APP_VERSION = '11.3.1';
 const API_BASE = 'https://gestor-tareas-api.detodoec.workers.dev';
 const STORAGE_KEY = 'detodoec_tasks_v1';
 const SETTINGS_KEY = 'detodoec_tasks_settings_v3';
@@ -1264,6 +1264,904 @@ async function saveQuotePrices() {
   }
 }
 
+
+
+/* =========================================================
+   V11.3.1 — Restauración de tareas, empleados y carga de archivos
+   ========================================================= */
+
+async function uploadImage(file) {
+  const fd = new FormData();
+  fd.append('imagen', file);
+  const data = await apiFetch('/api/imagenes', { method: 'POST', body: fd });
+  return data.url || '';
+}
+
+async function uploadDesignFile(file) {
+  const fd = new FormData();
+  fd.append('archivo', file);
+  const data = await apiFetch('/api/archivos', { method: 'POST', body: fd });
+  return { url: data.url || '', name: data.nombre || file.name || '', type: data.tipo || file.type || '' };
+}
+
+function copyQuoteSummary() {
+  if (!quoteItems.length) return;
+
+  const lines = ['Cotización', ''];
+
+  quoteItems.forEach((item, index) => {
+    lines.push(`${item.nombre}`);
+    lines.push(`Alto ${item.height.toFixed(2)}M x Ancho ${item.width.toFixed(2)}m ${money(item.total)}`);
+    lines.push(`*Subtotal:* ${money(item.total)}`);
+
+    if (index < quoteItems.length - 1) {
+      lines.push('');
+    }
+  });
+
+  const content = lines.join('\n');
+
+  navigator.clipboard?.writeText(content)
+    .then(() => showToast('La cotización fue copiada y está lista para enviarla al cliente.', 'Cotización copiada'))
+    .catch(() => showToast(content, 'Cotización lista'));
+}
+
+function fromApi(t) {
+  const history = (t.abonos || []).map((a) => ({
+    id: String(a.id),
+    amount: Number(a.valor || 0),
+    date: String(a.fecha || '').slice(0, 10),
+    createdAt: a.fecha || ''
+  }));
+  const deposit = Number(t.total_abonado ?? history.reduce((sum, item) => sum + item.amount, 0));
+  return {
+    id: String(t.id),
+    clientName: t.cliente || '',
+    taskName: t.titulo || '',
+    description: t.descripcion || '',
+    deliveryDate: t.fecha_entrega || '',
+    totalAmount: Number(t.valor_total || 0),
+    workerName: t.responsable || '',
+    orderTaker: t.tomo_pedido || '',
+    status: t.estado || 'pendiente',
+    image: t.imagen_url || '',
+    finishedImage: t.imagen_terminada_url || '',
+    archived: Boolean(t.archivada),
+    paymentHistory: history,
+    depositAmount: deposit,
+    paymentDate: history[0]?.date || ''
+  };
+}
+function toApi(task) {
+  return {
+    cliente: task.clientName || '',
+    titulo: task.taskName || '',
+    descripcion: task.description || '',
+    fecha_entrega: task.deliveryDate || '',
+    valor_total: Number(task.totalAmount || 0),
+    responsable: task.workerName || '',
+    tomo_pedido: task.orderTaker || '',
+    estado: task.status || 'pendiente',
+    imagen_url: task.image || '',
+    imagen_terminada_url: task.finishedImage || '',
+    archivada: Boolean(task.archived)
+  };
+}
+
+function findEmployeeByName(name) {
+  return employees.find((emp) => emp.name === name) || null;
+}
+function setMiniAvatar(el, name) {
+  const emp = findEmployeeByName(name);
+  el.textContent = emp?.photo ? '' : initials(name);
+  el.style.backgroundImage = emp?.photo ? `url(${emp.photo})` : 'none';
+}
+function setEmployeeAvatarBox(el, photo, name = '') {
+  el.style.backgroundImage = photo ? `url(${photo})` : 'none';
+  el.innerHTML = photo ? '' : `<span>${initials(name)}</span>`;
+}
+
+function findPayment(taskId, paymentId) {
+  const task = tasks.find((x) => x.id === String(taskId));
+  if (!task) return { task: null, item: null };
+  const item = (task.paymentHistory || []).find((entry) => String(entry.id) === String(paymentId)) || null;
+  return { task, item };
+}
+
+function renderEmployeeOptions(selectedWorker = '', selectedTaker = '') {
+  const workerSelect = $('#workerName');
+  const takerSelect = $('#orderTaker');
+  if (!workerSelect || !takerSelect) return;
+
+  const buildOptions = (selectedValue) => {
+    const usedNames = new Set(employees.map((e) => e.name));
+    let options = `<option value="">Sin asignar</option>`;
+    if (selectedValue && !usedNames.has(selectedValue)) {
+      options += `<option value="${escapeHtml(selectedValue)}">${escapeHtml(selectedValue)}</option>`;
+    }
+    options += employees.map((emp) => `<option value="${escapeHtml(emp.name)}">${escapeHtml(emp.name)}</option>`).join('');
+    return options;
+  };
+
+  workerSelect.innerHTML = buildOptions(selectedWorker);
+  takerSelect.innerHTML = buildOptions(selectedTaker);
+  workerSelect.value = selectedWorker || '';
+  takerSelect.value = selectedTaker || '';
+}
+
+function renderEmployeeFilter() {
+  const select = $('#employeeFilter');
+  if (!select) return;
+  const current = select.value || 'all';
+  select.innerHTML = '<option value="all">Todos los empleados</option>' + employees.map((emp) => `<option value="${escapeHtml(emp.name)}">${escapeHtml(emp.name)}</option>`).join('');
+  select.value = employees.some((e) => e.name === current) ? current : 'all';
+}
+
+function renderEmployeeList() {
+  const list = $('#employeeList');
+  if (!list) return;
+  list.innerHTML = '';
+  if (!employees.length) {
+    list.innerHTML = '<p class="employee-empty">No hay empleados registrados todavía.</p>';
+    renderEmployeeOptions();
+    return;
+  }
+  employees.forEach((emp) => {
+    const article = document.createElement('article');
+    article.className = 'employee-card';
+    article.innerHTML = `
+      <div class="employee-avatar" aria-hidden="true"></div>
+      <div class="employee-card-info">
+        <strong>${escapeHtml(emp.name)}</strong>
+        <span>Disponible para asignar tareas y pedidos</span>
+      </div>
+      <div class="employee-card-actions">
+        <button type="button" class="btn btn-outline small" data-edit-employee="${emp.id}">Editar</button>
+        <button type="button" class="btn btn-danger small" data-delete-employee="${emp.id}">Eliminar</button>
+      </div>
+    `;
+    setEmployeeAvatarBox(article.querySelector('.employee-avatar'), emp.photo, emp.name);
+    list.appendChild(article);
+  });
+  renderEmployeeOptions($('#workerName')?.value || '', $('#orderTaker')?.value || '');
+}
+
+function clearEmployeeForm() {
+  employeeForm.reset();
+  $('#employeeId').value = '';
+  employeeEditingPhoto = '';
+  employeeEditingPhotoFile = null;
+  setEmployeeAvatarBox($('#employeePhotoPreview'), '', '');
+  $('#employeeSaveBtn').textContent = 'Guardar empleado';
+}
+function editEmployee(id) {
+  const emp = employees.find((item) => item.id === id);
+  if (!emp) return;
+  $('#employeeId').value = emp.id;
+  $('#employeeName').value = emp.name;
+  employeeEditingPhoto = emp.photo || '';
+  employeeEditingPhotoFile = null;
+  setEmployeeAvatarBox($('#employeePhotoPreview'), emp.photo || '', emp.name);
+  $('#employeeSaveBtn').textContent = 'Actualizar empleado';
+}
+async function removeEmployee(id) {
+  const emp = employees.find((item) => item.id === String(id));
+  if (!emp) return;
+  if (!window.confirm(`¿Eliminar al empleado "${emp.name}"?`)) return;
+  try {
+    await apiFetch(`/api/empleados/${id}`, { method:'DELETE' });
+    await refreshEmployees({ migrateLocal:false });
+    render();
+    showToast(`Se eliminó a ${emp.name}.`, 'Empleado eliminado');
+  } catch (err) {
+    showToast(err.message, 'No se pudo eliminar el empleado');
+  }
+}
+
+async function refreshTasks({ silent = false } = {}) {
+  if (isLoading) return;
+  isLoading = true;
+  setSyncState('loading');
+  try {
+    const data = await apiFetch('/api/tareas');
+    tasks = (Array.isArray(data) ? data : []).map(fromApi);
+
+    // V10.15: las tareas ya no se archivan automáticamente por estar pagadas.
+
+
+    render();
+    setSyncState('ok');
+  } catch (err) {
+    console.error(err);
+    setSyncState('error');
+    if (!silent) showToast(err.message, 'No se pudo sincronizar');
+  } finally {
+    isLoading = false;
+  }
+}
+
+function createTaskCard(task) {
+  const node = $('#taskTemplate').content.cloneNode(true);
+  const card = node.querySelector('.task-card');
+  const statusBadge = node.querySelector('.card-status-badge');
+  statusBadge.textContent = task.archived ? 'Entregado' : statusLabel(task.status);
+  if (task.archived) statusBadge.classList.add('archived-delivered');
+  const cardImage = node.querySelector('.task-image');
+  const cardImages = [task.image, task.finishedImage].filter(Boolean);
+  if (!cardImages.length) cardImages.push(placeholderSvg());
+  let cardImageIndex = 0;
+  const prevBtn = node.querySelector('.card-image-prev');
+  const nextBtn = node.querySelector('.card-image-next');
+  const dots = [...node.querySelectorAll('.card-image-dots span')];
+  const updateCardImage = () => {
+    cardImage.src = cardImages[cardImageIndex];
+    dots.forEach((dot, i) => dot.classList.toggle('active', i === cardImageIndex && i < cardImages.length));
+    const showControls = cardImages.length > 1;
+    prevBtn.hidden = !showControls;
+    nextBtn.hidden = !showControls;
+    node.querySelector('.card-image-dots').hidden = !showControls;
+  };
+  prevBtn.addEventListener('click', (e) => { e.stopPropagation(); cardImageIndex = (cardImageIndex - 1 + cardImages.length) % cardImages.length; updateCardImage(); });
+  nextBtn.addEventListener('click', (e) => { e.stopPropagation(); cardImageIndex = (cardImageIndex + 1) % cardImages.length; updateCardImage(); });
+  updateCardImage();
+  node.querySelector('.card-client').textContent = task.clientName || 'Sin cliente';
+  const copyClientBtn = node.querySelector('.card-copy-client');
+  copyClientBtn?.addEventListener('click', async (e) => {
+    e.preventDefault();
+    e.stopPropagation();
+    try {
+      await navigator.clipboard.writeText(task.clientName || '');
+      showToast(task.clientName || '', 'Nombre del cliente copiado');
+    } catch {
+      showToast('No se pudo copiar el nombre.', 'Copiar');
+    }
+  });
+  node.querySelector('.card-taskname').textContent = task.taskName || 'Sin nombre de tarea';
+  const cardWorker = node.querySelector('.card-worker-name');
+  const cardWorkerAvatar = node.querySelector('.card-worker-avatar');
+  if (cardWorker) cardWorker.textContent = task.workerName || 'Sin asignar';
+  if (cardWorkerAvatar) { const emp = findEmployeeByName(task.workerName || ''); cardWorkerAvatar.textContent = emp?.photo ? '' : initials(task.workerName || ''); cardWorkerAvatar.style.backgroundImage = emp?.photo ? `url(${emp.photo})` : 'none'; }
+  node.querySelector('.card-delivery').textContent = prettyDate(task.deliveryDate);
+  node.querySelector('.card-total').textContent = money(task.totalAmount);
+  const cardBalance = node.querySelector('.card-balance');
+  if (cardBalance) cardBalance.textContent = money(balance(task));
+  const countdown = deliveryCountdown(task.deliveryDate);
+  const countdownEl = node.querySelector('.card-days-left');
+  if (countdownEl) {
+    if (task.archived) {
+      countdownEl.innerHTML = `${iconUse('icon-check')}<span>Entregado</span>`;
+      countdownEl.dataset.tone = 'success';
+      countdownEl.classList.add('archived-delivered-label');
+    } else {
+      countdownEl.textContent = countdown.text;
+      countdownEl.dataset.tone = countdown.tone;
+      countdownEl.classList.remove('archived-delivered-label');
+    }
+  }
+  card.dataset.id = task.id;
+  card.draggable = !task.archived;
+  card.addEventListener('dragstart', (e) => {
+    card.classList.add('dragging');
+    e.dataTransfer.effectAllowed = 'move';
+    e.dataTransfer.setData('text/plain', String(task.id));
+  });
+  card.addEventListener('dragend', () => card.classList.remove('dragging'));
+  card.addEventListener('click', () => openDetail(task.id));
+  card.addEventListener('keydown', (e) => {
+    if (e.key === 'Enter' || e.key === ' ') {
+      e.preventDefault();
+      openDetail(task.id);
+    }
+  });
+  return node;
+}
+
+async function moveTaskToStatus(taskId, nextStatus) {
+  const task = tasks.find((item) => String(item.id) === String(taskId));
+  if (!task || task.status === nextStatus) return;
+
+  const previous = task.status;
+  task.status = nextStatus;
+  render();
+
+  try {
+    await apiFetch(`/api/tareas/${task.id}`, {
+      method:'PUT',
+      headers:{'Content-Type':'application/json'},
+      body:JSON.stringify({ ...toApi(task), estado:nextStatus })
+    });
+    showToast(
+      `${task.taskName || 'La tarea'} pasó de ${statusLabel(previous)} a ${statusLabel(nextStatus)}.`,
+      'Estado actualizado'
+    );
+    await refreshTasks({ silent:true });
+  } catch (err) {
+    task.status = previous;
+    render();
+    showToast(err.message, 'No se pudo mover la tarea');
+  }
+}
+
+function render() {
+  const query = $('#searchInput').value.trim().toLowerCase();
+  const active = tasks.filter((t) => !t.archived);
+  const employeeFilter = $('#employeeFilter')?.value || 'all';
+  const filtered = active.filter((t) => {
+    const haystack = `${t.clientName} ${t.taskName} ${t.description || ''} ${t.workerName || ''} ${t.orderTaker || ''}`.toLowerCase();
+    return haystack.includes(query) && (activeStatus === 'all' || t.status === activeStatus) && (employeeFilter === 'all' || t.workerName === employeeFilter);
+  });
+
+  taskGrid.innerHTML = '';
+  const sortByDate = (a, b) => (a.deliveryDate || '').localeCompare(b.deliveryDate || '');
+
+  if (activeStatus === 'all') {
+    const groups = [
+      { key: 'pendiente', label: 'Pendientes' },
+      { key: 'proceso', label: 'En proceso' },
+      { key: 'terminado', label: 'Terminados' },
+      { key: 'entregado', label: 'Entregados' }
+    ];
+
+    groups.forEach((group) => {
+      const items = filtered.filter((t) => t.status === group.key).sort(sortByDate);
+
+      const wrapper = document.createElement('section');
+      wrapper.className = `task-group task-group-${group.key}`;
+      wrapper.dataset.statusDrop = group.key;
+
+      const heading = document.createElement('div');
+      heading.className = `task-group-heading task-group-${group.key}`;
+      heading.innerHTML = `
+        <strong>${group.label}</strong>
+        <span>${items.length}</span>
+        <small>Arrastra aquí para cambiar estado</small>
+      `;
+
+      const body = document.createElement('div');
+      body.className = 'task-group-body';
+
+      if (!items.length) {
+        body.innerHTML = `<div class="task-group-empty">Suelta una tarea aquí</div>`;
+      } else {
+        items.forEach((t) => body.appendChild(createTaskCard(t)));
+      }
+
+      wrapper.addEventListener('dragover', (e) => {
+        e.preventDefault();
+        e.dataTransfer.dropEffect = 'move';
+        wrapper.classList.add('drag-over');
+      });
+      wrapper.addEventListener('dragleave', (e) => {
+        if (!wrapper.contains(e.relatedTarget)) wrapper.classList.remove('drag-over');
+      });
+      wrapper.addEventListener('drop', (e) => {
+        e.preventDefault();
+        wrapper.classList.remove('drag-over');
+        const taskId = e.dataTransfer.getData('text/plain');
+        if (taskId) moveTaskToStatus(taskId, group.key);
+      });
+
+      wrapper.append(heading, body);
+      taskGrid.appendChild(wrapper);
+    });
+  } else {
+    const singleGrid = document.createElement('div');
+    singleGrid.className = 'task-group-body standalone-task-grid';
+    filtered.sort(sortByDate).forEach((t) => singleGrid.appendChild(createTaskCard(t)));
+    taskGrid.appendChild(singleGrid);
+  }
+
+  emptyState.style.display = filtered.length ? 'none' : 'block';
+  updateStats();
+  renderArchive();
+}
+
+function renderArchive() {
+  const query = $('#archiveSearchInput').value.trim().toLowerCase();
+  const archived = tasks.filter((t) => t.archived).filter((t) => {
+    const haystack = `${t.clientName} ${t.taskName} ${t.description || ''}`.toLowerCase();
+    return haystack.includes(query);
+  });
+  archiveGrid.innerHTML = '';
+  archived.forEach((t) => archiveGrid.appendChild(createTaskCard(t)));
+  archiveEmpty.style.display = archived.length ? 'none' : 'block';
+  $('#archiveCount').textContent = archived.length;
+}
+
+function updateStats() {
+  const active = tasks.filter((t) => !t.archived);
+  $('#statTotal').textContent = active.length;
+  $('#statPending').textContent = active.filter((t) => t.status === 'pendiente').length;
+  $('#statDone').textContent = active.filter((t) => t.status === 'terminado' || t.status === 'entregado').length;
+  $('#statBalance').textContent = money(active.reduce((sum, t) => sum + balance(t), 0));
+}
+
+function clearForm() {
+  taskForm.reset();
+  $('#taskId').value = '';
+  $('#totalAmount').value = '0';
+  $('#depositAmount').value = '0';
+  $('#status').value = 'pendiente';
+  $('#deliveryDate').value = todayLocal();
+  $('#paymentDate').value = todayLocal();
+  editingImage = '';
+  editingImageFile = null;
+  removeExistingImage = false;
+  currentImageUrl = '';
+  editingFinishedImage = '';
+  editingFinishedImageFile = null;
+  removeExistingFinishedImage = false;
+  currentFinishedImageUrl = '';
+  imagePreview.removeAttribute('src');
+  finishedImagePreview?.removeAttribute('src');
+  imageWrap?.classList.remove('active');
+  syncEditorImageStage(false, '.editor-media-card:first-child .editor-image-stage');
+  syncEditorImageStage(false, '.editor-media-card:nth-child(2) .editor-image-stage');
+  $('#dialogTitle').textContent = 'Nueva tarea';
+  $('#initialDepositWrap').hidden = false;
+  $('#initialPaymentDateWrap').hidden = false;
+  $('#depositAmount').disabled = false;
+  $('#paymentDate').disabled = false;
+  renderEmployeeOptions();
+  updateSplitPreview();
+}
+
+function openNew() {
+  clearForm();
+  dialog.showModal();
+}
+
+function openEdit(id) {
+  const task = tasks.find((x) => x.id === String(id));
+  if (!task) return;
+  detailDialog.close();
+  clearForm();
+  $('#dialogTitle').textContent = 'Editar tarea';
+  $('#taskId').value = task.id;
+  $('#clientName').value = task.clientName;
+  $('#taskName').value = task.taskName;
+  renderEmployeeOptions(task.workerName || '', task.orderTaker || '');
+  $('#workerName').value = task.workerName || '';
+  $('#orderTaker').value = task.orderTaker || '';
+  $('#deliveryDate').value = task.deliveryDate || todayLocal();
+  $('#status').value = task.status || 'pendiente';
+  $('#totalAmount').value = task.totalAmount || 0;
+  $('#description').value = task.description || '';
+  $('#initialDepositWrap').hidden = true;
+  $('#initialPaymentDateWrap').hidden = true;
+  $('#depositAmount').disabled = true;
+  $('#paymentDate').disabled = true;
+  editingImage = task.image || '';
+  currentImageUrl = task.image || '';
+  if (editingImage) {
+    imagePreview.src = editingImage;
+    imageWrap?.classList.add('active');
+    syncEditorImageStage(true, '.editor-media-card:first-child .editor-image-stage');
+  }
+  editingFinishedImage = task.finishedImage || '';
+  currentFinishedImageUrl = task.finishedImage || '';
+  if (editingFinishedImage) {
+    finishedImagePreview.src = editingFinishedImage;
+    syncEditorImageStage(true, '.editor-media-card:nth-child(2) .editor-image-stage');
+  }
+  updateSplitPreview();
+  dialog.showModal();
+}
+
+function updateSplitPreview() {
+  const amount = Math.max(0, Number($('#totalAmount').value || 0));
+  $('#profitTotal').textContent = money(amount);
+  $('#profitWorker').textContent = money(amount * 0.70);
+  $('#profitTaker').textContent = money(amount * 0.30);
+}
+
+function renderDetailImage(task) {
+  const images = [task.image, task.finishedImage].filter(Boolean);
+  if (!images.length) images.push(placeholderSvg());
+  detailImageIndex = Math.max(0, Math.min(detailImageIndex, images.length - 1));
+  $('#detailImage').src = images[detailImageIndex];
+  $('#detailImageCounter').textContent = `${detailImageIndex + 1} / ${images.length}`;
+  $('#detailImagePrev').hidden = images.length < 2;
+  $('#detailImageNext').hidden = images.length < 2;
+}
+
+function openDetail(id) {
+  const task = tasks.find((x) => x.id === String(id));
+  if (!task) return;
+  detailTaskId = String(id);
+  $('#detailTitle').textContent = task.taskName || 'Información de la tarea';
+  detailImageIndex = 0;
+  renderDetailImage(task);
+  $('#detailStatus').textContent = statusLabel(task.status);
+  $('#detailClient').textContent = task.clientName || '—';
+  $('#detailTask').textContent = task.taskName || '—';
+  $('#detailWorker').textContent = task.workerName || 'Sin asignar';
+  $('#detailTaker').textContent = task.orderTaker || 'Sin asignar';
+  $('#detailDelivery').textContent = prettyDate(task.deliveryDate);
+  $('#detailTotal').textContent = money(task.totalAmount);
+  $('#detailDeposit').textContent = money(task.depositAmount);
+  $('#detailBalance').textContent = money(balance(task));
+  $('#detailWorkerShareMini').textContent = `70% · ${money(distributable(task) * 0.70)}`;
+  $('#detailTakerShareMini').textContent = `30% · ${money(distributable(task) * 0.30)}`;
+  $('#detailDescription').textContent = task.description || 'Sin descripción';
+  const archiveButton = $('#detailArchive');
+  if (archiveButton) {
+    archiveButton.innerHTML = task.archived ? `${iconUse('icon-refresh')}<span>Desarchivar</span>` : `${iconUse('icon-archive')}<span>Archivar</span>`;
+    archiveButton.classList.toggle('unarchive-action', task.archived);
+  }
+  setMiniAvatar($('#detailWorkerAvatar'), task.workerName || '');
+  setMiniAvatar($('#detailTakerAvatar'), task.orderTaker || '');
+
+  const list = $('#paymentHistoryList');
+  list.innerHTML = '';
+  const history = [...(task.paymentHistory || [])].sort((a, b) => ((b.date || '') + (b.createdAt || '')).localeCompare((a.date || '') + (a.createdAt || '')));
+  $('#paymentHistoryCount').textContent = `${history.length} registro(s)`;
+  if (!history.length) {
+    list.innerHTML = '<div class="history-empty">Aún no hay abonos registrados.</div>';
+  } else {
+    history.forEach((item) => {
+      const row = document.createElement('div');
+      row.className = 'history-item';
+      row.innerHTML = `
+        <div class="history-main">
+          <strong class="history-amount">${money(item.amount)}</strong>
+          <div class="history-meta">
+            <span class="history-tag">Abono</span>
+            <span class="history-date">${prettyDate(item.date)}${item.createdAt ? ` · ${String(item.createdAt).slice(11, 16)}` : ''}</span>
+          </div>
+        </div>
+        <div class="history-actions">
+          <button type="button" class="history-edit" data-edit-payment="${escapeHtml(String(item.id))}" title="Editar abono" aria-label="Editar abono">${iconUse('icon-edit')}</button>
+          <button type="button" class="history-delete" data-delete-payment="${escapeHtml(String(item.id))}" title="Eliminar abono" aria-label="Eliminar abono">${iconUse('icon-trash')}</button>
+        </div>
+      `;
+      list.appendChild(row);
+    });
+  }
+  detailDialog.showModal();
+}
+
+async function createInitialDeposit(taskId, amount, date) {
+  if (Number(amount || 0) <= 0) return;
+  await apiFetch(`/api/tareas/${taskId}/abonos`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ valor: Number(amount), fecha: date || todayLocal() })
+  });
+}
+
+function openPaymentDialog(task, mode = 'create', entry = null) {
+  if (!task) return;
+  if (detailDialog?.open) detailDialog.close();
+  $('#paymentTaskId').value = task.id;
+  $('#paymentEntryId').value = entry?.id ? String(entry.id) : '';
+  $('#paymentDialogTitle').textContent = mode === 'edit' ? 'Editar abono' : 'Registrar abono';
+  $('#paymentAmountLabel').textContent = mode === 'edit' ? 'Nuevo valor del abono' : '¿Cuánto deseas agregar?';
+  $('#paymentSubmitBtn').textContent = mode === 'edit' ? 'Guardar cambios' : 'Guardar abono';
+  $('#paymentCurrent').textContent = money(task.depositAmount);
+  $('#paymentPending').textContent = money(balance(task));
+  $('#paymentAmount').value = entry ? Number(entry.amount || 0) : '';
+  $('#paymentEntryDate').value = entry?.date || todayLocal();
+  paymentDialog.showModal();
+  setTimeout(() => $('#paymentAmount').focus(), 60);
+}
+
+function addPayment(id) {
+  const task = tasks.find((x) => x.id === String(id));
+  if (!task) return;
+  openPaymentDialog(task, 'create');
+}
+
+function editPayment(taskId, paymentId) {
+  const { task, item } = findPayment(taskId, paymentId);
+  if (!task || !item) {
+    showToast('No se encontró el abono seleccionado.', 'Abono no disponible');
+    return;
+  }
+  openPaymentDialog(task, 'edit', item);
+}
+
+async function updatePaymentEntry(taskId, paymentId, amount, date) {
+  const body = JSON.stringify({ valor: amount, fecha: date || todayLocal() });
+  const headers = { 'Content-Type': 'application/json' };
+  const candidates = [
+    `/api/abonos/${paymentId}`,
+    `/api/tareas/${taskId}/abonos/${paymentId}`
+  ];
+  let lastError = null;
+  for (const url of candidates) {
+    try {
+      return await apiFetch(url, { method: 'PUT', headers, body });
+    } catch (error) {
+      lastError = error;
+    }
+  }
+  throw lastError || new Error('No se pudo editar el abono.');
+}
+
+async function deletePaymentEntry(taskId, paymentId) {
+  const candidates = [
+    `/api/abonos/${paymentId}`,
+    `/api/tareas/${taskId}/abonos/${paymentId}`
+  ];
+  let lastError = null;
+  for (const url of candidates) {
+    try {
+      return await apiFetch(url, { method: 'DELETE' });
+    } catch (error) {
+      lastError = error;
+    }
+  }
+  throw lastError || new Error('No se pudo eliminar el abono.');
+}
+
+async function removePayment(taskId, paymentId) {
+  const { item } = findPayment(taskId, paymentId);
+  if (!item) return;
+  if (!window.confirm(`¿Eliminar el abono de ${money(item.amount)} del ${prettyDate(item.date)}?`)) return;
+  try {
+    await deletePaymentEntry(taskId, paymentId);
+    await refreshTasks({ silent: true });
+    if (detailTaskId) openDetail(detailTaskId);
+    showToast('El abono fue eliminado correctamente.', 'Abono eliminado');
+  } catch (err) {
+    showToast(err.message, 'No se pudo eliminar el abono');
+  }
+}
+
+async function saveTask(e) {
+  e.preventDefault();
+  const id = $('#taskId').value.trim();
+  const clientName = $('#clientName').value.trim();
+  const taskName = $('#taskName').value.trim();
+  const workerName = $('#workerName').value.trim();
+  const orderTaker = $('#orderTaker').value.trim();
+  const deliveryDate = $('#deliveryDate').value;
+  const status = $('#status').value;
+  const totalAmount = Number($('#totalAmount').value || 0);
+  const description = $('#description').value.trim();
+  const initialDeposit = Number($('#depositAmount').value || 0);
+  const paymentDate = $('#paymentDate').value || todayLocal();
+  const submitBtn = taskForm.querySelector('[type="submit"]');
+
+  if (!clientName || !taskName) {
+    showToast('Completa al menos cliente y tarea.', 'Faltan datos');
+    return;
+  }
+
+  submitBtn.disabled = true;
+  submitBtn.textContent = 'Guardando…';
+
+  try {
+    let imageUrl = currentImageUrl || editingImage || '';
+    if (removeExistingImage) imageUrl = '';
+    if (editingImageFile) imageUrl = await uploadImage(editingImageFile);
+
+    let finishedImageUrl = currentFinishedImageUrl || editingFinishedImage || '';
+    if (removeExistingFinishedImage) finishedImageUrl = '';
+    if (editingFinishedImageFile) finishedImageUrl = await uploadImage(editingFinishedImageFile);
+
+    const payload = {
+      cliente: clientName,
+      titulo: taskName,
+      descripcion: description,
+      fecha_entrega: deliveryDate,
+      valor_total: totalAmount,
+      responsable: workerName,
+      tomo_pedido: orderTaker,
+      estado: status,
+      imagen_url: imageUrl,
+      imagen_terminada_url: finishedImageUrl,
+      archivada: false
+    };
+
+    if (id) {
+      await apiFetch(`/api/tareas/${id}`, {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(payload)
+      });
+      showToast(`La tarea de ${clientName} fue actualizada.`, 'Tarea actualizada');
+    } else {
+      const created = await apiFetch('/api/tareas', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(payload)
+      });
+      await createInitialDeposit(created.id, initialDeposit, paymentDate);
+      showToast(`La tarea de ${clientName} fue creada correctamente.`, 'Tarea guardada');
+    }
+
+    dialog.close();
+    await refreshTasks({ silent: true });
+  } catch (err) {
+    console.error(err);
+    showToast(err.message, 'No se pudo guardar');
+  } finally {
+    submitBtn.disabled = false;
+    submitBtn.textContent = 'Guardar tarea';
+  }
+}
+
+paymentForm.addEventListener('submit', async (e) => {
+  e.preventDefault();
+  const id = $('#paymentTaskId').value;
+  const paymentId = $('#paymentEntryId').value;
+  const task = tasks.find((x) => x.id === String(id));
+  if (!task) return;
+  const amount = Number(String($('#paymentAmount').value || '').replace(',', '.'));
+  const date = $('#paymentEntryDate').value || todayLocal();
+  if (!Number.isFinite(amount) || amount <= 0) {
+    $('#paymentAmount').focus();
+    return;
+  }
+  const submit = $('#paymentSubmitBtn');
+  const originalText = submit.textContent;
+  submit.disabled = true;
+  submit.textContent = paymentId ? 'Guardando cambios…' : 'Guardando…';
+  try {
+    if (paymentId) {
+      await updatePaymentEntry(id, paymentId, amount, date);
+      paymentDialog.close();
+      await refreshTasks({ silent: true });
+      if (detailTaskId) openDetail(detailTaskId);
+      showToast(`Se actualizó el abono a ${money(amount)}.`, 'Abono editado correctamente');
+    } else {
+      await apiFetch(`/api/tareas/${id}/abonos`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ valor: amount, fecha: date })
+      });
+      paymentDialog.close();
+      await refreshTasks({ silent: true });
+      if (detailTaskId) openDetail(detailTaskId);
+      showToast(`Se registró ${money(amount)} para ${task.clientName}.`, 'Abono guardado correctamente');
+    }
+  } catch (err) {
+    showToast(err.message, paymentId ? 'No se pudo editar el abono' : 'No se pudo guardar el abono');
+  } finally {
+    submit.disabled = false;
+    submit.textContent = originalText;
+  }
+});
+
+async function updateTaskState(id, patch, successTitle, successMessage) {
+  const task = tasks.find((x) => x.id === String(id));
+  if (!task) return;
+  try {
+    await apiFetch(`/api/tareas/${id}`, {
+      method: 'PUT',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ ...toApi(task), ...patch })
+    });
+    detailDialog.close();
+    await refreshTasks({ silent: true });
+    showToast(successMessage, successTitle);
+  } catch (err) {
+    showToast(err.message, 'No se pudo actualizar');
+  }
+}
+function markDelivered(id) {
+  const task = tasks.find((x) => x.id === String(id));
+  if (!task) return;
+  updateTaskState(id, { estado: 'entregado' }, 'Tarea entregada', `La tarea de ${task.clientName} fue marcada como entregada.`);
+}
+function archiveTask(id) {
+  const task = tasks.find((x) => x.id === String(id));
+  if (!task) return;
+  if (!task.archived && task.status !== 'entregado') {
+    showToast('Primero marca el pedido como entregado.', 'No se puede archivar');
+    return;
+  }
+  updateTaskState(
+    id,
+    { archivada: !task.archived },
+    task.archived ? 'Pedido restaurado' : 'Pedido archivado',
+    task.archived ? 'El pedido volvió a tareas activas.' : 'El pedido fue archivado.'
+  );
+}
+function requestDelete(id) {
+  const task = tasks.find((x) => x.id === String(id));
+  if (!task) return;
+  pendingDeleteId = String(id);
+  $('#deleteMessage').textContent = `Vas a eliminar la tarea “${task.taskName}” de ${task.clientName}. Esta acción no se puede deshacer.`;
+  detailDialog.close();
+  deleteDialog.showModal();
+}
+async function confirmDelete() {
+  const task = tasks.find((x) => x.id === String(pendingDeleteId));
+  if (!task) {
+    deleteDialog.close();
+    return;
+  }
+  const btn = $('#confirmDelete');
+  btn.disabled = true;
+  btn.textContent = 'Eliminando…';
+  try {
+    await apiFetch(`/api/tareas/${pendingDeleteId}`, { method: 'DELETE' });
+    deleteDialog.close();
+    await refreshTasks({ silent: true });
+    showToast(`“${task.taskName}” fue eliminada correctamente.`, 'Tarea eliminada');
+  } catch (err) {
+    showToast(err.message, 'No se pudo eliminar');
+  } finally {
+    pendingDeleteId = '';
+    btn.disabled = false;
+    btn.textContent = 'Sí, eliminar';
+  }
+}
+
+async function migrateLocalTasks() {
+  const local = loadLocalTasks();
+  if (!local.length) {
+    showToast('No hay tareas locales para migrar.', 'Migración');
+    return;
+  }
+  if (localStorage.getItem(MIGRATION_KEY) === 'done') {
+    showToast('Esta computadora ya realizó la migración anteriormente.', 'Migración completada');
+    return;
+  }
+  const btn = $('#migrateLocal');
+  btn.disabled = true;
+  btn.textContent = 'Migrando…';
+  let ok = 0;
+  let failed = 0;
+
+  try {
+    for (const task of local) {
+      try {
+        let imageUrl = '';
+        if (task.image && task.image.startsWith('data:image/')) {
+          const blob = await (await fetch(task.image)).blob();
+          const ext = (blob.type.split('/')[1] || 'png').replace('jpeg', 'jpg');
+          const file = new File([blob], `migrada-${Date.now()}.${ext}`, { type: blob.type });
+          imageUrl = await uploadImage(file);
+        } else if (task.image && task.image.startsWith('http')) {
+          imageUrl = task.image;
+        }
+
+        const created = await apiFetch('/api/tareas', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            cliente: task.clientName || '',
+            titulo: task.taskName || 'Tarea',
+            descripcion: task.description || '',
+            fecha_entrega: task.deliveryDate || '',
+            valor_total: Number(task.totalAmount || 0),
+            responsable: task.workerName || '',
+            tomo_pedido: task.orderTaker || '',
+            estado: task.status || 'pendiente',
+            imagen_url: imageUrl,
+            archivada: Boolean(task.archived)
+          })
+        });
+
+        for (const item of (task.paymentHistory || [])) {
+          if (Number(item.amount || 0) > 0) {
+            await apiFetch(`/api/tareas/${created.id}/abonos`, {
+              method: 'POST',
+              headers: { 'Content-Type': 'application/json' },
+              body: JSON.stringify({ valor: Number(item.amount), fecha: item.date || todayLocal() })
+            });
+          }
+        }
+
+        ok++;
+      } catch (err) {
+        console.error('Error migrando tarea', task, err);
+        failed++;
+      }
+    }
+    if (failed === 0) localStorage.setItem(MIGRATION_KEY, 'done');
+    await refreshTasks({ silent: true });
+    showToast(`${ok} tarea(s) migradas${failed ? ` · ${failed} con error` : ''}.`, 'Migración terminada');
+  } finally {
+    btn.disabled = false;
+    btn.textContent = 'Migrar tareas locales a la nube';
+  }
+}
+
 function hideStandalonePages() {
   if (settingsPage) settingsPage.hidden = true;
   if (adminPage) adminPage.hidden = true;
@@ -1552,8 +2450,18 @@ async function refreshCloudData({ notify = true } = {}) {
       );
     }
   } catch (err) {
-    setSyncState('error');
-    if (notify) showToast(err.message || 'No se pudo conectar con Cloudflare.', 'Sin conexión');
+    const networkError =
+      err instanceof TypeError ||
+      /fetch|network|failed|load|cloudflare no respondió/i.test(String(err?.message || ''));
+
+    if (networkError) {
+      setSyncState('error');
+      if (notify) showToast(err.message || 'No se pudo conectar con Cloudflare.', 'Sin conexión');
+    } else {
+      setSyncState('ok');
+      console.error(`[DeTodoEc V${APP_VERSION}] Error interno actualizando módulos`, err);
+      if (notify) showToast(err.message || 'Un módulo no pudo actualizarse.', 'Error de interfaz');
+    }
   } finally {
     if (button) button.disabled = false;
   }
