@@ -1,4 +1,4 @@
-const APP_VERSION = '11.3.1';
+const APP_VERSION = '11.3.2';
 const API_BASE = 'https://gestor-tareas-api.detodoec.workers.dev';
 const STORAGE_KEY = 'detodoec_tasks_v1';
 const SETTINGS_KEY = 'detodoec_tasks_settings_v3';
@@ -14,6 +14,7 @@ let appRoles = [];
 let selectedRoleId = '';
 let homeUsers = [];
 let homeRefreshTimer = null;
+let focusedCheckinUserId = null;
 let profilePhotoFile = null;
 let adminUserPhotoFile = null;
 let adminUserPhotoUrl = '';
@@ -2620,24 +2621,58 @@ function renderHomeUsers() {
 
   homeUsers.forEach((user) => {
     const card = document.createElement('article');
-    card.className = `home-worker-card ${user.online ? 'online' : 'offline'}`;
+    const isAdminViewer = currentUser?.rol === 'admin';
+    card.className = `home-worker-card ${user.online ? 'online' : 'offline'} ${isAdminViewer ? 'admin-clickable' : ''}`;
+    card.dataset.userId = user.id;
+
+    const statusDetail = user.online && user.entrada_actual
+      ? `Entrada ${formatTime(user.entrada_actual)}`
+      : 'Sin jornada abierta';
+
     card.innerHTML = `
       <div class="home-worker-avatar">
         ${user.foto_url ? `<img src="${escapeHtml(user.foto_url)}" alt="" />` : iconUse('icon-user')}
         <span class="presence-dot" aria-hidden="true"></span>
       </div>
+
       <div class="home-worker-copy">
         <strong>${escapeHtml(user.nombre || user.usuario)}</strong>
         <span>${escapeHtml(user.role_name || (user.rol === 'admin' ? 'Administrador' : 'Usuario'))}</span>
+        <small>${escapeHtml(statusDetail)}</small>
       </div>
-      <span class="home-worker-status">${user.online ? 'Online' : 'Offline'}</span>
+
+      <div class="home-worker-side">
+        <span class="home-worker-status">${user.online ? 'Online' : 'Offline'}</span>
+        ${isAdminViewer ? '<span class="home-worker-open">Ver check-in ›</span>' : ''}
+      </div>
     `;
+
+    if (isAdminViewer) {
+      card.tabIndex = 0;
+      card.setAttribute('role', 'button');
+      card.setAttribute('aria-label', `Ver check-in de ${user.nombre || user.usuario}`);
+
+      const openCheckin = async () => {
+        focusedCheckinUserId = String(user.id);
+        showMainView('checkin');
+        await refreshAttendance();
+        requestAnimationFrame(() => focusCheckinRows(user.id));
+      };
+
+      card.addEventListener('click', openCheckin);
+      card.addEventListener('keydown', (e) => {
+        if (e.key === 'Enter' || e.key === ' ') {
+          e.preventDefault();
+          openCheckin();
+        }
+      });
+    }
+
     grid.appendChild(card);
   });
 
   empty.hidden = homeUsers.length > 0;
 }
-
 async function refreshHomeUsers() {
   if (!currentUser || !userCan('home')) return;
   try {
@@ -2683,32 +2718,50 @@ function attendancePay(minutes = 0, hourlyRate = 0) {
 function renderAttendanceState() {
   const state = attendanceState || {};
   const open = Boolean(state.abierto);
-  const completed = Boolean(state.cerrado_dia);
+  const hadSession = Boolean(state.entrada);
   const worked = Number(state.minutos || 0);
   const quickBtn = $('#homeAttendanceBtn');
 
-  $('#homeAttendanceText').textContent = open ? 'Marcar salida' : completed ? 'Jornada completada' : 'Marcar entrada';
+  const mainText = open
+    ? 'Marcar salida'
+    : hadSession
+      ? 'Marcar otra entrada'
+      : 'Marcar entrada';
+
+  const subText = open
+    ? `Entrada registrada a las ${formatTime(state.entrada)}`
+    : hadSession
+      ? `Última jornada: ${formatTime(state.entrada)} – ${formatTime(state.salida)} · ${formatWorkedTime(worked)}`
+      : 'Aún no has marcado entrada';
+
+  const mainLabel = $('#homeAttendanceText');
+  const subLabel = $('#homeAttendanceSubtext');
+  if (mainLabel) mainLabel.textContent = mainText;
+  if (subLabel) subLabel.textContent = subText;
+
   quickBtn?.classList.toggle('is-clocked-in', open);
+  quickBtn?.classList.toggle('is-completed', !open && hadSession);
+
   if (quickBtn) {
-    quickBtn.disabled = completed;
-    quickBtn.title = completed
-      ? 'La jornada de hoy ya fue cerrada. Podrás registrar otra entrada desde las 00:00.'
-      : open ? 'Registrar salida' : 'Registrar entrada';
+    quickBtn.disabled = false;
+    quickBtn.title = open ? 'Registrar salida' : 'Registrar entrada';
   }
 
   if ($('#profileAttendanceEntry')) $('#profileAttendanceEntry').textContent = formatTime(state.entrada);
   if ($('#profileAttendanceExit')) $('#profileAttendanceExit').textContent = formatTime(state.salida);
   if ($('#profileAttendanceTime')) $('#profileAttendanceTime').textContent = formatWorkedTime(worked);
+
   if ($('#profileAttendanceStatus')) {
     $('#profileAttendanceStatus').textContent = open
       ? 'Jornada en curso'
-      : completed
-        ? 'Jornada finalizada'
+      : hadSession
+        ? 'Última jornada finalizada'
         : 'Sin entrada registrada';
   }
+
   if ($('#profileAttendanceBadge')) {
-    $('#profileAttendanceBadge').textContent = open ? 'Trabajando' : completed ? 'Finalizada' : 'Pendiente';
-    $('#profileAttendanceBadge').className = `profile-attendance-state ${open ? 'open' : completed ? 'closed' : 'pending'}`;
+    $('#profileAttendanceBadge').textContent = open ? 'Trabajando' : hadSession ? 'Finalizada' : 'Pendiente';
+    $('#profileAttendanceBadge').className = `profile-attendance-state ${open ? 'open' : hadSession ? 'closed' : 'pending'}`;
   }
 }
 function renderAttendanceRows(rows = []) {
@@ -2729,6 +2782,7 @@ function renderAttendanceRows(rows = []) {
     if (!row.salida) openCount += 1;
 
     const tr = document.createElement('tr');
+    tr.dataset.userId = String(row.usuario_id);
     tr.innerHTML = `
       <td><div class="attendance-table-user"><span class="attendance-table-avatar">${row.foto_url ? `<img src="${escapeHtml(row.foto_url)}" alt="" />` : iconUse('icon-user')}</span><span><strong>${escapeHtml(row.nombre || row.usuario)}</strong><small>@${escapeHtml(row.usuario)}</small></span></div></td>
       <td>${formatTime(row.entrada)}</td>
@@ -2745,6 +2799,23 @@ function renderAttendanceRows(rows = []) {
   if ($('#checkinOpenCount')) $('#checkinOpenCount').textContent = String(openCount);
   if ($('#checkinHoursTotal')) $('#checkinHoursTotal').textContent = formatWorkedTime(totalMinutes);
   if ($('#checkinPayTotal')) $('#checkinPayTotal').textContent = money(totalPay);
+
+  if (focusedCheckinUserId) {
+    requestAnimationFrame(() => focusCheckinRows(focusedCheckinUserId));
+  }
+}
+
+function focusCheckinRows(userId) {
+  const tbody = $('#attendanceTableBody');
+  if (!tbody || !userId) return;
+
+  const rows = [...tbody.querySelectorAll('tr[data-user-id]')];
+  rows.forEach((row) => row.classList.toggle('checkin-focus-row', String(row.dataset.userId) === String(userId)));
+
+  const target = rows.find((row) => String(row.dataset.userId) === String(userId));
+  if (target) {
+    target.scrollIntoView({ behavior:'smooth', block:'center' });
+  }
 }
 
 async function refreshAttendance() {
@@ -2769,15 +2840,9 @@ async function refreshAttendance() {
 async function toggleAttendance() {
   if (!currentUser) return;
   const isOpen = Boolean(attendanceState?.abierto);
-  const completed = Boolean(attendanceState?.cerrado_dia);
-
-  if (completed && !isOpen) {
-    showToast('Ya completaste tu jornada de hoy. Podrás marcar una nueva entrada desde las 00:00.', 'Jornada cerrada');
-    return;
-  }
 
   if (isOpen) {
-    const sure = window.confirm('¿Estás seguro de que quieres marcar tu salida? Una vez cerrada la jornada no podrás volver a marcar entrada hasta las 00:00 del siguiente día.');
+    const sure = window.confirm('¿Estás seguro de que quieres marcar tu salida?');
     if (!sure) return;
   }
 
@@ -2787,18 +2852,20 @@ async function toggleAttendance() {
   try {
     const endpoint = isOpen ? '/api/asistencia/salida' : '/api/asistencia/entrada';
     const result = await apiFetch(endpoint, { method:'POST' });
+
     showToast(
       result.mensaje || (isOpen ? 'Salida registrada.' : 'Entrada registrada.'),
       isOpen ? 'Salida registrada' : 'Entrada registrada'
     );
-    await refreshAttendance();
-    await refreshHomeUsers();
+
+    await Promise.allSettled([
+      refreshAttendance(),
+      refreshHomeUsers()
+    ]);
   } catch (err) {
     showToast(err.message, 'Asistencia');
   } finally {
-    btns.forEach((btn) => {
-      if (!attendanceState?.cerrado_dia) btn.disabled = false;
-    });
+    btns.forEach((btn) => btn.disabled = false);
   }
 }
 async function refreshAdminUsers() {
