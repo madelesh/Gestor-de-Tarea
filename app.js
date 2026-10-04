@@ -1,4 +1,4 @@
-const APP_VERSION = '11.2.3';
+const APP_VERSION = '11.2.4';
 const API_BASE = 'https://gestor-tareas-api.detodoec.workers.dev';
 const STORAGE_KEY = 'detodoec_tasks_v1';
 const SETTINGS_KEY = 'detodoec_tasks_settings_v3';
@@ -1471,6 +1471,62 @@ function bindLoginFormEarly() {
 // Se conecta el formulario aquí, antes de inicializar el resto de módulos.
 bindLoginFormEarly();
 
+let coreNavigationBound = false;
+
+function bindCoreNavigationEarly() {
+  if (coreNavigationBound) return;
+  coreNavigationBound = true;
+
+  const safeBind = (id, handler) => {
+    const el = document.getElementById(id);
+    if (!el) return;
+    el.addEventListener('click', (event) => {
+      event.preventDefault();
+      try {
+        handler(event);
+      } catch (err) {
+        console.error(`[DeTodoEc V${APP_VERSION}] Error en ${id}`, err);
+        showToast('No se pudo abrir esta sección.', 'Interfaz');
+      }
+    });
+  };
+
+  safeBind('navHome', () => showMainView('home'));
+  safeBind('navTasks', () => showMainView('tasks'));
+  safeBind('navQuote', () => showMainView('quote'));
+  safeBind('navDesigns', () => showMainView('designs'));
+  safeBind('navCheckIn', () => showMainView('checkin'));
+
+  safeBind('profileBtn', () => {
+    const menu = $('#profileDropdown');
+    if (menu) menu.hidden = !menu.hidden;
+  });
+
+  safeBind('profileEditMenu', () => {
+    const menu = $('#profileDropdown');
+    if (menu) menu.hidden = true;
+    openProfile();
+  });
+
+  safeBind('profileSettingsMenu', () => {
+    const menu = $('#profileDropdown');
+    if (menu) menu.hidden = true;
+    settingsDialog?.showModal();
+  });
+
+  safeBind('profileAdminMenu', () => {
+    const menu = $('#profileDropdown');
+    if (menu) menu.hidden = true;
+    requestAdminPanel('apariencia');
+  });
+
+  safeBind('attendanceQuickBtn', () => toggleAttendance());
+  safeBind('refreshCloud', () => refreshTasks());
+  safeBind('themeToggle', () => toggleTheme());
+}
+
+bindCoreNavigationEarly();
+
 
 async function restoreSession() {
   if (!sessionToken) return false;
@@ -2009,7 +2065,6 @@ function on(id, event, handler) {
 on('archiveNav', 'click', () => setArchiveView(true));
 on('closeArchive', 'click', () => setArchiveView(false));
 on('archiveSearchInput', 'input', renderArchive);
-on('themeToggle', 'click', toggleTheme);
 on('customizeBtn', 'click', () => requestAdminPanel('apariencia'));
 on('closeLogin', 'click', () => loginDialog.close());
 on('cancelLogin', 'click', () => loginDialog.close());
@@ -2025,7 +2080,6 @@ on('confirmDelete', 'click', confirmDelete);
 on('searchInput', 'input', render);
 on('employeeFilter', 'change', render);
 on('migrateLocal', 'click', migrateLocalTasks);
-on('refreshCloud', 'click', () => refreshTasks());
 ['newTaskAction', 'newTaskEmpty'].forEach((id) => on(id, 'click', openNew));
 
 on('detailEdit', 'click', () => openEdit(detailTaskId));
@@ -2060,30 +2114,9 @@ on('detailImageNext', 'click', () => {
   detailImageIndex = (detailImageIndex + 1) % images.length;
   renderDetailImage(task);
 });
-on('navHome', 'click', () => showMainView('home'));
-on('navQuote', 'click', () => showMainView('quote'));
-on('navTasks', 'click', () => showMainView('tasks'));
-on('navDesigns', 'click', () => showMainView('designs'));
-on('navCheckIn', 'click', () => showMainView('checkin'));
-on('attendanceQuickBtn', 'click', toggleAttendance);
 on('refreshAttendance', 'click', refreshAttendance);
-on('profileBtn', 'click', () => {
-  const menu = $('#profileDropdown');
-  if (!menu) return;
-  menu.hidden = !menu.hidden;
-});
-on('profileEditMenu', 'click', () => {
-  $('#profileDropdown').hidden = true;
-  openProfile();
-});
-on('profileSettingsMenu', 'click', () => {
-  $('#profileDropdown').hidden = true;
-  settingsDialog?.showModal();
-});
-on('profileAdminMenu', 'click', () => {
-  $('#profileDropdown').hidden = true;
-  requestAdminPanel('apariencia');
-});
+// Navegación y menú de perfil conectados por bindCoreNavigationEarly().
+
 on('closeSettings', 'click', () => settingsDialog?.close());
 on('settingsLightTheme', 'click', () => setTheme('light'));
 on('settingsDarkTheme', 'click', () => setTheme('dark'));
@@ -2617,6 +2650,10 @@ $('#adminDesignList')?.addEventListener('click', (e) => {
 
 window.addEventListener('error', (event) => {
   console.error(`[DeTodoEc V${APP_VERSION}]`, event.error || event.message);
+  const msg = event?.error?.message || event?.message || '';
+  if (msg && currentUser) {
+    showToast(`Error de interfaz: ${msg}`, 'Diagnóstico');
+  }
 });
 
 window.addEventListener('unhandledrejection', (event) => {
