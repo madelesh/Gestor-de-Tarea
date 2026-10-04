@@ -1,4 +1,4 @@
-const APP_VERSION = '11.6';
+const APP_VERSION = '11.6.1';
 const API_BASE = 'https://gestor-tareas-api.detodoec.workers.dev';
 const STORAGE_KEY = 'detodoec_tasks_v1';
 const SETTINGS_KEY = 'detodoec_tasks_settings_v3';
@@ -2779,25 +2779,38 @@ function renderAttendanceState() {
   const hadSession = Boolean(state.entrada);
   const worked = Number(state.minutos || 0);
   const quickBtn = $('#homeAttendanceBtn');
-
-  const mainText = open ? 'Salida' : 'Entrada';
-  const subText = open
-    ? `Entrada: ${formatTime(state.entrada)}`
-    : hadSession
-      ? `Trabajado hoy: ${formatWorkedTime(worked)}`
-      : 'Pulsa para marcar tu entrada';
-
   const mainLabel = $('#homeAttendanceText');
   const subLabel = $('#homeAttendanceSubtext');
+  const iconUse = $('#homeAttendanceIconUse');
+
+  let mainText = 'Entrada';
+  let subText = 'Pulsa para marcar tu entrada';
+  let iconHref = '#icon-checkin-entry';
+  let stateClass = 'attendance-entry';
+
+  if (open) {
+    mainText = 'Salida';
+    subText = `Entrada marcada: ${formatTime(state.entrada)}`;
+    iconHref = '#icon-checkin-exit';
+    stateClass = 'attendance-exit';
+  } else if (hadSession) {
+    mainText = 'Completado';
+    subText = `Trabajado hoy: ${formatWorkedTime(worked)}`;
+    iconHref = '#icon-checkin-done';
+    stateClass = 'attendance-completed';
+  }
+
   if (mainLabel) mainLabel.textContent = mainText;
   if (subLabel) subLabel.textContent = subText;
-
-  quickBtn?.classList.toggle('is-clocked-in', open);
-  quickBtn?.classList.toggle('is-completed', !open && hadSession);
+  if (iconUse) iconUse.setAttribute('href', iconHref);
 
   if (quickBtn) {
+    quickBtn.classList.remove('attendance-entry', 'attendance-exit', 'attendance-completed', 'is-clocked-in', 'is-completed');
+    quickBtn.classList.add(stateClass);
+    quickBtn.classList.toggle('is-clocked-in', open);
+    quickBtn.classList.toggle('is-completed', !open && hadSession);
     quickBtn.disabled = false;
-    quickBtn.title = open ? 'Marcar salida' : 'Marcar entrada';
+    quickBtn.title = open ? 'Marcar salida' : hadSession ? 'Marcar otra entrada' : 'Marcar entrada';
   }
 
   if ($('#profileAttendanceEntry')) $('#profileAttendanceEntry').textContent = formatTime(state.entrada);

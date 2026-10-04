@@ -3836,3 +3836,144 @@ body.admin-page-open{
     width:100%!important;
   }
 }
+
+
+/* =========================================================
+   V11.6.1 — Entrada / Salida / Completado según referencia
+   ========================================================= */
+
+.home-attendance-widget{
+  display:flex!important;
+  flex-direction:column!important;
+  align-items:flex-start!important;
+  gap:9px!important;
+}
+
+.home-attendance-btn{
+  width:auto!important;
+  min-width:250px!important;
+  height:72px!important;
+  min-height:72px!important;
+  display:inline-flex!important;
+  align-items:center!important;
+  justify-content:flex-start!important;
+  gap:13px!important;
+  padding:0 24px!important;
+  border:0!important;
+  border-radius:14px!important;
+  box-shadow:none!important;
+  cursor:pointer!important;
+  transition:transform .15s ease, filter .15s ease!important;
+  overflow:hidden!important;
+}
+
+.home-attendance-btn:hover{
+  transform:translateY(-1px)!important;
+  filter:brightness(.98)!important;
+}
+
+.home-attendance-btn:active{
+  transform:none!important;
+}
+
+.home-attendance-btn .home-attendance-icon{
+  width:42px!important;
+  height:42px!important;
+  min-width:42px!important;
+  display:grid!important;
+  place-items:center!important;
+  padding:0!important;
+  margin:0!important;
+  border-radius:0!important;
+  background:transparent!important;
+}
+
+.home-attendance-btn .home-attendance-icon .icon{
+  width:42px!important;
+  height:42px!important;
+  display:block!important;
+}
+
+.home-attendance-btn > strong{
+  margin:0!important;
+  padding:0!important;
+  font-size:30px!important;
+  line-height:1!important;
+  font-weight:900!important;
+  letter-spacing:-.035em!important;
+}
+
+/* Entrada */
+.home-attendance-btn.attendance-entry{
+  background:#b8dc00!important;
+  color:#071018!important;
+}
+.home-attendance-btn.attendance-entry .home-attendance-icon{
+  color:#071018!important;
+}
+.home-attendance-btn.attendance-entry > strong{
+  color:#071018!important;
+}
+
+/* Salida */
+.home-attendance-btn.attendance-exit{
+  background:#ef3f50!important;
+  color:#071018!important;
+}
+.home-attendance-btn.attendance-exit .home-attendance-icon{
+  color:#071018!important;
+}
+.home-attendance-btn.attendance-exit > strong{
+  color:#071018!important;
+}
+
+/* Jornada completada */
+.home-attendance-btn.attendance-completed{
+  background:#1f392d!important;
+  color:#9eaaa4!important;
+  opacity:1!important;
+}
+.home-attendance-btn.attendance-completed .home-attendance-icon{
+  color:#9eaaa4!important;
+}
+.home-attendance-btn.attendance-completed > strong{
+  color:#9eaaa4!important;
+}
+
+/* Neutraliza estilos anteriores que podían pisar estos estados */
+.home-attendance-btn.is-clocked-in,
+.home-attendance-btn.is-completed{
+  border:0!important;
+  opacity:1!important;
+}
+
+.home-attendance-subtext{
+  display:block!important;
+  margin-left:4px!important;
+  color:var(--muted)!important;
+  font-size:11px!important;
+  font-weight:700!important;
+  line-height:1.3!important;
+}
+
+@media(max-width:620px){
+  .home-attendance-widget{
+    width:100%!important;
+  }
+  .home-attendance-btn{
+    width:100%!important;
+    min-width:0!important;
+    height:66px!important;
+    min-height:66px!important;
+    padding:0 20px!important;
+  }
+  .home-attendance-btn > strong{
+    font-size:26px!important;
+  }
+  .home-attendance-btn .home-attendance-icon,
+  .home-attendance-btn .home-attendance-icon .icon{
+    width:38px!important;
+    height:38px!important;
+    min-width:38px!important;
+  }
+}
