@@ -4519,3 +4519,124 @@ body.admin-page-open{
     grid-template-columns:1fr!important;
   }
 }
+
+
+/* =========================================================
+   V11.8 — Datos laborales + seguridad administrativa
+   ========================================================= */
+
+/* Tarjeta completa abre edición */
+.admin-user-card-clickable{
+  cursor:pointer;
+}
+
+.admin-user-card-clickable:focus-visible{
+  outline:2px solid var(--accent);
+  outline-offset:3px;
+}
+
+/* Botón eliminar directo */
+.admin-user-delete-direct{
+  position:absolute;
+  top:14px;
+  right:14px;
+  width:36px;
+  height:36px;
+  display:grid;
+  place-items:center;
+  border:1px solid rgba(255,83,100,.24);
+  border-radius:11px;
+  background:rgba(255,83,100,.08);
+  color:#ff6876;
+  cursor:pointer;
+  z-index:4;
+}
+
+.admin-user-delete-direct:hover{
+  background:rgba(255,83,100,.16);
+  border-color:rgba(255,83,100,.48);
+}
+
+.admin-user-delete-direct .icon{
+  width:16px;
+  height:16px;
+}
+
+/* Más información visible por usuario */
+.admin-user-card-meta{
+  display:grid;
+  grid-template-columns:1fr 1.35fr;
+  gap:7px;
+  padding:0 13px 12px;
+}
+
+.admin-user-card-meta > span{
+  min-width:0;
+  padding:8px 9px;
+  border:1px solid var(--line);
+  border-radius:11px;
+  background:var(--surface);
+}
+
+.admin-user-card-meta small{
+  display:block;
+  margin-bottom:3px;
+  color:var(--muted);
+  font-size:9px;
+  text-transform:uppercase;
+  letter-spacing:.04em;
+}
+
+.admin-user-card-meta strong{
+  display:block;
+  overflow:hidden;
+  white-space:nowrap;
+  text-overflow:ellipsis;
+  color:var(--ink);
+  font-size:11px;
+}
+
+/* Contraseña administrativa al editar */
+#adminUserSecurityLabel:not([hidden]){
+  border:1px solid rgba(255,190,64,.22);
+  border-radius:14px;
+  padding:11px;
+  background:rgba(255,190,64,.06);
+}
+
+#adminUserSecurityLabel input{
+  margin-top:2px;
+}
+
+/* Dialog de seguridad reutilizable */
+.admin-password-dialog{
+  width:auto!important;
+  max-width:none!important;
+  padding:0!important;
+  border:0!important;
+  background:transparent!important;
+}
+
+.admin-password-dialog::backdrop{
+  background:rgba(3,7,14,.74)!important;
+  backdrop-filter:blur(6px)!important;
+}
+
+.admin-password-card{
+  width:min(500px,calc(100vw - 28px))!important;
+  box-sizing:border-box!important;
+}
+
+/* Edición usuario: formulario más cómodo con campos extra */
+.users-admin-v2.users-editing-mode .admin-user-editor-grid{
+  grid-template-columns:repeat(2,minmax(0,1fr))!important;
+}
+
+@media(max-width:760px){
+  .users-admin-v2.users-editing-mode .admin-user-editor-grid{
+    grid-template-columns:1fr!important;
+  }
+  .admin-user-card-meta{
+    grid-template-columns:1fr;
+  }
+}

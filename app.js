@@ -1,4 +1,4 @@
-const APP_VERSION = '11.7.1';
+const APP_VERSION = '11.8';
 const API_BASE = 'https://gestor-tareas-api.detodoec.workers.dev';
 const STORAGE_KEY = 'detodoec_tasks_v1';
 const SETTINGS_KEY = 'detodoec_tasks_settings_v3';
@@ -22,6 +22,7 @@ let profilePhotoFile = null;
 let adminUserPhotoFile = null;
 let pendingDeleteUserId = null;
 let openAdminUserMenuId = null;
+let adminPasswordResolver = null;
 let adminUserPhotoUrl = '';
 
 let tasks = [];
@@ -104,6 +105,7 @@ const adminPage = $('#adminPage');
 const loginDialog = $('#loginDialog');
 const settingsPage = $('#settingsPage');
 const deleteUserDialog = $('#deleteUserDialog');
+const adminPasswordDialog = $('#adminPasswordDialog');
 const myCheckinPage = $('#myCheckinPage');
 const confirmDialog = $('#confirmDialog');
 const paymentDialog = $('#paymentDialog');
@@ -3017,6 +3019,13 @@ async function saveInlineCheckinEdit(id) {
     return;
   }
 
+  const adminPassword = await requestAdminPassword({
+    title:'Guardar cambios de Check-in',
+    message:`Confirma tu contraseña de administrador para editar el Check-in de ${row.nombre || row.usuario}.`,
+    confirmText:'Guardar cambios'
+  });
+  if (!adminPassword) return;
+
   try {
     const result = await apiFetch(`/api/asistencia/${id}`, {
       method:'PUT',
@@ -3027,7 +3036,8 @@ async function saveInlineCheckinEdit(id) {
         salida_local:salida ? `${row.fecha_local}T${salida}` : null,
         minutos_override:minutos,
         valor_hora_override:valorHora,
-        valor_pagado_override:valorPagado
+        valor_pagado_override:valorPagado,
+        admin_password:adminPassword
       })
     });
 
@@ -3170,6 +3180,40 @@ function renderAdminUserPhoto(url = '') {
   box.innerHTML = url ? `<img src="${escapeHtml(url)}" alt="" />` : iconUse('icon-user');
 }
 
+function requestAdminPassword({
+  title = 'Confirmar contraseña',
+  message = 'Escribe tu contraseña de administrador para continuar.',
+  confirmText = 'Confirmar'
+} = {}) {
+  return new Promise((resolve) => {
+    const dialog = $('#adminPasswordDialog');
+    const input = $('#adminPasswordInput');
+
+    adminPasswordResolver = resolve;
+    $('#adminPasswordTitle').textContent = title;
+    $('#adminPasswordMessage').textContent = message;
+    $('#adminPasswordConfirm').textContent = confirmText;
+    if (input) input.value = '';
+
+    if (!dialog || typeof dialog.showModal !== 'function') {
+      const value = window.prompt(message) || '';
+      adminPasswordResolver = null;
+      resolve(value);
+      return;
+    }
+
+    dialog.showModal();
+    requestAnimationFrame(() => input?.focus());
+  });
+}
+
+function closeAdminPasswordDialog(value = '') {
+  if (adminPasswordDialog?.open) adminPasswordDialog.close();
+  const resolver = adminPasswordResolver;
+  adminPasswordResolver = null;
+  resolver?.(value);
+}
+
 function closeAdminUserMenus() {
   openAdminUserMenuId = null;
   $$('.admin-user-menu-popover').forEach((menu) => menu.hidden = true);
@@ -3190,6 +3234,11 @@ function showAdminUserEditor(mode = 'create') {
   $('#adminUserEditorEyebrow').textContent = editing ? 'Editar cuenta' : 'Nuevo usuario';
   $('#adminUserEditorTitle').textContent = editing ? 'Editar usuario' : 'Crear usuario';
   $('#adminUserSaveBtn').textContent = editing ? 'Guardar cambios' : 'Crear usuario';
+  if ($('#adminUserSecurityLabel')) $('#adminUserSecurityLabel').hidden = !editing;
+  if ($('#adminUserAdminPassword')) {
+    $('#adminUserAdminPassword').required = editing;
+    $('#adminUserAdminPassword').value = '';
+  }
 
   requestAnimationFrame(() => {
     if (editing) {
@@ -3207,6 +3256,10 @@ function clearAdminUserForm({ hide = true } = {}) {
   adminUserPhotoUrl = '';
   renderAdminUserPhoto('');
   if ($('#adminUserHourlyRate')) $('#adminUserHourlyRate').value = '0';
+  if ($('#adminUserBirthYear')) $('#adminUserBirthYear').value = '';
+  if ($('#adminUserHireDate')) $('#adminUserHireDate').value = '';
+  if ($('#adminUserAdminPassword')) $('#adminUserAdminPassword').value = '';
+  if ($('#adminUserSecurityLabel')) $('#adminUserSecurityLabel').hidden = true;
   if ($('#adminUserSaveBtn')) $('#adminUserSaveBtn').textContent = 'Crear usuario';
   if ($('#adminUserEditorEyebrow')) $('#adminUserEditorEyebrow').textContent = 'Nuevo usuario';
   if ($('#adminUserEditorTitle')) $('#adminUserEditorTitle').textContent = 'Crear usuario';
@@ -3229,38 +3282,38 @@ function renderAdminUsers() {
 
   adminUsers.forEach((user) => {
     const card = document.createElement('article');
-    card.className = 'admin-user-card-v2';
+    card.className = 'admin-user-card-v2 admin-user-card-clickable';
     card.dataset.adminUserCard = user.id;
+    card.tabIndex = 0;
+    card.setAttribute('role', 'button');
+    card.setAttribute('aria-label', `Editar usuario ${user.nombre}`);
 
     const canDelete = String(user.id) !== String(currentUser?.id);
+    const birthYear = user.anio_nacimiento ? String(user.anio_nacimiento) : '—';
+    const hireDate = user.fecha_ingreso ? formatAttendanceDate(user.fecha_ingreso) : '—';
 
     card.innerHTML = `
       <div class="admin-user-card-top">
         <span class="admin-user-avatar-v2">${user.foto_url ? `<img src="${escapeHtml(user.foto_url)}" alt="" />` : iconUse('icon-user')}</span>
-
-        <button type="button"
-          class="admin-user-menu-toggle"
-          data-user-menu-toggle="${user.id}"
-          aria-expanded="false"
-          aria-label="Opciones de ${escapeHtml(user.nombre)}">
-          <span></span><span></span>
-        </button>
-
-        <div class="admin-user-menu-popover" data-user-menu="${user.id}" hidden>
-          <button type="button" data-edit-app-user="${user.id}">
-            ${iconUse('icon-edit')}<span>Editar</span>
-          </button>
-          ${canDelete ? `
-            <button type="button" class="danger" data-delete-app-user="${user.id}">
-              ${iconUse('icon-trash')}<span>Eliminar</span>
-            </button>` : ''}
-        </div>
+        ${canDelete ? `
+          <button type="button"
+            class="admin-user-delete-direct"
+            data-delete-app-user="${user.id}"
+            aria-label="Eliminar ${escapeHtml(user.nombre)}"
+            title="Eliminar usuario">
+            ${iconUse('icon-trash')}
+          </button>` : ''}
       </div>
 
       <div class="admin-user-card-body">
         <strong>${escapeHtml(user.nombre)}</strong>
         <span>@${escapeHtml(user.usuario)}</span>
         <small>${escapeHtml(user.role_name || (user.rol === 'admin' ? 'Administrador' : 'Usuario'))}</small>
+      </div>
+
+      <div class="admin-user-card-meta">
+        <span><small>Año nac.</small><strong>${escapeHtml(birthYear)}</strong></span>
+        <span><small>Ingreso</small><strong>${escapeHtml(hireDate)}</strong></span>
       </div>
 
       <div class="admin-user-card-footer">
@@ -3271,7 +3324,6 @@ function renderAdminUsers() {
     list.appendChild(card);
   });
 }
-
 function editAdminUser(id) {
   const user = adminUsers.find((item) => String(item.id) === String(id));
   if (!user) return;
@@ -3284,6 +3336,8 @@ function editAdminUser(id) {
   $('#adminUserPassword').value = '';
   $('#adminUserRole').value = String(user.role_id || '');
   $('#adminUserHourlyRate').value = Number(user.valor_hora || 0);
+  $('#adminUserBirthYear').value = user.anio_nacimiento || '';
+  $('#adminUserHireDate').value = user.fecha_ingreso || '';
   adminUserPhotoUrl = user.foto_url || '';
   adminUserPhotoFile = null;
   renderAdminUserPhoto(adminUserPhotoUrl);
@@ -3463,11 +3517,31 @@ async function saveRole() {
 async function deleteRole() {
   const id = $('#roleId').value.trim();
   if (!id) return;
+
   const role = appRoles.find((item) => String(item.id) === String(id));
   if (!role) return;
-  if (!confirm(`¿Eliminar el rol "${role.nombre}"?`)) return;
+
+  const sure = await themedConfirm({
+    title:'Eliminar rol',
+    message:`¿Estás seguro de que quieres eliminar el rol "${role.nombre}"?`,
+    confirmText:'Continuar',
+    danger:true
+  });
+  if (!sure) return;
+
+  const adminPassword = await requestAdminPassword({
+    title:'Confirmar eliminación',
+    message:`Escribe tu contraseña de administrador para eliminar el rol "${role.nombre}".`,
+    confirmText:'Eliminar rol'
+  });
+  if (!adminPassword) return;
+
   try {
-    const result = await apiFetch(`/api/roles/${id}`, { method:'DELETE' });
+    const result = await apiFetch(`/api/roles/${id}`, {
+      method:'DELETE',
+      headers:{'Content-Type':'application/json'},
+      body:JSON.stringify({ admin_password:adminPassword })
+    });
     showToast(result.mensaje || 'Rol eliminado.', 'Rol eliminado');
     clearRoleEditor();
     await refreshRoles();
@@ -3703,6 +3777,16 @@ on('refreshHomeUsers', 'click', refreshHomeUsers);
 on('closeProfile', 'click', () => $('#profileDialog').close());
 on('cancelProfile', 'click', () => $('#profileDialog').close());
 on('logoutBtn', 'click', logoutApp);
+on('adminPasswordCancel', 'click', () => closeAdminPasswordDialog(''));
+$('#adminPasswordForm')?.addEventListener('submit', (e) => {
+  e.preventDefault();
+  closeAdminPasswordDialog($('#adminPasswordInput')?.value || '');
+});
+adminPasswordDialog?.addEventListener('cancel', (e) => {
+  e.preventDefault();
+  closeAdminPasswordDialog('');
+});
+
 on('deleteUserCancel', 'click', () => {
   pendingDeleteUserId = null;
   deleteUserDialog?.close();
@@ -3922,13 +4006,36 @@ $('#adminUserForm')?.addEventListener('submit', async (e) => {
   const nombre = $('#adminUserName').value.trim();
   const usuario = $('#adminUsername').value.trim();
   const password = $('#adminUserPassword').value;
-  if (!id && !password) { showToast('Escribe una contraseña para el nuevo usuario.', 'Falta contraseña'); return; }
+  const adminPassword = $('#adminUserAdminPassword')?.value || '';
+  const birthYear = $('#adminUserBirthYear')?.value ? Number($('#adminUserBirthYear').value) : null;
+  const hireDate = $('#adminUserHireDate')?.value || null;
+
+  if (!id && !password) {
+    showToast('Escribe una contraseña para el nuevo usuario.', 'Falta contraseña');
+    return;
+  }
+  if (id && !adminPassword) {
+    showToast('Escribe tu contraseña de administrador para guardar la edición.', 'Confirmación requerida');
+    $('#adminUserAdminPassword')?.focus();
+    return;
+  }
+
   const btn = $('#adminUserSaveBtn');
   btn.disabled = true;
   try {
     let foto_url = adminUserPhotoUrl || '';
     if (adminUserPhotoFile) foto_url = await uploadImage(adminUserPhotoFile);
-    const payload = { nombre, usuario, role_id:Number($('#adminUserRole').value || 0), valor_hora:Number($('#adminUserHourlyRate').value || 0), foto_url, password:password || undefined };
+    const payload = {
+      nombre,
+      usuario,
+      role_id:Number($('#adminUserRole').value || 0),
+      valor_hora:Number($('#adminUserHourlyRate').value || 0),
+      anio_nacimiento:birthYear,
+      fecha_ingreso:hireDate,
+      foto_url,
+      password:password || undefined,
+      admin_password:id ? adminPassword : undefined
+    };
     await apiFetch(id ? `/api/usuarios/${id}` : '/api/usuarios', { method:id ? 'PUT':'POST', headers:{'Content-Type':'application/json'}, body:JSON.stringify(payload) });
     clearAdminUserForm({ hide:true });
     await refreshAdminUsers();
@@ -3941,27 +4048,26 @@ $('#adminUserForm')?.addEventListener('submit', async (e) => {
 });
 
 $('#adminUsersList')?.addEventListener('click', (e) => {
-  const toggle = e.target.closest('[data-user-menu-toggle]');
-  const edit = e.target.closest('[data-edit-app-user]')?.dataset.editAppUser;
-  const del = e.target.closest('[data-delete-app-user]')?.dataset.deleteAppUser;
-
-  if (toggle) {
-    const id = String(toggle.dataset.userMenuToggle);
-    const nextOpen = openAdminUserMenuId === id ? null : id;
-    closeAdminUserMenus();
-
-    if (nextOpen) {
-      openAdminUserMenuId = nextOpen;
-      const menu = document.querySelector(`[data-user-menu="${CSS.escape(nextOpen)}"]`);
-      if (menu) menu.hidden = false;
-      toggle.setAttribute('aria-expanded', 'true');
-    }
+  const deleteBtn = e.target.closest('[data-delete-app-user]');
+  if (deleteBtn) {
+    e.stopPropagation();
+    openDeleteAdminUser(deleteBtn.dataset.deleteAppUser);
     return;
   }
 
-  if (edit) editAdminUser(edit);
-  if (del) openDeleteAdminUser(del);
+  const card = e.target.closest('[data-admin-user-card]');
+  if (card) editAdminUser(card.dataset.adminUserCard);
 });
+
+$('#adminUsersList')?.addEventListener('keydown', (e) => {
+  const card = e.target.closest('[data-admin-user-card]');
+  if (!card || e.target.closest('button')) return;
+  if (e.key === 'Enter' || e.key === ' ') {
+    e.preventDefault();
+    editAdminUser(card.dataset.adminUserCard);
+  }
+});
+
 
 $('#taskImage')?.addEventListener('change', (e) => {
   const file = e.target.files?.[0];
