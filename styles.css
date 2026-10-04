@@ -3977,3 +3977,88 @@ body.admin-page-open{
     min-width:38px!important;
   }
 }
+
+
+/* =========================================================
+   V11.6.4 — Corrección cajas de confirmación
+   ========================================================= */
+
+.confirm-dialog{
+  width:auto!important;
+  max-width:none!important;
+  min-width:0!important;
+  padding:0!important;
+  margin:auto!important;
+  border:0!important;
+  background:transparent!important;
+  overflow:visible!important;
+}
+
+.confirm-dialog[open]{
+  display:flex!important;
+  align-items:center!important;
+  justify-content:center!important;
+}
+
+.confirm-card{
+  width:min(520px, calc(100vw - 32px))!important;
+  max-width:520px!important;
+  min-width:0!important;
+  box-sizing:border-box!important;
+  overflow:hidden!important;
+  padding:24px!important;
+  border:1px solid var(--line)!important;
+  border-radius:22px!important;
+  background:var(--surface)!important;
+  color:var(--ink)!important;
+  box-shadow:0 30px 100px rgba(0,0,0,.48)!important;
+}
+
+.confirm-copy{
+  min-width:0!important;
+}
+
+.confirm-copy h3,
+.confirm-copy p{
+  max-width:100%!important;
+  overflow-wrap:anywhere!important;
+}
+
+.confirm-actions{
+  display:flex!important;
+  justify-content:flex-end!important;
+  flex-wrap:wrap!important;
+  gap:10px!important;
+  width:100%!important;
+  min-width:0!important;
+  margin-top:22px!important;
+}
+
+.confirm-actions .btn{
+  width:auto!important;
+  max-width:100%!important;
+  min-width:120px!important;
+  flex:0 1 auto!important;
+  box-sizing:border-box!important;
+  white-space:nowrap!important;
+}
+
+.confirm-dialog::backdrop{
+  background:rgba(3,7,14,.72)!important;
+  backdrop-filter:blur(6px)!important;
+}
+
+@media(max-width:520px){
+  .confirm-card{
+    width:calc(100vw - 20px)!important;
+    padding:20px!important;
+  }
+
+  .confirm-actions{
+    flex-direction:column-reverse!important;
+  }
+
+  .confirm-actions .btn{
+    width:100%!important;
+  }
+}
