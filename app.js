@@ -1,4 +1,4 @@
-const APP_VERSION = '11.2.5';
+const APP_VERSION = '11.2.6';
 const API_BASE = 'https://gestor-tareas-api.detodoec.workers.dev';
 const STORAGE_KEY = 'detodoec_tasks_v1';
 const SETTINGS_KEY = 'detodoec_tasks_settings_v3';
@@ -291,19 +291,42 @@ function showToast(message, title = 'Guardado correctamente') {
 async function apiFetch(path, options = {}) {
   const headers = { ...(options.headers || {}) };
   if (sessionToken) headers.Authorization = `Bearer ${sessionToken}`;
-  const res = await fetch(API_BASE + path, { ...options, headers });
-  const type = res.headers.get('content-type') || '';
-  const data = type.includes('application/json') ? await res.json() : await res.text();
-  if (res.status === 401 && path !== '/api/auth/login') {
-    sessionToken = '';
-    currentUser = null;
-    localStorage.removeItem(SESSION_KEY);
-    showAuthGate();
+
+  try {
+    setSyncState('loading');
+
+    const res = await fetch(API_BASE + path, { ...options, headers });
+
+    // Si el servidor respondió, la nube está accesible aunque la petición
+    // concreta devuelva un 4xx por permisos/validación.
+    setSyncState('ok');
+
+    const type = res.headers.get('content-type') || '';
+    const data = type.includes('application/json') ? await res.json() : await res.text();
+
+    if (res.status === 401 && path !== '/api/auth/login') {
+      sessionToken = '';
+      currentUser = null;
+      localStorage.removeItem(SESSION_KEY);
+      showAuthGate();
+    }
+
+    if (!res.ok) {
+      throw new Error(data?.error || data?.message || String(data) || `Error ${res.status}`);
+    }
+
+    return data;
+  } catch (error) {
+    // Solo se marca como desconectada cuando no se obtuvo respuesta real
+    // del servidor (red, DNS, Worker caído, etc.).
+    if (
+      error instanceof TypeError ||
+      /fetch|network|failed|load/i.test(String(error?.message || ''))
+    ) {
+      setSyncState('error');
+    }
+    throw error;
   }
-  if (!res.ok) {
-    throw new Error(data?.error || data?.message || String(data) || `Error ${res.status}`);
-  }
-  return data;
 }
 
 async function uploadImage(file) {
@@ -2710,6 +2733,15 @@ try { applySiteIcon(initialSettings.siteIcon || ''); } catch (err) { console.err
 try { applyQuoteExtraIcons(); } catch (err) { console.error('Cotizador:', err); }
 
 showAuthGate();
+
+// Verifica visualmente la conexión con Cloudflare al iniciar.
+fetch(API_BASE + '/')
+  .then((res) => {
+    if (res.ok) setSyncState('ok');
+    else setSyncState('error');
+  })
+  .catch(() => setSyncState('error'));
+
 restoreSession()
   .then((ok) => { if (!ok) showAuthGate(); })
   .catch((err) => {
