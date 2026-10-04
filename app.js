@@ -1,4 +1,4 @@
-const APP_VERSION = '11.6.3';
+const APP_VERSION = '11.7';
 const API_BASE = 'https://gestor-tareas-api.detodoec.workers.dev';
 const STORAGE_KEY = 'detodoec_tasks_v1';
 const SETTINGS_KEY = 'detodoec_tasks_settings_v3';
@@ -20,6 +20,8 @@ let editingCheckinId = null;
 let confirmResolver = null;
 let profilePhotoFile = null;
 let adminUserPhotoFile = null;
+let pendingDeleteUserId = null;
+let openAdminUserMenuId = null;
 let adminUserPhotoUrl = '';
 
 let tasks = [];
@@ -101,6 +103,7 @@ const detailDialog = $('#detailDialog');
 const adminPage = $('#adminPage');
 const loginDialog = $('#loginDialog');
 const settingsPage = $('#settingsPage');
+const deleteUserDialog = $('#deleteUserDialog');
 const myCheckinPage = $('#myCheckinPage');
 const confirmDialog = $('#confirmDialog');
 const paymentDialog = $('#paymentDialog');
@@ -3167,27 +3170,89 @@ function renderAdminUserPhoto(url = '') {
   box.innerHTML = url ? `<img src="${escapeHtml(url)}" alt="" />` : iconUse('icon-user');
 }
 
-function clearAdminUserForm() {
+function closeAdminUserMenus() {
+  openAdminUserMenuId = null;
+  $$('.admin-user-menu-popover').forEach((menu) => menu.hidden = true);
+  $$('[data-user-menu-toggle]').forEach((btn) => btn.setAttribute('aria-expanded', 'false'));
+}
+
+function showAdminUserEditor(mode = 'create') {
+  const form = $('#adminUserForm');
+  if (!form) return;
+  form.hidden = false;
+
+  const editing = mode === 'edit';
+  $('#adminUserEditorEyebrow').textContent = editing ? 'Editar cuenta' : 'Nuevo usuario';
+  $('#adminUserEditorTitle').textContent = editing ? 'Editar usuario' : 'Crear usuario';
+  $('#adminUserSaveBtn').textContent = editing ? 'Guardar cambios' : 'Crear usuario';
+
+  requestAnimationFrame(() => form.scrollIntoView({ behavior:'smooth', block:'start' }));
+}
+
+function clearAdminUserForm({ hide = true } = {}) {
   $('#adminUserForm')?.reset();
   if ($('#adminUserId')) $('#adminUserId').value = '';
   adminUserPhotoFile = null;
   adminUserPhotoUrl = '';
   renderAdminUserPhoto('');
   if ($('#adminUserHourlyRate')) $('#adminUserHourlyRate').value = '0';
-  if ($('#adminUserSaveBtn')) $('#adminUserSaveBtn').textContent = 'Guardar usuario';
+  if ($('#adminUserSaveBtn')) $('#adminUserSaveBtn').textContent = 'Crear usuario';
+  if ($('#adminUserEditorEyebrow')) $('#adminUserEditorEyebrow').textContent = 'Nuevo usuario';
+  if ($('#adminUserEditorTitle')) $('#adminUserEditorTitle').textContent = 'Crear usuario';
+  if (hide && $('#adminUserForm')) $('#adminUserForm').hidden = true;
+}
+
+function createAdminUser() {
+  clearAdminUserForm({ hide:false });
+  showAdminUserEditor('create');
 }
 
 function renderAdminUsers() {
   const list = $('#adminUsersList');
   if (!list) return;
   list.innerHTML = '';
+
   adminUsers.forEach((user) => {
     const card = document.createElement('article');
-    card.className = 'admin-user-card';
+    card.className = 'admin-user-card-v2';
+    card.dataset.adminUserCard = user.id;
+
+    const canDelete = String(user.id) !== String(currentUser?.id);
+
     card.innerHTML = `
-      <span class="admin-user-avatar">${user.foto_url ? `<img src="${escapeHtml(user.foto_url)}" alt="" />` : iconUse('icon-user')}</span>
-      <div class="admin-user-info"><strong>${escapeHtml(user.nombre)}</strong><span>@${escapeHtml(user.usuario)} · ${escapeHtml(user.role_name || (user.rol === 'admin' ? 'Administrador' : 'Usuario'))} · ${money(Number(user.valor_hora || 0))}/h</span></div>
-      <div class="admin-user-actions"><button type="button" class="btn btn-outline small" data-edit-app-user="${user.id}">Editar</button>${String(user.id) !== String(currentUser?.id) ? `<button type="button" class="btn btn-danger small" data-delete-app-user="${user.id}">Eliminar</button>` : ''}</div>`;
+      <div class="admin-user-card-top">
+        <span class="admin-user-avatar-v2">${user.foto_url ? `<img src="${escapeHtml(user.foto_url)}" alt="" />` : iconUse('icon-user')}</span>
+
+        <button type="button"
+          class="admin-user-menu-toggle"
+          data-user-menu-toggle="${user.id}"
+          aria-expanded="false"
+          aria-label="Opciones de ${escapeHtml(user.nombre)}">
+          <span></span><span></span>
+        </button>
+
+        <div class="admin-user-menu-popover" data-user-menu="${user.id}" hidden>
+          <button type="button" data-edit-app-user="${user.id}">
+            ${iconUse('icon-edit')}<span>Editar</span>
+          </button>
+          ${canDelete ? `
+            <button type="button" class="danger" data-delete-app-user="${user.id}">
+              ${iconUse('icon-trash')}<span>Eliminar</span>
+            </button>` : ''}
+        </div>
+      </div>
+
+      <div class="admin-user-card-body">
+        <strong>${escapeHtml(user.nombre)}</strong>
+        <span>@${escapeHtml(user.usuario)}</span>
+        <small>${escapeHtml(user.role_name || (user.rol === 'admin' ? 'Administrador' : 'Usuario'))}</small>
+      </div>
+
+      <div class="admin-user-card-footer">
+        <span>Valor/h</span>
+        <strong>${money(Number(user.valor_hora || 0))}</strong>
+      </div>`;
+
     list.appendChild(card);
   });
 }
@@ -3195,6 +3260,9 @@ function renderAdminUsers() {
 function editAdminUser(id) {
   const user = adminUsers.find((item) => String(item.id) === String(id));
   if (!user) return;
+
+  closeAdminUserMenus();
+
   $('#adminUserId').value = user.id;
   $('#adminUserName').value = user.nombre;
   $('#adminUsername').value = user.usuario;
@@ -3204,20 +3272,64 @@ function editAdminUser(id) {
   adminUserPhotoUrl = user.foto_url || '';
   adminUserPhotoFile = null;
   renderAdminUserPhoto(adminUserPhotoUrl);
-  $('#adminUserSaveBtn').textContent = 'Actualizar usuario';
+
+  showAdminUserEditor('edit');
 }
 
-async function deleteAdminUser(id) {
+function openDeleteAdminUser(id) {
   const user = adminUsers.find((item) => String(item.id) === String(id));
-  if (!user || !confirm(`¿Eliminar el usuario "${user.nombre}"?`)) return;
+  if (!user) return;
+  if (String(user.id) === String(currentUser?.id)) {
+    showToast('No puedes eliminar tu propia cuenta.', 'Usuario');
+    return;
+  }
+
+  closeAdminUserMenus();
+  pendingDeleteUserId = String(id);
+
+  $('#deleteUserMessage').textContent =
+    `Vas a eliminar a "${user.nombre}". Se cerrarán sus sesiones y dejará de poder ingresar al sistema.`;
+
+  $('#deleteUserAdminPassword').value = '';
+  deleteUserDialog?.showModal();
+
+  requestAnimationFrame(() => $('#deleteUserAdminPassword')?.focus());
+}
+
+async function confirmDeleteAdminUser() {
+  const id = pendingDeleteUserId;
+  const password = $('#deleteUserAdminPassword')?.value || '';
+  const user = adminUsers.find((item) => String(item.id) === String(id));
+
+  if (!id || !user) return;
+  if (!password) {
+    showToast('Escribe la contraseña del administrador.', 'Confirmación requerida');
+    $('#deleteUserAdminPassword')?.focus();
+    return;
+  }
+
+  const button = $('#deleteUserConfirm');
+  if (button) button.disabled = true;
+
   try {
-    await apiFetch(`/api/usuarios/${id}`, { method:'DELETE' });
+    await apiFetch(`/api/usuarios/${id}`, {
+      method:'DELETE',
+      headers:{'Content-Type':'application/json'},
+      body:JSON.stringify({ admin_password:password })
+    });
+
+    deleteUserDialog?.close();
+    pendingDeleteUserId = null;
     showToast(`${user.nombre} fue eliminado.`, 'Usuario eliminado');
     await refreshAdminUsers();
   } catch (err) {
     showToast(err.message, 'No se pudo eliminar el usuario');
+    $('#deleteUserAdminPassword')?.select();
+  } finally {
+    if (button) button.disabled = false;
   }
 }
+
 
 function normalizeRolePermissions(value = {}) {
   return {
@@ -3576,6 +3688,18 @@ on('refreshHomeUsers', 'click', refreshHomeUsers);
 on('closeProfile', 'click', () => $('#profileDialog').close());
 on('cancelProfile', 'click', () => $('#profileDialog').close());
 on('logoutBtn', 'click', logoutApp);
+on('deleteUserCancel', 'click', () => {
+  pendingDeleteUserId = null;
+  deleteUserDialog?.close();
+});
+$('#deleteUserForm')?.addEventListener('submit', async (e) => {
+  e.preventDefault();
+  await confirmDeleteAdminUser();
+});
+deleteUserDialog?.addEventListener('cancel', () => {
+  pendingDeleteUserId = null;
+});
+
 on('manageDesignsBtn', 'click', () => requestAdminPanel('disenos'));
 on('newRoleBtn', 'click', clearRoleEditor);
 on('saveRoleBtn', 'click', saveRole);
@@ -3774,7 +3898,9 @@ $('#adminUserPhoto')?.addEventListener('change', (e) => {
   renderAdminUserPhoto(URL.createObjectURL(file));
 });
 
-on('adminUserCancelBtn', 'click', clearAdminUserForm);
+on('adminUserCancelBtn', 'click', () => clearAdminUserForm({ hide:true }));
+on('adminUserEditorClose', 'click', () => clearAdminUserForm({ hide:true }));
+on('adminCreateUserBtn', 'click', createAdminUser);
 $('#adminUserForm')?.addEventListener('submit', async (e) => {
   e.preventDefault();
   const id = $('#adminUserId').value.trim();
@@ -3789,7 +3915,7 @@ $('#adminUserForm')?.addEventListener('submit', async (e) => {
     if (adminUserPhotoFile) foto_url = await uploadImage(adminUserPhotoFile);
     const payload = { nombre, usuario, role_id:Number($('#adminUserRole').value || 0), valor_hora:Number($('#adminUserHourlyRate').value || 0), foto_url, password:password || undefined };
     await apiFetch(id ? `/api/usuarios/${id}` : '/api/usuarios', { method:id ? 'PUT':'POST', headers:{'Content-Type':'application/json'}, body:JSON.stringify(payload) });
-    clearAdminUserForm();
+    clearAdminUserForm({ hide:true });
     await refreshAdminUsers();
     showToast(id ? 'Usuario actualizado correctamente.' : 'Usuario creado correctamente.', id ? 'Usuario actualizado' : 'Usuario creado');
   } catch (err) {
@@ -3800,10 +3926,26 @@ $('#adminUserForm')?.addEventListener('submit', async (e) => {
 });
 
 $('#adminUsersList')?.addEventListener('click', (e) => {
+  const toggle = e.target.closest('[data-user-menu-toggle]');
   const edit = e.target.closest('[data-edit-app-user]')?.dataset.editAppUser;
   const del = e.target.closest('[data-delete-app-user]')?.dataset.deleteAppUser;
+
+  if (toggle) {
+    const id = String(toggle.dataset.userMenuToggle);
+    const nextOpen = openAdminUserMenuId === id ? null : id;
+    closeAdminUserMenus();
+
+    if (nextOpen) {
+      openAdminUserMenuId = nextOpen;
+      const menu = document.querySelector(`[data-user-menu="${CSS.escape(nextOpen)}"]`);
+      if (menu) menu.hidden = false;
+      toggle.setAttribute('aria-expanded', 'true');
+    }
+    return;
+  }
+
   if (edit) editAdminUser(edit);
-  if (del) deleteAdminUser(del);
+  if (del) openDeleteAdminUser(del);
 });
 
 $('#taskImage')?.addEventListener('change', (e) => {
@@ -4143,3 +4285,5 @@ function escapeHtml(value) {
     .replaceAll('"', '&quot;')
     .replaceAll("'", '&#39;');
 }
+
+document.addEventListener('click', (e) => { if (!e.target.closest('.admin-user-card-v2')) closeAdminUserMenus(); });

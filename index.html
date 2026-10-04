@@ -9,7 +9,7 @@
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700;800&display=swap" rel="stylesheet">
   <link id="dynamicFavicon" rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 64 64'%3E%3Crect width='64' height='64' rx='16' fill='%23b9ff39'/%3E%3Cpath d='M18 33l9 9 19-22' fill='none' stroke='%23111' stroke-width='7' stroke-linecap='round' stroke-linejoin='round'/%3E%3C/svg%3E" />
-  <link rel="stylesheet" href="styles.css?v=11.6.4" />
+  <link rel="stylesheet" href="styles.css?v=11.7" />
 </head>
 <body>
   <svg xmlns="http://www.w3.org/2000/svg" style="display:none" aria-hidden="true" focusable="false">
@@ -358,7 +358,7 @@
     <footer class="app-version-footer" aria-label="Versión de la aplicación">
       <span>DeTodoEc</span>
       <span class="version-separator">•</span>
-      <strong>Versión 11.6.4</strong>
+      <strong>Versión 11.7</strong>
     </footer>
   </div>
 
@@ -670,6 +670,25 @@
     </div>
   </dialog>
 
+  <dialog id="deleteUserDialog" class="confirm-dialog delete-user-dialog">
+    <form method="dialog" class="confirm-card delete-user-card" id="deleteUserForm">
+      <div class="confirm-icon delete-user-icon"><svg class="icon"><use href="#icon-alert"></use></svg></div>
+      <div class="confirm-copy">
+        <h3>Eliminar usuario</h3>
+        <p id="deleteUserMessage">Esta acción cerrará sus sesiones y desactivará su acceso.</p>
+      </div>
+      <label class="delete-user-password">
+        <span>Contraseña del administrador</span>
+        <input id="deleteUserAdminPassword" type="password" autocomplete="current-password" placeholder="Escribe tu contraseña" required />
+      </label>
+      <p class="delete-user-help">Por seguridad, debes confirmar tu contraseña de administrador para eliminar esta cuenta.</p>
+      <div class="confirm-actions">
+        <button type="button" class="btn btn-outline" id="deleteUserCancel">Cancelar</button>
+        <button type="submit" class="btn btn-danger" id="deleteUserConfirm">Eliminar usuario</button>
+      </div>
+    </form>
+  </dialog>
+
   <dialog id="loginDialog" class="login-dialog">
     <form method="dialog" id="loginForm" class="login-form">
       <div class="dialog-head">
@@ -734,20 +753,53 @@
             </div>
           </section>
 
-          <section class="admin-section admin-view" data-admin-view="acceso" hidden>
-            <div class="admin-section-head"><h3>Usuarios</h3><p>Crea cuentas para ingresar al sistema y registrar asistencia.</p></div>
-            <form id="adminUserForm" class="admin-user-form">
+          <section class="admin-section admin-view users-admin-v2" data-admin-view="acceso" hidden>
+            <div class="admin-users-heading">
+              <div>
+                <span class="eyebrow">Cuentas</span>
+                <h3>Usuarios</h3>
+                <p>Crea y administra las cuentas que pueden ingresar al sistema.</p>
+              </div>
+              <button type="button" class="btn btn-accent admin-create-user-btn" id="adminCreateUserBtn">
+                <span class="admin-create-plus">+</span><span>Crear usuario</span>
+              </button>
+            </div>
+
+            <form id="adminUserForm" class="admin-user-editor" hidden>
               <input type="hidden" id="adminUserId" />
-              <label>Nombre<input id="adminUserName" required placeholder="Ej. Luis Segura" /></label>
-              <label>Usuario<input id="adminUsername" required autocomplete="off" placeholder="Ej. luis" /></label>
-              <label>Contraseña<input id="adminUserPassword" type="password" autocomplete="new-password" placeholder="Obligatoria al crear" /></label>
-              <label>Rol<select id="adminUserRole"></select></label>
-              <label>Valor por hora ($)<input id="adminUserHourlyRate" type="number" min="0" step="0.01" value="0" /></label>
-              <label>Foto de perfil<input id="adminUserPhoto" type="file" accept="image/*" /></label>
-              <div class="admin-user-preview" id="adminUserPhotoPreview"><svg class="icon"><use href="#icon-user"></use></svg></div>
-              <div class="inline-actions"><button type="submit" class="btn btn-dark small" id="adminUserSaveBtn">Guardar usuario</button><button type="button" class="btn btn-outline small" id="adminUserCancelBtn">Cancelar</button></div>
+
+              <div class="admin-user-editor-head">
+                <div>
+                  <span class="eyebrow" id="adminUserEditorEyebrow">Nuevo usuario</span>
+                  <h4 id="adminUserEditorTitle">Crear usuario</h4>
+                </div>
+                <button type="button" class="icon-btn" id="adminUserEditorClose" aria-label="Cerrar">✕</button>
+              </div>
+
+              <div class="admin-user-editor-profile">
+                <div class="admin-user-preview admin-user-preview-large" id="adminUserPhotoPreview"><svg class="icon"><use href="#icon-user"></use></svg></div>
+                <label class="admin-photo-picker">
+                  <strong>Foto de perfil</strong>
+                  <span>JPG, PNG o WEBP</span>
+                  <input id="adminUserPhoto" type="file" accept="image/*" />
+                </label>
+              </div>
+
+              <div class="admin-user-editor-grid">
+                <label>Nombre completo<input id="adminUserName" required placeholder="Ej. Luis Segura" /></label>
+                <label>Usuario<input id="adminUsername" required autocomplete="off" placeholder="Ej. luis" /></label>
+                <label>Contraseña<input id="adminUserPassword" type="password" autocomplete="new-password" placeholder="Obligatoria al crear" /></label>
+                <label>Rol<select id="adminUserRole"></select></label>
+                <label>Valor por hora ($)<input id="adminUserHourlyRate" type="number" min="0" step="0.01" value="0" /></label>
+              </div>
+
+              <div class="admin-user-editor-actions">
+                <button type="button" class="btn btn-outline" id="adminUserCancelBtn">Cancelar</button>
+                <button type="submit" class="btn btn-accent" id="adminUserSaveBtn">Crear usuario</button>
+              </div>
             </form>
-            <div id="adminUsersList" class="admin-users-list"></div>
+
+            <div id="adminUsersList" class="admin-users-list admin-users-cards-v2"></div>
           </section>
 
           <section class="admin-section roles-admin-section admin-view" data-admin-view="roles" hidden>
@@ -1057,6 +1109,6 @@
     </article>
   </template>
 
-  <script src="app.js?v=11.6.3"></script>
+  <script src="app.js?v=11.7"></script>
 </body>
 </html>
