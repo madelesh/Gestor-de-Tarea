@@ -7080,3 +7080,39 @@ textarea{
     text-align:left;
   }
 }
+
+
+/* =========================================================
+   V11.12.1 — Metas como menú desplegable real
+   ========================================================= */
+
+.goals-nav-group .admin-nav-parent{
+  cursor:pointer!important;
+}
+
+.goals-nav-group .admin-nav-caret{
+  transition:transform .2s ease!important;
+  transform-origin:center!important;
+}
+
+.goals-nav-group .admin-nav-parent.expanded .admin-nav-caret{
+  transform:rotate(180deg)!important;
+}
+
+.goals-nav-group .admin-subnav{
+  overflow:hidden!important;
+  transition:max-height .22s ease, opacity .18s ease, margin .18s ease!important;
+}
+
+.goals-nav-group .admin-subnav[hidden]{
+  display:none!important;
+}
+
+/* Evita que la cabecera Metas parezca una subvista seleccionada por sí sola */
+.goals-nav-group .admin-nav-parent:not(.expanded){
+  border-radius:12px!important;
+}
+
+.goals-nav-group .admin-subnav-btn{
+  cursor:pointer!important;
+}

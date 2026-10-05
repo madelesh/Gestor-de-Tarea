@@ -1,4 +1,4 @@
-const APP_VERSION = '11.12';
+const APP_VERSION = '11.12.1';
 const API_BASE = 'https://gestor-tareas-api.detodoec.workers.dev';
 const STORAGE_KEY = 'detodoec_tasks_v1';
 const SETTINGS_KEY = 'detodoec_tasks_settings_v3';
@@ -4443,10 +4443,11 @@ function showAdminSection(section = 'apariencia') {
   if (target === 'roles') refreshRoles();
   if (target === 'checkin') refreshAttendance();
   if (target === 'metas') {
+    // La fila Metas solo controla el desplegable.
+    // Las subvistas se abren únicamente al pulsar una subpestaña.
     const subnav = $('#goalsSubnav');
     if (subnav) subnav.hidden = false;
     $('#adminGoalsNav')?.classList.add('expanded');
-    refreshGoalsAdmin();
   }
   if (target === 'cuadre') refreshBanks({ silent:true });
   if (target === 'cotizador') {
@@ -4553,17 +4554,32 @@ on('goalsBankStartDate', 'change', refreshGoalsBankStats);
 on('goalsBankEndDate', 'change', refreshGoalsBankStats);
 on('goalsBankUserFilter', 'change', refreshGoalsBankStats);
 
-$('#adminGoalsNav')?.addEventListener('click', () => {
+$('#adminGoalsNav')?.addEventListener('click', (e) => {
+  e.preventDefault();
+  e.stopPropagation();
+
   const subnav = $('#goalsSubnav');
   if (!subnav) return;
-  subnav.hidden = !subnav.hidden;
-  $('#adminGoalsNav')?.classList.toggle('expanded', !subnav.hidden);
-  if (!subnav.hidden) setGoalsSubview(goalsActiveSubview || 'editor');
+
+  const willOpen = subnav.hidden;
+  subnav.hidden = !willOpen;
+  $('#adminGoalsNav')?.classList.toggle('expanded', willOpen);
+
+  // No abre Editor/Historial/Bancos automáticamente.
+  // Metas funciona únicamente como cabecera desplegable.
 });
 
-$('#goalsSubnav')?.addEventListener('click', (e) => {
+$('#goalsSubnav')?.addEventListener('click', async (e) => {
   const btn = e.target.closest('[data-goals-subtarget]');
   if (!btn) return;
+
+  e.preventDefault();
+  e.stopPropagation();
+
+  // Al pulsar una subpestaña sí se abre la sección Metas
+  // y se muestra solamente la subvista seleccionada.
+  showAdminSection('metas');
+  await refreshGoalsAdmin();
   setGoalsSubview(btn.dataset.goalsSubtarget);
 });
 
