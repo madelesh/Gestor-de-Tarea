@@ -1,4 +1,4 @@
-const APP_VERSION = '11.13';
+const APP_VERSION = '11.13.1';
 const API_BASE = 'https://gestor-tareas-api.detodoec.workers.dev';
 const STORAGE_KEY = 'detodoec_tasks_v1';
 const SETTINGS_KEY = 'detodoec_tasks_settings_v3';
@@ -32,6 +32,15 @@ let goalsConfig = [];
 let goalsHistory = [];
 let goalsBankStats = [];
 let goalsActiveSubview = 'editor';
+let goalsConfigLoadedAt = 0;
+let goalsHistoryLoadedAt = 0;
+let goalsBanksLoadedAt = 0;
+let goalsHistoryCacheKey = '';
+let goalsBanksCacheKey = '';
+let goalsConfigPromise = null;
+let goalsHistoryPromise = null;
+let goalsBanksPromise = null;
+let goalsLoaderTimer = null;
 let focusedCheckinUserId = null;
 let currentAttendanceRows = [];
 let editingCheckinId = null;
@@ -4182,16 +4191,46 @@ function renderGoalsHistory() {
   empty.hidden = goalsHistory.length > 0;
 }
 
-async function refreshGoalsConfig() {
-  const month = currentGoalConfigMonth();
-  const rows = await apiFetch(`/api/metas/config?mes=${encodeURIComponent(month)}&_=${Date.now()}`, { cache:'no-store' });
-  goalsConfig = Array.isArray(rows) ? rows : [];
-  renderGoalsConfig();
-  populateGoalsUserFilter();
-  populateGoalsBankUserFilter();
+async function refreshGoalsConfig({ force = false, silent = false } = {}) {
+  const now = Date.now();
+  if (!force && goalsConfig.length && (now - goalsConfigLoadedAt) < 30000) {
+    renderGoalsConfig();
+    populateGoalsUserFilter();
+    populateGoalsBankUserFilter();
+    return goalsConfig;
+  }
+
+  if (goalsConfigPromise) return goalsConfigPromise;
+
+  goalsConfigPromise = (async () => {
+    const month = currentGoalConfigMonth();
+    try {
+      const rows = await apiFetch(`/api/metas/config?mes=${encodeURIComponent(month)}&_=${Date.now()}`, { cache:'no-store' });
+      goalsConfig = Array.isArray(rows) ? rows : [];
+      goalsConfigLoadedAt = Date.now();
+      renderGoalsConfig();
+      populateGoalsUserFilter();
+      populateGoalsBankUserFilter();
+      return goalsConfig;
+    } catch (err) {
+      if (!silent) showToast(err.message, 'No se pudieron cargar las metas');
+      throw err;
+    } finally {
+      goalsConfigPromise = null;
+    }
+  })();
+
+  return goalsConfigPromise;
 }
 
-async function refreshGoalsHistory() {
+function currentGoalsHistoryKey() {
+  const start = $('#goalsStartDate')?.value || todayLocal();
+  const end = $('#goalsEndDate')?.value || start;
+  const user = $('#goalsUserFilter')?.value || '';
+  return `${start}|${end}|${user}`;
+}
+
+async function refreshGoalsHistory({ force = false, silent = false } = {}) {
   const start = $('#goalsStartDate');
   const end = $('#goalsEndDate');
   const user = $('#goalsUserFilter');
@@ -4199,22 +4238,64 @@ async function refreshGoalsHistory() {
   if (start && !start.value) start.value = todayLocal();
   if (end && !end.value) end.value = todayLocal();
 
-  const params = new URLSearchParams();
-  params.set('inicio', start?.value || todayLocal());
-  params.set('fin', end?.value || start?.value || todayLocal());
-  if (user?.value) params.set('usuario_id', user.value);
-  params.set('_', Date.now());
+  const key = currentGoalsHistoryKey();
+  const now = Date.now();
 
-  const rows = await apiFetch(`/api/metas/historial?${params.toString()}`, { cache:'no-store' });
-  goalsHistory = Array.isArray(rows) ? rows : [];
-  renderGoalsHistory();
+  if (!force && goalsHistory.length && key === goalsHistoryCacheKey && (now - goalsHistoryLoadedAt) < 20000) {
+    renderGoalsHistory();
+    return goalsHistory;
+  }
+
+  if (goalsHistoryPromise) return goalsHistoryPromise;
+
+  goalsHistoryPromise = (async () => {
+    const params = new URLSearchParams();
+    params.set('inicio', start?.value || todayLocal());
+    params.set('fin', end?.value || start?.value || todayLocal());
+    if (user?.value) params.set('usuario_id', user.value);
+    params.set('_', Date.now());
+
+    try {
+      const rows = await apiFetch(`/api/metas/historial?${params.toString()}`, { cache:'no-store' });
+      goalsHistory = Array.isArray(rows) ? rows : [];
+      goalsHistoryCacheKey = key;
+      goalsHistoryLoadedAt = Date.now();
+      renderGoalsHistory();
+      return goalsHistory;
+    } catch (err) {
+      if (!silent) showToast(err.message, 'No se pudo cargar el historial de metas');
+      throw err;
+    } finally {
+      goalsHistoryPromise = null;
+    }
+  })();
+
+  return goalsHistoryPromise;
 }
 
 
-function setGoalsSubview(target = 'editor') {
+function showGoalsLoader(title = 'Cargando datos', text = 'Actualizando información de metas…') {
+  clearTimeout(goalsLoaderTimer);
+  goalsLoaderTimer = setTimeout(() => {
+    const loader = $('#goalsLoading');
+    if (!loader) return;
+    $('#goalsLoadingTitle').textContent = title;
+    $('#goalsLoadingText').textContent = text;
+    loader.hidden = false;
+  }, 140);
+}
+
+function hideGoalsLoader() {
+  clearTimeout(goalsLoaderTimer);
+  const loader = $('#goalsLoading');
+  if (loader) loader.hidden = true;
+}
+
+async function setGoalsSubview(target = 'editor', { force = false } = {}) {
   const allowed = new Set(['editor','history','banks']);
   goalsActiveSubview = allowed.has(target) ? target : 'editor';
 
+  // Cambia la vista inmediatamente; la carga de datos ocurre después.
   $$('[data-goals-subview]').forEach((view) => {
     view.hidden = view.dataset.goalsSubview !== goalsActiveSubview;
   });
@@ -4223,9 +4304,29 @@ function setGoalsSubview(target = 'editor') {
     btn.classList.toggle('active', btn.dataset.goalsSubtarget === goalsActiveSubview);
   });
 
-  if (goalsActiveSubview === 'editor') refreshGoalsConfig();
-  if (goalsActiveSubview === 'history') refreshGoalsHistory();
-  if (goalsActiveSubview === 'banks') refreshGoalsBankStats();
+  const meta = {
+    editor:['Cargando editor de metas','Actualizando configuración de usuarios…'],
+    history:['Cargando historial','Consultando ventas y transacciones acumuladas…'],
+    banks:['Cargando bancos','Calculando transacciones por banco…']
+  }[goalsActiveSubview];
+
+  showGoalsLoader(meta[0], meta[1]);
+
+  try {
+    if (goalsActiveSubview === 'editor') {
+      await refreshGoalsConfig({ force, silent:true });
+    } else if (goalsActiveSubview === 'history') {
+      await refreshGoalsConfig({ silent:true });
+      await refreshGoalsHistory({ force, silent:true });
+    } else if (goalsActiveSubview === 'banks') {
+      await refreshGoalsConfig({ silent:true });
+      await refreshGoalsBankStats({ force, silent:true });
+    }
+  } catch (err) {
+    showToast(err.message, 'No se pudieron cargar los datos de Metas');
+  } finally {
+    hideGoalsLoader();
+  }
 }
 
 function populateGoalsBankUserFilter() {
@@ -4282,7 +4383,14 @@ function renderGoalsBankStats() {
   empty.hidden = goalsBankStats.length > 0;
 }
 
-async function refreshGoalsBankStats() {
+function currentGoalsBankKey() {
+  const start = $('#goalsBankStartDate')?.value || todayLocal();
+  const end = $('#goalsBankEndDate')?.value || start;
+  const user = $('#goalsBankUserFilter')?.value || '';
+  return `${start}|${end}|${user}`;
+}
+
+async function refreshGoalsBankStats({ force = false, silent = false } = {}) {
   const start = $('#goalsBankStartDate');
   const end = $('#goalsBankEndDate');
   const user = $('#goalsBankUserFilter');
@@ -4290,33 +4398,44 @@ async function refreshGoalsBankStats() {
   if (start && !start.value) start.value = todayLocal();
   if (end && !end.value) end.value = todayLocal();
 
-  const params = new URLSearchParams();
-  params.set('inicio', start?.value || todayLocal());
-  params.set('fin', end?.value || start?.value || todayLocal());
-  if (user?.value) params.set('usuario_id', user.value);
-  params.set('_', Date.now());
+  const key = currentGoalsBankKey();
+  const now = Date.now();
 
-  try {
-    const rows = await apiFetch(`/api/metas/bancos?${params.toString()}`, { cache:'no-store' });
-    goalsBankStats = Array.isArray(rows) ? rows : [];
+  if (!force && goalsBankStats.length && key === goalsBanksCacheKey && (now - goalsBanksLoadedAt) < 20000) {
     renderGoalsBankStats();
-  } catch (err) {
-    showToast(err.message, 'No se pudieron cargar las transacciones por banco');
+    return goalsBankStats;
   }
+
+  if (goalsBanksPromise) return goalsBanksPromise;
+
+  goalsBanksPromise = (async () => {
+    const params = new URLSearchParams();
+    params.set('inicio', start?.value || todayLocal());
+    params.set('fin', end?.value || start?.value || todayLocal());
+    if (user?.value) params.set('usuario_id', user.value);
+    params.set('_', Date.now());
+
+    try {
+      const rows = await apiFetch(`/api/metas/bancos?${params.toString()}`, { cache:'no-store' });
+      goalsBankStats = Array.isArray(rows) ? rows : [];
+      goalsBanksCacheKey = key;
+      goalsBanksLoadedAt = Date.now();
+      renderGoalsBankStats();
+      return goalsBankStats;
+    } catch (err) {
+      if (!silent) showToast(err.message, 'No se pudieron cargar las transacciones por banco');
+      throw err;
+    } finally {
+      goalsBanksPromise = null;
+    }
+  })();
+
+  return goalsBanksPromise;
 }
 
 async function refreshGoalsAdmin() {
-  try {
-    currentGoalConfigMonth();
-    await refreshGoalsConfig();
-    populateGoalsBankUserFilter();
-
-    if (goalsActiveSubview === 'history') await refreshGoalsHistory();
-    if (goalsActiveSubview === 'banks') await refreshGoalsBankStats();
-    setGoalsSubview(goalsActiveSubview);
-  } catch (err) {
-    showToast(err.message, 'No se pudieron cargar las metas');
-  }
+  currentGoalConfigMonth();
+  await setGoalsSubview(goalsActiveSubview || 'editor');
 }
 
 function collectGoalConfigPayload(userId) {
@@ -4370,11 +4489,15 @@ async function saveAllGoalConfigs() {
     );
 
     showToast('Todas las metas fueron guardadas correctamente.', 'Metas');
+    goalsConfigLoadedAt = 0;
+    goalsHistoryLoadedAt = 0;
+    goalsBanksLoadedAt = 0;
     await Promise.all([
-      refreshGoalsConfig(),
-      refreshGoalsHistory(),
+      refreshGoalsConfig({ force:true, silent:true }),
       refreshGoalsToday({ silent:true })
     ]);
+    if (goalsActiveSubview === 'history') await refreshGoalsHistory({ force:true, silent:true });
+    if (goalsActiveSubview === 'banks') await refreshGoalsBankStats({ force:true, silent:true });
   } catch (err) {
     showToast(err.message, 'No se pudieron guardar las metas');
   } finally {
@@ -4537,11 +4660,11 @@ on('detailImageNext', 'click', () => {
   renderDetailImage(task);
 });
 on('refreshAttendance', 'click', refreshAttendance);
-on('refreshGoalsHistory', 'click', refreshGoalsHistory);
-on('refreshGoalsBanks', 'click', refreshGoalsBankStats);
-on('goalsBankStartDate', 'change', refreshGoalsBankStats);
-on('goalsBankEndDate', 'change', refreshGoalsBankStats);
-on('goalsBankUserFilter', 'change', refreshGoalsBankStats);
+on('refreshGoalsHistory', 'click', () => setGoalsSubview('history', { force:true }));
+on('refreshGoalsBanks', 'click', () => setGoalsSubview('banks', { force:true }));
+on('goalsBankStartDate', 'change', () => setGoalsSubview('banks', { force:true }));
+on('goalsBankEndDate', 'change', () => setGoalsSubview('banks', { force:true }));
+on('goalsBankUserFilter', 'change', () => setGoalsSubview('banks', { force:true }));
 
 $('#adminGoalsNav')?.addEventListener('click', (e) => {
   e.preventDefault();
@@ -4581,13 +4704,12 @@ $('#goalsSubnav')?.addEventListener('click', async (e) => {
     parent.setAttribute('aria-expanded', 'true');
   }
 
-  await refreshGoalsAdmin();
-  setGoalsSubview(btn.dataset.goalsSubtarget);
+  await setGoalsSubview(btn.dataset.goalsSubtarget);
 });
 
-on('goalsStartDate', 'change', refreshGoalsHistory);
-on('goalsEndDate', 'change', refreshGoalsHistory);
-on('goalsUserFilter', 'change', refreshGoalsHistory);
+on('goalsStartDate', 'change', () => setGoalsSubview('history', { force:true }));
+on('goalsEndDate', 'change', () => setGoalsSubview('history', { force:true }));
+on('goalsUserFilter', 'change', () => setGoalsSubview('history', { force:true }));
 on('saveAllGoals', 'click', saveAllGoalConfigs);
 $('#goalsConfigList')?.addEventListener('change', (e) => {
   const salesToggle = e.target.closest('[data-goal-sales-active]');

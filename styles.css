@@ -7116,3 +7116,88 @@ textarea{
 .goals-nav-group .admin-subnav-btn{
   cursor:pointer!important;
 }
+
+
+/* =========================================================
+   V11.13.1 — Metas optimizadas + indicador de carga
+   ========================================================= */
+
+.goals-admin-section{
+  position:relative!important;
+}
+
+.goals-loading{
+  position:sticky;
+  z-index:50;
+  top:12px;
+  width:min(420px,calc(100% - 24px));
+  min-height:64px;
+  display:flex;
+  align-items:center;
+  gap:12px;
+  margin:0 auto 14px;
+  padding:11px 14px;
+  border:1px solid color-mix(in srgb,var(--accent) 28%,var(--line));
+  border-radius:15px;
+  background:color-mix(in srgb,var(--surface) 94%,var(--accent) 6%);
+  box-shadow:0 16px 45px rgba(0,0,0,.22);
+}
+
+.goals-loading[hidden]{
+  display:none!important;
+}
+
+.goals-loading-spinner{
+  width:28px;
+  height:28px;
+  flex:0 0 28px;
+  border:3px solid color-mix(in srgb,var(--accent) 20%,var(--line));
+  border-top-color:var(--accent);
+  border-radius:50%;
+  animation:goals-spin .72s linear infinite;
+}
+
+.goals-loading strong,
+.goals-loading span{
+  display:block;
+}
+
+.goals-loading strong{
+  font-size:12px;
+}
+
+.goals-loading div > span{
+  margin-top:2px;
+  color:var(--muted);
+  font-size:10px;
+}
+
+@keyframes goals-spin{
+  to{ transform:rotate(360deg); }
+}
+
+/* Cambio de subpestaña inmediato y suave */
+.goals-subview{
+  animation:goals-view-in .16s ease-out;
+}
+
+@keyframes goals-view-in{
+  from{
+    opacity:.35;
+    transform:translateY(3px);
+  }
+  to{
+    opacity:1;
+    transform:translateY(0);
+  }
+}
+
+/* Feedback instantáneo al seleccionar una subpestaña */
+.admin-subnav-btn{
+  transition:background-color .12s ease,color .12s ease!important;
+}
+
+.admin-subnav-btn.active{
+  background:var(--surface-2)!important;
+  color:var(--ink)!important;
+}
