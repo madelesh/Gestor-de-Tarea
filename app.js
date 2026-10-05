@@ -1,4 +1,4 @@
-const APP_VERSION = '11.8';
+const APP_VERSION = '11.8.1';
 const API_BASE = 'https://gestor-tareas-api.detodoec.workers.dev';
 const STORAGE_KEY = 'detodoec_tasks_v1';
 const SETTINGS_KEY = 'detodoec_tasks_settings_v3';
@@ -2374,8 +2374,8 @@ function updateCurrentUserUI() {
   if (topAvatar) topAvatar.innerHTML = userAvatarMarkup(currentUser);
   if (greeting) greeting.textContent = name;
 
-  const themeState = $('#profileThemeState');
-  if (themeState) themeState.textContent = document.documentElement.dataset.theme === 'dark' ? 'Claro' : 'Oscuro';
+  const themeSwitch = $('#profileThemeSwitch');
+  if (themeSwitch) themeSwitch.classList.toggle('is-dark', document.documentElement.dataset.theme === 'dark');
 
   updateNavigationPermissions();
 }
@@ -2563,11 +2563,9 @@ function bindCoreNavigationEarly() {
   });
 
   safeBind('profileThemeMenu', () => {
-    const menu = $('#profileDropdown');
-    if (menu) menu.hidden = true;
     toggleTheme();
-    const themeState = $('#profileThemeState');
-    if (themeState) themeState.textContent = document.documentElement.dataset.theme === 'dark' ? 'Claro' : 'Oscuro';
+    const themeSwitch = $('#profileThemeSwitch');
+    if (themeSwitch) themeSwitch.classList.toggle('is-dark', document.documentElement.dataset.theme === 'dark');
   });
 
   safeBind('profileLogoutMenu', async () => {
@@ -3234,12 +3232,6 @@ function showAdminUserEditor(mode = 'create') {
   $('#adminUserEditorEyebrow').textContent = editing ? 'Editar cuenta' : 'Nuevo usuario';
   $('#adminUserEditorTitle').textContent = editing ? 'Editar usuario' : 'Crear usuario';
   $('#adminUserSaveBtn').textContent = editing ? 'Guardar cambios' : 'Crear usuario';
-  if ($('#adminUserSecurityLabel')) $('#adminUserSecurityLabel').hidden = !editing;
-  if ($('#adminUserAdminPassword')) {
-    $('#adminUserAdminPassword').required = editing;
-    $('#adminUserAdminPassword').value = '';
-  }
-
   requestAnimationFrame(() => {
     if (editing) {
       window.scrollTo({ top:0, behavior:'smooth' });
@@ -3258,8 +3250,6 @@ function clearAdminUserForm({ hide = true } = {}) {
   if ($('#adminUserHourlyRate')) $('#adminUserHourlyRate').value = '0';
   if ($('#adminUserBirthYear')) $('#adminUserBirthYear').value = '';
   if ($('#adminUserHireDate')) $('#adminUserHireDate').value = '';
-  if ($('#adminUserAdminPassword')) $('#adminUserAdminPassword').value = '';
-  if ($('#adminUserSecurityLabel')) $('#adminUserSecurityLabel').hidden = true;
   if ($('#adminUserSaveBtn')) $('#adminUserSaveBtn').textContent = 'Crear usuario';
   if ($('#adminUserEditorEyebrow')) $('#adminUserEditorEyebrow').textContent = 'Nuevo usuario';
   if ($('#adminUserEditorTitle')) $('#adminUserEditorTitle').textContent = 'Crear usuario';
@@ -3279,48 +3269,24 @@ function renderAdminUsers() {
   const list = $('#adminUsersList');
   if (!list) return;
   list.innerHTML = '';
-
   adminUsers.forEach((user) => {
     const card = document.createElement('article');
     card.className = 'admin-user-card-v2 admin-user-card-clickable';
     card.dataset.adminUserCard = user.id;
     card.tabIndex = 0;
-    card.setAttribute('role', 'button');
+    card.setAttribute('role','button');
     card.setAttribute('aria-label', `Editar usuario ${user.nombre}`);
-
     const canDelete = String(user.id) !== String(currentUser?.id);
-    const birthYear = user.anio_nacimiento ? String(user.anio_nacimiento) : '—';
-    const hireDate = user.fecha_ingreso ? formatAttendanceDate(user.fecha_ingreso) : '—';
-
     card.innerHTML = `
       <div class="admin-user-card-top">
         <span class="admin-user-avatar-v2">${user.foto_url ? `<img src="${escapeHtml(user.foto_url)}" alt="" />` : iconUse('icon-user')}</span>
-        ${canDelete ? `
-          <button type="button"
-            class="admin-user-delete-direct"
-            data-delete-app-user="${user.id}"
-            aria-label="Eliminar ${escapeHtml(user.nombre)}"
-            title="Eliminar usuario">
-            ${iconUse('icon-trash')}
-          </button>` : ''}
+        ${canDelete ? `<button type="button" class="admin-user-delete-direct" data-delete-app-user="${user.id}" aria-label="Eliminar ${escapeHtml(user.nombre)}" title="Eliminar usuario">${iconUse('icon-trash')}</button>` : ''}
       </div>
-
       <div class="admin-user-card-body">
         <strong>${escapeHtml(user.nombre)}</strong>
         <span>@${escapeHtml(user.usuario)}</span>
         <small>${escapeHtml(user.role_name || (user.rol === 'admin' ? 'Administrador' : 'Usuario'))}</small>
-      </div>
-
-      <div class="admin-user-card-meta">
-        <span><small>Año nac.</small><strong>${escapeHtml(birthYear)}</strong></span>
-        <span><small>Ingreso</small><strong>${escapeHtml(hireDate)}</strong></span>
-      </div>
-
-      <div class="admin-user-card-footer">
-        <span>Valor/h</span>
-        <strong>${money(Number(user.valor_hora || 0))}</strong>
       </div>`;
-
     list.appendChild(card);
   });
 }
@@ -4006,7 +3972,6 @@ $('#adminUserForm')?.addEventListener('submit', async (e) => {
   const nombre = $('#adminUserName').value.trim();
   const usuario = $('#adminUsername').value.trim();
   const password = $('#adminUserPassword').value;
-  const adminPassword = $('#adminUserAdminPassword')?.value || '';
   const birthYear = $('#adminUserBirthYear')?.value ? Number($('#adminUserBirthYear').value) : null;
   const hireDate = $('#adminUserHireDate')?.value || null;
 
@@ -4014,10 +3979,15 @@ $('#adminUserForm')?.addEventListener('submit', async (e) => {
     showToast('Escribe una contraseña para el nuevo usuario.', 'Falta contraseña');
     return;
   }
-  if (id && !adminPassword) {
-    showToast('Escribe tu contraseña de administrador para guardar la edición.', 'Confirmación requerida');
-    $('#adminUserAdminPassword')?.focus();
-    return;
+
+  let adminPassword = '';
+  if (id) {
+    adminPassword = await requestAdminPassword({
+      title:'Confirmar cambios',
+      message:'Escribe tu contraseña de administrador para guardar los cambios de este usuario.',
+      confirmText:'Guardar cambios'
+    });
+    if (!adminPassword) return;
   }
 
   const btn = $('#adminUserSaveBtn');
