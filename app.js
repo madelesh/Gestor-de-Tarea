@@ -1,4 +1,4 @@
-const APP_VERSION = '11.9';
+const APP_VERSION = '11.9.1';
 const API_BASE = 'https://gestor-tareas-api.detodoec.workers.dev';
 const STORAGE_KEY = 'detodoec_tasks_v1';
 const SETTINGS_KEY = 'detodoec_tasks_settings_v3';
@@ -3695,32 +3695,59 @@ function renderCuadreBanks() {
   banks.forEach((bank) => {
     const existing = cuadreCurrent?.bancos?.find((item) => String(item.banco_id) === String(bank.id));
     const finalAmount = existing?.saldo_final ?? '';
+    const transactions = existing?.transacciones ?? '';
 
-    const card = document.createElement('article');
-    card.className = 'cuadre-bank-card';
-    card.innerHTML = `
-      <div class="cuadre-bank-icon">
-        ${bank.imagen_url ? `<img src="${escapeHtml(bank.imagen_url)}" alt="" />` : iconUse('icon-wallet')}
+    const row = document.createElement('article');
+    row.className = 'cuadre-bank-row';
+    row.innerHTML = `
+      <div class="cuadre-bank-main">
+        <div class="cuadre-bank-icon">
+          ${bank.imagen_url ? `<img src="${escapeHtml(bank.imagen_url)}" alt="" />` : iconUse('icon-wallet')}
+        </div>
+        <div class="cuadre-bank-copy">
+          <strong>${escapeHtml(bank.nombre)}</strong>
+          <span>Banco configurado</span>
+        </div>
       </div>
-      <div class="cuadre-bank-copy">
-        <strong>${escapeHtml(bank.nombre)}</strong>
-        <span>Inicio del día: ${money(Number(bank.saldo_inicial || 0))}</span>
+
+      <div class="cuadre-bank-opening">
+        <span class="cuadre-mobile-label">Saldo inicial</span>
+        <strong>${money(Number(bank.saldo_inicial || 0))}</strong>
       </div>
-      <label class="cuadre-money-input">
-        <span>$</span>
-        <input type="number" min="0" step="0.01"
+
+      <label class="cuadre-list-input">
+        <span class="cuadre-mobile-label">Transacciones</span>
+        <input
+          type="number"
+          min="0"
+          step="1"
+          inputmode="numeric"
+          data-cuadre-transactions="${bank.id}"
+          value="${transactions === '' ? '' : Number(transactions)}"
+          placeholder="0"
+        />
+      </label>
+
+      <label class="cuadre-money-input cuadre-list-money">
+        <span class="cuadre-mobile-label">Saldo final</span>
+        <span class="currency">$</span>
+        <input
+          type="number"
+          min="0"
+          step="0.01"
+          inputmode="decimal"
           data-cuadre-bank="${bank.id}"
           value="${finalAmount === '' ? '' : Number(finalAmount).toFixed(2)}"
-          placeholder="0.00" />
+          placeholder="0.00"
+        />
       </label>
     `;
-    grid.appendChild(card);
+    grid.appendChild(row);
   });
 
   empty.hidden = banks.length > 0;
   updateCuadreTotals();
 }
-
 function updateCuadreTotals() {
   let bankTotal = 0;
   $$('[data-cuadre-bank]').forEach((input) => {
@@ -3763,10 +3790,15 @@ async function saveCuadre() {
   if (btn) btn.disabled = true;
 
   try {
-    const bancosPayload = $$('[data-cuadre-bank]').map((input) => ({
-      banco_id:Number(input.dataset.cuadreBank),
-      saldo_final:Math.max(0, Number(input.value || 0))
-    }));
+    const bancosPayload = $$('[data-cuadre-bank]').map((input) => {
+      const bancoId = Number(input.dataset.cuadreBank);
+      const txInput = document.querySelector(`[data-cuadre-transactions="${bancoId}"]`);
+      return {
+        banco_id:bancoId,
+        saldo_final:Math.max(0, Number(input.value || 0)),
+        transacciones:Math.max(0, Math.round(Number(txInput?.value || 0)))
+      };
+    });
 
     const payload = {
       fecha:todayLocal(),

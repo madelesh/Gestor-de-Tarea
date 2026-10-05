@@ -5680,3 +5680,243 @@ textarea{
     grid-template-columns:1fr;
   }
 }
+
+
+/* =========================================================
+   V11.9.1 — Cuadre en lista + transacciones + inputs limpios
+   ========================================================= */
+
+/* Lista tipo Check-in */
+.cuadre-bank-list{
+  width:100%;
+  overflow:hidden;
+  border:1px solid var(--line);
+  border-radius:17px;
+  background:var(--surface);
+}
+
+.cuadre-bank-list-head{
+  display:grid;
+  grid-template-columns:minmax(230px,1.45fr) minmax(130px,.7fr) minmax(130px,.7fr) minmax(170px,.8fr);
+  align-items:center;
+  gap:14px;
+  padding:11px 14px;
+  border-bottom:1px solid var(--line);
+  background:var(--surface-2);
+}
+
+.cuadre-bank-list-head span{
+  color:var(--muted);
+  font-size:10px;
+  font-weight:900;
+  text-transform:uppercase;
+  letter-spacing:.05em;
+}
+
+.cuadre-banks-grid{
+  display:block!important;
+}
+
+.cuadre-bank-row{
+  display:grid;
+  grid-template-columns:minmax(230px,1.45fr) minmax(130px,.7fr) minmax(130px,.7fr) minmax(170px,.8fr);
+  align-items:center;
+  gap:14px;
+  min-height:76px;
+  padding:10px 14px;
+  border-bottom:1px solid var(--line);
+  background:var(--surface);
+}
+
+.cuadre-bank-row:last-child{
+  border-bottom:0;
+}
+
+.cuadre-bank-row:hover{
+  background:color-mix(in srgb,var(--surface) 94%,var(--accent) 6%);
+}
+
+.cuadre-bank-main{
+  display:flex;
+  align-items:center;
+  gap:12px;
+  min-width:0;
+}
+
+.cuadre-bank-main .cuadre-bank-icon{
+  width:50px;
+  height:50px;
+  min-width:50px;
+  border-radius:14px;
+}
+
+.cuadre-bank-main .cuadre-bank-copy strong{
+  overflow:hidden;
+  white-space:nowrap;
+  text-overflow:ellipsis;
+}
+
+.cuadre-bank-opening{
+  min-width:0;
+}
+
+.cuadre-bank-opening strong{
+  font-size:14px;
+}
+
+.cuadre-list-input,
+.cuadre-list-money{
+  min-width:0;
+}
+
+.cuadre-list-input input,
+.cuadre-list-money input{
+  width:100%;
+  height:42px;
+  min-width:0;
+  box-sizing:border-box;
+  border:1px solid var(--line);
+  border-radius:11px;
+  background:var(--surface-2);
+  color:var(--ink);
+  font:inherit;
+  font-weight:800;
+  text-align:right;
+  outline:0;
+}
+
+.cuadre-list-input input{
+  padding:0 12px;
+}
+
+.cuadre-list-money{
+  height:42px!important;
+  display:grid!important;
+  grid-template-columns:auto 1fr!important;
+  align-items:center!important;
+  border:1px solid var(--line)!important;
+  border-radius:11px!important;
+  background:var(--surface-2)!important;
+  overflow:hidden!important;
+}
+
+.cuadre-list-money .currency{
+  padding-left:12px;
+  color:var(--muted);
+  font-weight:900;
+}
+
+.cuadre-list-money input{
+  height:40px!important;
+  padding:0 12px 0 6px!important;
+  border:0!important;
+  border-radius:0!important;
+  background:transparent!important;
+}
+
+.cuadre-mobile-label{
+  display:none;
+}
+
+/* Sin flechas blancas en number inputs */
+.cuadre-section input[type="number"],
+.admin-cuadre-section input[type="number"]{
+  appearance:textfield;
+  -moz-appearance:textfield;
+}
+
+.cuadre-section input[type="number"]::-webkit-outer-spin-button,
+.cuadre-section input[type="number"]::-webkit-inner-spin-button,
+.admin-cuadre-section input[type="number"]::-webkit-outer-spin-button,
+.admin-cuadre-section input[type="number"]::-webkit-inner-spin-button{
+  -webkit-appearance:none;
+  margin:0;
+}
+
+/* Efectivo alineado con el nuevo diseño */
+.cuadre-cash-card{
+  grid-template-columns:54px minmax(0,1fr) minmax(170px,.8fr)!important;
+}
+
+/* Panel administrador: iconos perfectamente centrados */
+.admin-bank-actions{
+  display:flex!important;
+  align-items:center!important;
+  justify-content:flex-end!important;
+  gap:7px!important;
+}
+
+.admin-bank-actions .icon-btn{
+  width:38px!important;
+  height:38px!important;
+  min-width:38px!important;
+  min-height:38px!important;
+  padding:0!important;
+  display:grid!important;
+  place-items:center!important;
+  line-height:1!important;
+  border-radius:11px!important;
+}
+
+.admin-bank-actions .icon-btn .icon{
+  display:block!important;
+  width:16px!important;
+  height:16px!important;
+  margin:0!important;
+  transform:none!important;
+}
+
+.admin-bank-actions .icon-btn.danger{
+  border-color:rgba(255,83,100,.25)!important;
+  background:rgba(255,83,100,.08)!important;
+  color:#ff6876!important;
+}
+
+@media(max-width:900px){
+  .cuadre-bank-list-head{
+    display:none;
+  }
+
+  .cuadre-bank-list{
+    border:0;
+    background:transparent;
+    overflow:visible;
+  }
+
+  .cuadre-bank-row{
+    grid-template-columns:1fr 1fr;
+    gap:11px;
+    margin-bottom:10px;
+    padding:13px;
+    border:1px solid var(--line);
+    border-radius:16px;
+  }
+
+  .cuadre-bank-main{
+    grid-column:1 / -1;
+  }
+
+  .cuadre-mobile-label{
+    display:block;
+    margin-bottom:5px;
+    color:var(--muted);
+    font-size:9px;
+    font-weight:900;
+    text-transform:uppercase;
+    letter-spacing:.04em;
+  }
+}
+
+@media(max-width:560px){
+  .cuadre-bank-row{
+    grid-template-columns:1fr;
+  }
+
+  .cuadre-bank-main{
+    grid-column:auto;
+  }
+
+  .cuadre-cash-card{
+    grid-template-columns:48px 1fr!important;
+  }
+}
