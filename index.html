@@ -9,7 +9,7 @@
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700;800&display=swap" rel="stylesheet">
   <link id="dynamicFavicon" rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 64 64'%3E%3Crect width='64' height='64' rx='16' fill='%23b9ff39'/%3E%3Cpath d='M18 33l9 9 19-22' fill='none' stroke='%23111' stroke-width='7' stroke-linecap='round' stroke-linejoin='round'/%3E%3C/svg%3E" />
-  <link rel="stylesheet" href="styles.css?v=11.10" />
+  <link rel="stylesheet" href="styles.css?v=11.11" />
 </head>
 <body>
   <svg xmlns="http://www.w3.org/2000/svg" style="display:none" aria-hidden="true" focusable="false">
@@ -438,7 +438,7 @@
     <footer class="app-version-footer" aria-label="Versión de la aplicación">
       <span>DeTodoEc</span>
       <span class="version-separator">•</span>
-      <strong>Versión 11.10</strong>
+      <strong>Versión 11.11</strong>
     </footer>
   </div>
 
@@ -726,19 +726,39 @@
       </section>
 
       <section class="profile-goal-card" id="profileGoalCard">
-        <div class="profile-goal-head">
+        <div class="profile-goal-month-head">
           <div>
-            <small>Mi meta de hoy</small>
-            <strong id="profileGoalTitle">Sin meta configurada</strong>
+            <small>Mis metas del mes</small>
+            <strong id="profileGoalMonth">Mes actual</strong>
           </div>
-          <span id="profileGoalPercent">0%</span>
         </div>
-        <div class="goal-progress-track">
-          <span class="goal-progress-fill" id="profileGoalBar" style="width:0%"></span>
+
+        <div class="profile-goal-item">
+          <div class="profile-goal-head">
+            <strong>Ventas</strong>
+            <span id="profileSalesGoalPercent">0%</span>
+          </div>
+          <div class="goal-progress-track">
+            <span class="goal-progress-fill" id="profileSalesGoalBar" style="width:0%"></span>
+          </div>
+          <div class="profile-goal-foot">
+            <span id="profileSalesGoalProgress">$0,00</span>
+            <span id="profileSalesGoalTarget">Meta $0,00</span>
+          </div>
         </div>
-        <div class="profile-goal-foot">
-          <span id="profileGoalProgress">—</span>
-          <span id="profileGoalTarget">—</span>
+
+        <div class="profile-goal-item">
+          <div class="profile-goal-head">
+            <strong>Transacciones</strong>
+            <span id="profileTxGoalPercent">0%</span>
+          </div>
+          <div class="goal-progress-track">
+            <span class="goal-progress-fill" id="profileTxGoalBar" style="width:0%"></span>
+          </div>
+          <div class="profile-goal-foot">
+            <span id="profileTxGoalProgress">0</span>
+            <span id="profileTxGoalTarget">Meta 0</span>
+          </div>
         </div>
       </section>
 
@@ -990,16 +1010,19 @@
           <div>
             <span class="eyebrow">Administrador</span>
             <h3>Metas</h3>
-            <p>Configura la meta diaria de cada usuario y consulta su avance por fecha.</p>
+            <p>Configura las metas mensuales de Ventas y Transacciones y consulta cómo se acumulan día a día.</p>
           </div>
         </div>
 
         <section class="goals-config-panel">
-          <div class="goals-section-title">
+          <div class="goals-section-title goals-section-title-with-filter">
             <div>
-              <h4>Configuración de metas</h4>
-              <p>Por ahora puedes asignar metas de ventas pagadas o número de transacciones. Más adelante se podrán vincular automáticamente al rol.</p>
+              <h4>Configuración de metas mensuales</h4>
+              <p>Cada usuario puede tener al mismo tiempo una meta de Ventas y una meta de Transacciones.</p>
             </div>
+            <label class="goals-month-picker">Mes
+              <input type="month" id="goalsConfigMonth" />
+            </label>
           </div>
           <div id="goalsConfigList" class="goals-config-list"></div>
         </section>
@@ -1008,7 +1031,7 @@
           <div class="goals-history-head">
             <div>
               <h4>Historial diario</h4>
-              <p>Filtra como en Check-in para revisar el cumplimiento de cada día.</p>
+              <p>Las ventas y transacciones de cada día se acumulan automáticamente dentro de la meta mensual.</p>
             </div>
             <div class="goals-filters">
               <label>Usuario
@@ -1034,10 +1057,10 @@
                 <tr>
                   <th>Fecha</th>
                   <th>Usuario</th>
-                  <th>Tipo</th>
-                  <th>Meta</th>
-                  <th>Avance</th>
-                  <th>Progreso</th>
+                  <th>Ventas del día</th>
+                  <th>Transacciones del día</th>
+                  <th>Ventas acumuladas</th>
+                  <th>Transacciones acumuladas</th>
                 </tr>
               </thead>
               <tbody id="goalsHistoryBody"></tbody>
@@ -1333,6 +1356,6 @@
     </article>
   </template>
 
-  <script src="app.js?v=11.10"></script>
+  <script src="app.js?v=11.11"></script>
 </body>
 </html>

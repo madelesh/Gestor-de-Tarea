@@ -6309,3 +6309,146 @@ textarea{
     grid-template-columns:1fr;
   }
 }
+
+
+/* =========================================================
+   V11.11 — Metas mensuales dobles
+   ========================================================= */
+
+.home-goal-month{
+  margin-bottom:10px;
+  color:var(--muted);
+  font-size:10px;
+  font-weight:900;
+  text-transform:uppercase;
+  letter-spacing:.05em;
+}
+
+.home-goal-item + .home-goal-item{
+  margin-top:11px;
+}
+
+.profile-goal-month-head{
+  display:flex;
+  align-items:center;
+  justify-content:space-between;
+  margin-bottom:14px;
+}
+
+.profile-goal-month-head small{
+  display:block;
+  color:var(--muted);
+  font-size:10px;
+  font-weight:900;
+  text-transform:uppercase;
+  letter-spacing:.05em;
+}
+
+.profile-goal-month-head strong{
+  display:block;
+  margin-top:3px;
+  font-size:16px;
+}
+
+.profile-goal-item + .profile-goal-item{
+  margin-top:16px;
+  padding-top:15px;
+  border-top:1px solid var(--line);
+}
+
+.profile-goal-item .profile-goal-head{
+  margin-bottom:8px;
+}
+
+.goals-section-title-with-filter{
+  display:flex;
+  align-items:flex-end;
+  justify-content:space-between;
+  gap:16px;
+}
+
+.goals-month-picker{
+  min-width:180px;
+  display:grid;
+  gap:5px;
+  color:var(--muted);
+  font-size:10px;
+  font-weight:900;
+  text-transform:uppercase;
+}
+
+.goals-month-picker input{
+  min-height:40px;
+  padding:8px 10px;
+  border:1px solid var(--line);
+  border-radius:11px;
+  background:var(--surface);
+  color:var(--ink);
+  font:inherit;
+}
+
+.goal-config-row-dual{
+  grid-template-columns:minmax(230px,1.35fr) minmax(165px,.7fr) minmax(165px,.7fr) auto!important;
+}
+
+.goal-history-progress{
+  min-width:170px;
+  display:grid;
+  grid-template-columns:minmax(90px,auto) 1fr auto;
+  align-items:center;
+  gap:8px;
+}
+
+.goal-history-value strong,
+.goal-history-value small{
+  display:block;
+}
+
+.goal-history-value small{
+  margin-top:2px;
+  color:var(--muted);
+  font-size:9px;
+  white-space:nowrap;
+}
+
+.goal-history-progress > span{
+  font-size:11px;
+  font-weight:900;
+}
+
+.goals-table{
+  min-width:1080px!important;
+}
+
+/* Inputs de metas sin flechas */
+.goal-config-row input[type="number"]{
+  appearance:textfield!important;
+  -moz-appearance:textfield!important;
+}
+
+.goal-config-row input[type="number"]::-webkit-inner-spin-button,
+.goal-config-row input[type="number"]::-webkit-outer-spin-button{
+  -webkit-appearance:none!important;
+  margin:0!important;
+}
+
+@media(max-width:1050px){
+  .goal-config-row-dual{
+    grid-template-columns:1fr 1fr!important;
+  }
+
+  .goals-section-title-with-filter{
+    align-items:stretch;
+    flex-direction:column;
+  }
+
+  .goals-month-picker{
+    min-width:0;
+  }
+}
+
+@media(max-width:620px){
+  .goal-config-row-dual{
+    grid-template-columns:1fr!important;
+  }
+}

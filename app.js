@@ -1,4 +1,4 @@
-const APP_VERSION = '11.10';
+const APP_VERSION = '11.11';
 const API_BASE = 'https://gestor-tareas-api.detodoec.workers.dev';
 const STORAGE_KEY = 'detodoec_tasks_v1';
 const SETTINGS_KEY = 'detodoec_tasks_settings_v3';
@@ -2715,20 +2715,18 @@ function goalForUser(userId) {
   return goalsToday.find((goal) => String(goal.usuario_id) === String(userId)) || null;
 }
 
-function goalMetricLabel(tipo) {
-  return tipo === 'transacciones' ? 'Transacciones' : 'Ventas pagadas';
+function monthlyGoalPercent(current, target) {
+  const objective = Number(target || 0);
+  if (objective <= 0) return 0;
+  return Math.max(0, Math.min(100, (Number(current || 0) / objective) * 100));
 }
 
-function goalValueText(goal, value) {
-  if (!goal) return '—';
-  return goal.tipo === 'transacciones'
-    ? `${Math.round(Number(value || 0))}`
-    : money(Number(value || 0));
-}
-
-function goalPercent(goal) {
-  if (!goal || Number(goal.objetivo || 0) <= 0) return 0;
-  return Math.max(0, Math.min(100, (Number(goal.avance || 0) / Number(goal.objetivo || 0)) * 100));
+function formatGoalMonth(monthValue) {
+  if (!monthValue || !/^\d{4}-\d{2}$/.test(monthValue)) return 'Mes actual';
+  const [year, month] = monthValue.split('-').map(Number);
+  return new Intl.DateTimeFormat('es-EC', { month:'long', year:'numeric' })
+    .format(new Date(year, month - 1, 1))
+    .replace(/^./, (char) => char.toUpperCase());
 }
 
 function renderProfileGoal() {
@@ -2736,23 +2734,50 @@ function renderProfileGoal() {
   const card = $('#profileGoalCard');
   if (!card) return;
 
-  if (!goal || Number(goal.objetivo || 0) <= 0) {
-    $('#profileGoalTitle').textContent = 'Sin meta configurada';
-    $('#profileGoalPercent').textContent = '0%';
-    $('#profileGoalBar').style.width = '0%';
-    $('#profileGoalProgress').textContent = '—';
-    $('#profileGoalTarget').textContent = '—';
-    card.classList.add('empty');
-    return;
-  }
+  const month = goal?.mes || todayLocal().slice(0,7);
+  const sales = Number(goal?.ventas_mes || 0);
+  const salesTarget = Number(goal?.objetivo_ventas || 0);
+  const tx = Number(goal?.transacciones_mes || 0);
+  const txTarget = Number(goal?.objetivo_transacciones || 0);
 
-  card.classList.remove('empty');
-  const percent = goalPercent(goal);
-  $('#profileGoalTitle').textContent = goalMetricLabel(goal.tipo);
-  $('#profileGoalPercent').textContent = `${Math.round(percent)}%`;
-  $('#profileGoalBar').style.width = `${percent}%`;
-  $('#profileGoalProgress').textContent = `Avance: ${goalValueText(goal, goal.avance)}`;
-  $('#profileGoalTarget').textContent = `Meta: ${goalValueText(goal, goal.objetivo)}`;
+  const salesPercent = monthlyGoalPercent(sales, salesTarget);
+  const txPercent = monthlyGoalPercent(tx, txTarget);
+
+  $('#profileGoalMonth').textContent = formatGoalMonth(month);
+
+  $('#profileSalesGoalPercent').textContent = `${Math.round(salesPercent)}%`;
+  $('#profileSalesGoalBar').style.width = `${salesPercent}%`;
+  $('#profileSalesGoalProgress').textContent = money(sales);
+  $('#profileSalesGoalTarget').textContent = `Meta ${money(salesTarget)}`;
+
+  $('#profileTxGoalPercent').textContent = `${Math.round(txPercent)}%`;
+  $('#profileTxGoalBar').style.width = `${txPercent}%`;
+  $('#profileTxGoalProgress').textContent = `${Math.round(tx)} transacciones`;
+  $('#profileTxGoalTarget').textContent = `Meta ${Math.round(txTarget)}`;
+
+  card.classList.toggle('empty', salesTarget <= 0 && txTarget <= 0);
+}
+
+function goalBarMarkup(label, current, target, isMoney = false) {
+  const percent = monthlyGoalPercent(current, target);
+  const currentText = isMoney ? money(Number(current || 0)) : `${Math.round(Number(current || 0))}`;
+  const targetText = isMoney ? money(Number(target || 0)) : `${Math.round(Number(target || 0))}`;
+
+  return `
+    <div class="home-goal-item">
+      <div class="home-goal-head">
+        <span>${escapeHtml(label)}</span>
+        <strong>${Math.round(percent)}%</strong>
+      </div>
+      <div class="goal-progress-track">
+        <span class="goal-progress-fill" style="width:${percent}%"></span>
+      </div>
+      <div class="home-goal-foot">
+        <span>${escapeHtml(currentText)}</span>
+        <span>Meta ${escapeHtml(targetText)}</span>
+      </div>
+    </div>
+  `;
 }
 
 function renderHomeUsers() {
@@ -2772,28 +2797,13 @@ function renderHomeUsers() {
       : 'Sin jornada abierta';
 
     const goal = goalForUser(user.id);
-    const percent = goalPercent(goal);
-    const goalMarkup = goal && Number(goal.objetivo || 0) > 0
-      ? `
-        <div class="home-goal-block">
-          <div class="home-goal-head">
-            <span>${escapeHtml(goalMetricLabel(goal.tipo))}</span>
-            <strong>${Math.round(percent)}%</strong>
-          </div>
-          <div class="goal-progress-track">
-            <span class="goal-progress-fill" style="width:${percent}%"></span>
-          </div>
-          <div class="home-goal-foot">
-            <span>${escapeHtml(goalValueText(goal, goal.avance))}</span>
-            <span>Meta ${escapeHtml(goalValueText(goal, goal.objetivo))}</span>
-          </div>
-        </div>`
-      : `
-        <div class="home-goal-block empty">
-          <div class="home-goal-head"><span>Meta diaria</span><strong>—</strong></div>
-          <div class="goal-progress-track"><span class="goal-progress-fill" style="width:0%"></span></div>
-          <div class="home-goal-foot"><span>Sin meta configurada</span><span></span></div>
-        </div>`;
+    const month = goal?.mes || todayLocal().slice(0,7);
+    const goalMarkup = `
+      <div class="home-goal-block ${(!goal || (Number(goal.objetivo_ventas || 0) <= 0 && Number(goal.objetivo_transacciones || 0) <= 0)) ? 'empty' : ''}">
+        <div class="home-goal-month">${escapeHtml(formatGoalMonth(month))}</div>
+        ${goalBarMarkup('Ventas', goal?.ventas_mes || 0, goal?.objetivo_ventas || 0, true)}
+        ${goalBarMarkup('Transacciones', goal?.transacciones_mes || 0, goal?.objetivo_transacciones || 0, false)}
+      </div>`;
 
     card.innerHTML = `
       <div class="home-worker-main">
@@ -3958,6 +3968,13 @@ async function refreshGoalsToday({ silent = false } = {}) {
   }
 }
 
+function currentGoalConfigMonth() {
+  const input = $('#goalsConfigMonth');
+  const fallback = todayLocal().slice(0,7);
+  if (input && !input.value) input.value = fallback;
+  return input?.value || fallback;
+}
+
 function renderGoalsConfig() {
   const list = $('#goalsConfigList');
   if (!list) return;
@@ -3965,8 +3982,9 @@ function renderGoalsConfig() {
 
   goalsConfig.forEach((goal) => {
     const card = document.createElement('article');
-    card.className = 'goal-config-row';
+    card.className = 'goal-config-row goal-config-row-dual';
     card.dataset.goalUser = goal.usuario_id;
+
     card.innerHTML = `
       <div class="goal-config-user">
         <span class="goal-user-avatar">
@@ -3978,19 +3996,22 @@ function renderGoalsConfig() {
         </span>
       </div>
 
-      <label>Tipo de meta
-        <select data-goal-type="${goal.usuario_id}">
-          <option value="ventas" ${goal.tipo === 'ventas' ? 'selected' : ''}>Ventas pagadas ($)</option>
-          <option value="transacciones" ${goal.tipo === 'transacciones' ? 'selected' : ''}>Número de transacciones</option>
-        </select>
-      </label>
-
-      <label>Meta diaria
+      <label>Meta de Ventas ($)
         <input type="number"
           min="0"
-          step="${goal.tipo === 'transacciones' ? '1' : '0.01'}"
-          data-goal-target="${goal.usuario_id}"
-          value="${Number(goal.objetivo || 0)}" />
+          step="0.01"
+          inputmode="decimal"
+          data-goal-sales-target="${goal.usuario_id}"
+          value="${Number(goal.objetivo_ventas || 0)}" />
+      </label>
+
+      <label>Meta de Transacciones
+        <input type="number"
+          min="0"
+          step="1"
+          inputmode="numeric"
+          data-goal-tx-target="${goal.usuario_id}"
+          value="${Math.round(Number(goal.objetivo_transacciones || 0))}" />
       </label>
 
       <button type="button" class="btn btn-accent small" data-save-goal="${goal.usuario_id}">
@@ -4005,9 +4026,15 @@ function populateGoalsUserFilter() {
   const select = $('#goalsUserFilter');
   if (!select) return;
   const current = select.value;
+
   select.innerHTML = '<option value="">Todos los usuarios</option>' +
-    goalsConfig.map((goal) => `<option value="${goal.usuario_id}">${escapeHtml(goal.nombre || goal.usuario)}</option>`).join('');
-  if (current && [...select.options].some((o) => o.value === current)) select.value = current;
+    goalsConfig.map((goal) =>
+      `<option value="${goal.usuario_id}">${escapeHtml(goal.nombre || goal.usuario)}</option>`
+    ).join('');
+
+  if (current && [...select.options].some((o) => o.value === current)) {
+    select.value = current;
+  }
 }
 
 function renderGoalsHistory() {
@@ -4017,30 +4044,47 @@ function renderGoalsHistory() {
   tbody.innerHTML = '';
 
   goalsHistory.forEach((row) => {
-    const percent = Number(row.objetivo || 0) > 0
-      ? Math.max(0, Math.min(100, (Number(row.avance || 0) / Number(row.objetivo || 0)) * 100))
-      : 0;
-
-    const valueText = row.tipo === 'transacciones'
-      ? (value) => `${Math.round(Number(value || 0))}`
-      : (value) => money(Number(value || 0));
+    const salesPercent = monthlyGoalPercent(row.ventas_acumuladas, row.objetivo_ventas);
+    const txPercent = monthlyGoalPercent(row.transacciones_acumuladas, row.objetivo_transacciones);
 
     const tr = document.createElement('tr');
     tr.innerHTML = `
       <td>${escapeHtml(formatAttendanceDate(row.fecha))}</td>
       <td>
         <div class="goal-table-user">
-          <span class="goal-table-avatar">${row.foto_url ? `<img src="${escapeHtml(row.foto_url)}" alt="" />` : iconUse('icon-user')}</span>
-          <span><strong>${escapeHtml(row.nombre || row.usuario)}</strong><small>@${escapeHtml(row.usuario)}</small></span>
+          <span class="goal-table-avatar">
+            ${row.foto_url ? `<img src="${escapeHtml(row.foto_url)}" alt="" />` : iconUse('icon-user')}
+          </span>
+          <span>
+            <strong>${escapeHtml(row.nombre || row.usuario)}</strong>
+            <small>@${escapeHtml(row.usuario)}</small>
+          </span>
         </div>
       </td>
-      <td>${escapeHtml(goalMetricLabel(row.tipo))}</td>
-      <td><strong>${escapeHtml(valueText(row.objetivo))}</strong></td>
-      <td><strong>${escapeHtml(valueText(row.avance))}</strong></td>
+      <td><strong>${money(Number(row.ventas_dia || 0))}</strong></td>
+      <td><strong>${Math.round(Number(row.transacciones_dia || 0))}</strong></td>
       <td>
-        <div class="goal-table-progress">
-          <div class="goal-progress-track"><span class="goal-progress-fill" style="width:${percent}%"></span></div>
-          <strong>${Math.round(percent)}%</strong>
+        <div class="goal-history-progress">
+          <div class="goal-history-value">
+            <strong>${money(Number(row.ventas_acumuladas || 0))}</strong>
+            <small>de ${money(Number(row.objetivo_ventas || 0))}</small>
+          </div>
+          <div class="goal-progress-track">
+            <span class="goal-progress-fill" style="width:${salesPercent}%"></span>
+          </div>
+          <span>${Math.round(salesPercent)}%</span>
+        </div>
+      </td>
+      <td>
+        <div class="goal-history-progress">
+          <div class="goal-history-value">
+            <strong>${Math.round(Number(row.transacciones_acumuladas || 0))}</strong>
+            <small>de ${Math.round(Number(row.objetivo_transacciones || 0))}</small>
+          </div>
+          <div class="goal-progress-track">
+            <span class="goal-progress-fill" style="width:${txPercent}%"></span>
+          </div>
+          <span>${Math.round(txPercent)}%</span>
         </div>
       </td>
     `;
@@ -4051,7 +4095,8 @@ function renderGoalsHistory() {
 }
 
 async function refreshGoalsConfig() {
-  const rows = await apiFetch(`/api/metas/config?_=${Date.now()}`, { cache:'no-store' });
+  const month = currentGoalConfigMonth();
+  const rows = await apiFetch(`/api/metas/config?mes=${encodeURIComponent(month)}&_=${Date.now()}`, { cache:'no-store' });
   goalsConfig = Array.isArray(rows) ? rows : [];
   renderGoalsConfig();
   populateGoalsUserFilter();
@@ -4078,6 +4123,7 @@ async function refreshGoalsHistory() {
 
 async function refreshGoalsAdmin() {
   try {
+    currentGoalConfigMonth();
     await Promise.all([refreshGoalsConfig(), refreshGoalsHistory()]);
   } catch (err) {
     showToast(err.message, 'No se pudieron cargar las metas');
@@ -4085,21 +4131,38 @@ async function refreshGoalsAdmin() {
 }
 
 async function saveGoalConfig(userId) {
-  const type = document.querySelector(`[data-goal-type="${CSS.escape(String(userId))}"]`)?.value || 'ventas';
-  const target = Math.max(0, Number(document.querySelector(`[data-goal-target="${CSS.escape(String(userId))}"]`)?.value || 0));
+  const salesTarget = Math.max(
+    0,
+    Number(document.querySelector(`[data-goal-sales-target="${CSS.escape(String(userId))}"]`)?.value || 0)
+  );
+  const txTarget = Math.max(
+    0,
+    Math.round(Number(document.querySelector(`[data-goal-tx-target="${CSS.escape(String(userId))}"]`)?.value || 0))
+  );
+  const month = currentGoalConfigMonth();
 
   try {
     const result = await apiFetch(`/api/metas/config/${userId}`, {
       method:'PUT',
       headers:{'Content-Type':'application/json'},
-      body:JSON.stringify({ tipo:type, objetivo:target })
+      body:JSON.stringify({
+        mes:month,
+        objetivo_ventas:salesTarget,
+        objetivo_transacciones:txTarget
+      })
     });
-    showToast(result.mensaje || 'Meta guardada.', 'Metas');
-    await Promise.all([refreshGoalsConfig(), refreshGoalsHistory(), refreshGoalsToday({ silent:true })]);
+
+    showToast(result.mensaje || 'Metas guardadas.', 'Metas');
+    await Promise.all([
+      refreshGoalsConfig(),
+      refreshGoalsHistory(),
+      refreshGoalsToday({ silent:true })
+    ]);
   } catch (err) {
-    showToast(err.message, 'No se pudo guardar la meta');
+    showToast(err.message, 'No se pudieron guardar las metas');
   }
 }
+
 
 function setTheme(theme, persist = true) {
   const next = theme === 'dark' ? 'dark' : 'light';
@@ -4251,19 +4314,13 @@ on('detailImageNext', 'click', () => {
 });
 on('refreshAttendance', 'click', refreshAttendance);
 on('refreshGoalsHistory', 'click', refreshGoalsHistory);
+on('goalsConfigMonth', 'change', refreshGoalsConfig);
 on('goalsStartDate', 'change', refreshGoalsHistory);
 on('goalsEndDate', 'change', refreshGoalsHistory);
 on('goalsUserFilter', 'change', refreshGoalsHistory);
 $('#goalsConfigList')?.addEventListener('click', (e) => {
   const save = e.target.closest('[data-save-goal]');
   if (save) saveGoalConfig(save.dataset.saveGoal);
-});
-$('#goalsConfigList')?.addEventListener('change', (e) => {
-  const type = e.target.closest('[data-goal-type]');
-  if (!type) return;
-  const id = type.dataset.goalType;
-  const input = document.querySelector(`[data-goal-target="${CSS.escape(String(id))}"]`);
-  if (input) input.step = type.value === 'transacciones' ? '1' : '0.01';
 });
 
 on('refreshCuadre', 'click', refreshCuadre);
