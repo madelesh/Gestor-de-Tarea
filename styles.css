@@ -6743,3 +6743,137 @@ textarea{
     grid-template-columns:1fr;
   }
 }
+
+
+/* =========================================================
+   V11.11.3 — Guardado global + metas Home en lista vertical
+   ========================================================= */
+
+/* Configuración admin: una sola acción global */
+.goal-config-row-dual{
+  grid-template-columns:minmax(230px,1.35fr) minmax(220px,.9fr) minmax(220px,.9fr)!important;
+}
+
+.goals-save-all-wrap{
+  display:flex;
+  justify-content:flex-end;
+  margin-top:16px;
+  padding-top:15px;
+  border-top:1px solid var(--line);
+}
+
+.goals-save-all-btn{
+  min-height:48px!important;
+  padding:0 20px!important;
+  gap:8px!important;
+  font-weight:900!important;
+}
+
+.goals-save-all-btn .icon{
+  width:17px!important;
+  height:17px!important;
+}
+
+/* Home: usuarios uno debajo de otro */
+.home-goals-grid{
+  display:flex!important;
+  flex-direction:column!important;
+  gap:12px!important;
+}
+
+.home-goal-user-card{
+  width:100%!important;
+  display:grid!important;
+  grid-template-columns:minmax(220px,280px) minmax(0,1fr)!important;
+  align-items:stretch!important;
+}
+
+.home-goal-user-head{
+  border-bottom:0!important;
+  border-right:1px solid var(--line)!important;
+}
+
+.home-goal-user-body{
+  display:grid!important;
+  grid-template-columns:repeat(2,minmax(0,1fr))!important;
+  gap:0!important;
+  padding:0!important;
+}
+
+.home-goal-metric{
+  padding:14px 16px!important;
+}
+
+.home-goal-metric + .home-goal-metric{
+  margin-top:0!important;
+  padding-top:14px!important;
+  border-top:0!important;
+  border-left:1px solid var(--line)!important;
+}
+
+/* Metas no activas */
+.home-goal-metric.inactive{
+  opacity:.72;
+  background:color-mix(in srgb,var(--surface-2) 92%,var(--muted) 8%);
+}
+
+.goal-not-active{
+  padding:4px 8px!important;
+  border-radius:999px!important;
+  background:var(--surface)!important;
+  color:var(--muted)!important;
+  font-size:10px!important;
+}
+
+.home-goal-inactive-text{
+  display:flex;
+  align-items:center;
+  min-height:34px;
+  color:var(--muted);
+  font-size:11px;
+  font-weight:700;
+}
+
+/* Toggle admin inactive inputs better differentiated */
+.goal-enable-block > input:disabled{
+  opacity:.45!important;
+  background:color-mix(in srgb,var(--surface-2) 88%,var(--muted) 12%)!important;
+}
+
+/* "No activa" también visible en admin junto al toggle apagado */
+.goal-enable-switch input:not(:checked) ~ strong::after{
+  content:" · No activa";
+  color:var(--muted);
+  font-size:10px;
+  font-weight:700;
+}
+
+@media(max-width:1050px){
+  .goal-config-row-dual{
+    grid-template-columns:1fr!important;
+  }
+
+  .home-goal-user-card{
+    grid-template-columns:1fr!important;
+  }
+
+  .home-goal-user-head{
+    border-right:0!important;
+    border-bottom:1px solid var(--line)!important;
+  }
+}
+
+@media(max-width:700px){
+  .home-goal-user-body{
+    grid-template-columns:1fr!important;
+  }
+
+  .home-goal-metric + .home-goal-metric{
+    border-left:0!important;
+    border-top:1px solid var(--line)!important;
+  }
+
+  .goals-save-all-btn{
+    width:100%!important;
+  }
+}

@@ -1,4 +1,4 @@
-const APP_VERSION = '11.11.2';
+const APP_VERSION = '11.11.3';
 const API_BASE = 'https://gestor-tareas-api.detodoec.workers.dev';
 const STORAGE_KEY = 'detodoec_tasks_v1';
 const SETTINGS_KEY = 'detodoec_tasks_settings_v3';
@@ -2864,13 +2864,7 @@ function renderHomeGoals() {
 
   const usersById = new Map(homeUsers.map((user) => [String(user.id), user]));
 
-  const visibleGoals = goalsToday.filter((goal) => {
-    const salesActive = Number(goal.ventas_activa ?? 1) === 1;
-    const txActive = Number(goal.transacciones_activa ?? 1) === 1;
-    return salesActive || txActive;
-  });
-
-  visibleGoals.forEach((goal) => {
+  goalsToday.forEach((goal) => {
     const user = usersById.get(String(goal.usuario_id)) || goal;
     const salesActive = Number(goal.ventas_activa ?? 1) === 1;
     const txActive = Number(goal.transacciones_activa ?? 1) === 1;
@@ -2893,12 +2887,14 @@ function renderHomeGoals() {
       </div>
 
       <div class="home-goal-user-body">
-        ${salesActive ? `
-          <section class="home-goal-metric">
-            <div class="home-goal-metric-head">
-              <span>Ventas</span>
-              <strong>${Math.round(salesPercent)}%</strong>
-            </div>
+        <section class="home-goal-metric ${salesActive ? '' : 'inactive'}">
+          <div class="home-goal-metric-head">
+            <span>Ventas</span>
+            ${salesActive
+              ? `<strong>${Math.round(salesPercent)}%</strong>`
+              : `<strong class="goal-not-active">No activa</strong>`}
+          </div>
+          ${salesActive ? `
             <div class="goal-progress-track">
               <span class="goal-progress-fill" style="width:${salesPercent}%"></span>
             </div>
@@ -2906,15 +2902,19 @@ function renderHomeGoals() {
               <strong>${money(Number(goal.ventas_mes || 0))}</strong>
               <span>Meta ${money(Number(goal.objetivo_ventas || 0))}</span>
             </div>
-          </section>
-        ` : ''}
+          ` : `
+            <div class="home-goal-inactive-text">Esta meta no está activa para este usuario.</div>
+          `}
+        </section>
 
-        ${txActive ? `
-          <section class="home-goal-metric">
-            <div class="home-goal-metric-head">
-              <span>Transacciones</span>
-              <strong>${Math.round(txPercent)}%</strong>
-            </div>
+        <section class="home-goal-metric ${txActive ? '' : 'inactive'}">
+          <div class="home-goal-metric-head">
+            <span>Transacciones</span>
+            ${txActive
+              ? `<strong>${Math.round(txPercent)}%</strong>`
+              : `<strong class="goal-not-active">No activa</strong>`}
+          </div>
+          ${txActive ? `
             <div class="goal-progress-track">
               <span class="goal-progress-fill" style="width:${txPercent}%"></span>
             </div>
@@ -2922,15 +2922,17 @@ function renderHomeGoals() {
               <strong>${Math.round(Number(goal.transacciones_mes || 0))}</strong>
               <span>Meta ${Math.round(Number(goal.objetivo_transacciones || 0))}</span>
             </div>
-          </section>
-        ` : ''}
+          ` : `
+            <div class="home-goal-inactive-text">Esta meta no está activa para este usuario.</div>
+          `}
+        </section>
       </div>
     `;
 
     grid.appendChild(card);
   });
 
-  empty.hidden = visibleGoals.length > 0;
+  empty.hidden = goalsToday.length > 0;
 }
 async function refreshHomeUsers() {
   if (!currentUser || !userCan('home')) return;
@@ -4108,10 +4110,6 @@ function renderGoalsConfig() {
           ${txActive ? '' : 'disabled'}
         />
       </div>
-
-      <button type="button" class="btn btn-accent small" data-save-goal="${goal.usuario_id}">
-        Guardar
-      </button>
     `;
     list.appendChild(card);
   });
@@ -4228,7 +4226,7 @@ async function refreshGoalsAdmin() {
   }
 }
 
-async function saveGoalConfig(userId) {
+function collectGoalConfigPayload(userId) {
   const salesActive = Boolean(
     document.querySelector(`[data-goal-sales-active="${CSS.escape(String(userId))}"]`)?.checked
   );
@@ -4237,8 +4235,7 @@ async function saveGoalConfig(userId) {
   );
 
   if (!salesActive && !txActive) {
-    showToast('Debes dejar al menos una meta activa.', 'Metas');
-    return;
+    throw new Error('Cada usuario debe tener al menos una meta activa.');
   }
 
   const salesTarget = Math.max(
@@ -4249,22 +4246,37 @@ async function saveGoalConfig(userId) {
     0,
     Math.round(Number(document.querySelector(`[data-goal-tx-target="${CSS.escape(String(userId))}"]`)?.value || 0))
   );
-  const month = currentGoalConfigMonth();
+
+  return {
+    mes:currentGoalConfigMonth(),
+    objetivo_ventas:salesTarget,
+    objetivo_transacciones:txTarget,
+    ventas_activa:salesActive,
+    transacciones_activa:txActive
+  };
+}
+
+async function saveAllGoalConfigs() {
+  const button = $('#saveAllGoals');
+  if (button) button.disabled = true;
 
   try {
-    const result = await apiFetch(`/api/metas/config/${userId}`, {
-      method:'PUT',
-      headers:{'Content-Type':'application/json'},
-      body:JSON.stringify({
-        mes:month,
-        objetivo_ventas:salesTarget,
-        objetivo_transacciones:txTarget,
-        ventas_activa:salesActive,
-        transacciones_activa:txActive
-      })
-    });
+    const payloads = goalsConfig.map((goal) => ({
+      userId:goal.usuario_id,
+      payload:collectGoalConfigPayload(goal.usuario_id)
+    }));
 
-    showToast(result.mensaje || 'Metas guardadas.', 'Metas');
+    await Promise.all(
+      payloads.map(({ userId, payload }) =>
+        apiFetch(`/api/metas/config/${userId}`, {
+          method:'PUT',
+          headers:{'Content-Type':'application/json'},
+          body:JSON.stringify(payload)
+        })
+      )
+    );
+
+    showToast('Todas las metas fueron guardadas correctamente.', 'Metas');
     await Promise.all([
       refreshGoalsConfig(),
       refreshGoalsHistory(),
@@ -4272,6 +4284,8 @@ async function saveGoalConfig(userId) {
     ]);
   } catch (err) {
     showToast(err.message, 'No se pudieron guardar las metas');
+  } finally {
+    if (button) button.disabled = false;
   }
 }
 
@@ -4429,10 +4443,7 @@ on('refreshGoalsHistory', 'click', refreshGoalsHistory);
 on('goalsStartDate', 'change', refreshGoalsHistory);
 on('goalsEndDate', 'change', refreshGoalsHistory);
 on('goalsUserFilter', 'change', refreshGoalsHistory);
-$('#goalsConfigList')?.addEventListener('click', (e) => {
-  const save = e.target.closest('[data-save-goal]');
-  if (save) saveGoalConfig(save.dataset.saveGoal);
-});
+on('saveAllGoals', 'click', saveAllGoalConfigs);
 $('#goalsConfigList')?.addEventListener('change', (e) => {
   const salesToggle = e.target.closest('[data-goal-sales-active]');
   const txToggle = e.target.closest('[data-goal-tx-active]');
