@@ -1,4 +1,4 @@
-const APP_VERSION = '11.12.1';
+const APP_VERSION = '11.12.2';
 const API_BASE = 'https://gestor-tareas-api.detodoec.workers.dev';
 const STORAGE_KEY = 'detodoec_tasks_v1';
 const SETTINGS_KEY = 'detodoec_tasks_settings_v3';
@@ -4556,17 +4556,23 @@ on('goalsBankUserFilter', 'change', refreshGoalsBankStats);
 
 $('#adminGoalsNav')?.addEventListener('click', (e) => {
   e.preventDefault();
-  e.stopPropagation();
+  e.stopImmediatePropagation();
 
   const subnav = $('#goalsSubnav');
-  if (!subnav) return;
+  const button = $('#adminGoalsNav');
+  if (!subnav || !button) return;
 
-  const willOpen = subnav.hidden;
-  subnav.hidden = !willOpen;
-  $('#adminGoalsNav')?.classList.toggle('expanded', willOpen);
+  const isOpen = !subnav.hidden;
 
-  // No abre Editor/Historial/Bancos automáticamente.
-  // Metas funciona únicamente como cabecera desplegable.
+  if (isOpen) {
+    subnav.hidden = true;
+    button.classList.remove('expanded');
+    button.setAttribute('aria-expanded', 'false');
+  } else {
+    subnav.hidden = false;
+    button.classList.add('expanded');
+    button.setAttribute('aria-expanded', 'true');
+  }
 });
 
 $('#goalsSubnav')?.addEventListener('click', async (e) => {
@@ -4576,9 +4582,16 @@ $('#goalsSubnav')?.addEventListener('click', async (e) => {
   e.preventDefault();
   e.stopPropagation();
 
-  // Al pulsar una subpestaña sí se abre la sección Metas
-  // y se muestra solamente la subvista seleccionada.
   showAdminSection('metas');
+
+  const subnav = $('#goalsSubnav');
+  const parent = $('#adminGoalsNav');
+  if (subnav) subnav.hidden = false;
+  if (parent) {
+    parent.classList.add('expanded');
+    parent.setAttribute('aria-expanded', 'true');
+  }
+
   await refreshGoalsAdmin();
   setGoalsSubview(btn.dataset.goalsSubtarget);
 });
