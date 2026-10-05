@@ -4929,3 +4929,64 @@ body.admin-page-open{
     font-size:28px!important;
   }
 }
+
+
+/* =========================================================
+   V11.8.4 — Selector de tema sin texto
+   ========================================================= */
+
+.profile-dropdown .profile-theme-icon-only{
+  width:100%!important;
+  min-height:46px!important;
+  display:grid!important;
+  grid-template-columns:22px minmax(0,1fr) auto!important;
+  align-items:center!important;
+  gap:10px!important;
+  padding:7px 10px!important;
+  margin:1px 0!important;
+  background:transparent!important;
+  border-radius:11px!important;
+}
+
+.profile-theme-left-icon{
+  width:22px!important;
+  height:22px!important;
+  display:grid!important;
+  place-items:center!important;
+  justify-self:start!important;
+  color:var(--muted)!important;
+}
+
+.profile-theme-left-icon .icon{
+  width:16px!important;
+  height:16px!important;
+}
+
+.profile-theme-icon-only::after{
+  content:""!important;
+  display:block!important;
+}
+
+.profile-theme-icon-only .theme-switch{
+  grid-column:3!important;
+  justify-self:end!important;
+  margin:0!important;
+  width:58px!important;
+  height:30px!important;
+}
+
+.profile-theme-icon-only .theme-switch-knob{
+  width:22px!important;
+  height:22px!important;
+  top:4px!important;
+  left:4px!important;
+}
+
+.profile-theme-icon-only .theme-switch.is-dark .theme-switch-knob{
+  transform:translateX(28px)!important;
+}
+
+.profile-theme-icon-only .theme-switch-sun,
+.profile-theme-icon-only .theme-switch-moon{
+  font-size:13px!important;
+}
