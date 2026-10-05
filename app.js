@@ -1,4 +1,4 @@
-const APP_VERSION = '11.8.1';
+const APP_VERSION = '11.8.2';
 const API_BASE = 'https://gestor-tareas-api.detodoec.workers.dev';
 const STORAGE_KEY = 'detodoec_tasks_v1';
 const SETTINGS_KEY = 'detodoec_tasks_settings_v3';
@@ -6,8 +6,17 @@ const EMPLOYEES_KEY = 'detodoec_employees_v1';
 const MIGRATION_KEY = 'detodoec_cloud_migration_v8';
 const SESSION_KEY = 'detodoec_session_v11';
 const SESSION_USER_KEY = 'detodoec_session_user_v11';
-let sessionToken = localStorage.getItem(SESSION_KEY) || '';
+let sessionToken = sessionStorage.getItem(SESSION_KEY) || '';
 let currentUser = null;
+
+// V11.8.2: las sesiones son independientes por pestaña.
+// Eliminamos únicamente las antiguas claves compartidas para que una pestaña
+// no pueda cerrar o reemplazar la sesión de otra.
+try {
+  localStorage.removeItem(SESSION_KEY);
+  localStorage.removeItem(SESSION_USER_KEY);
+} catch {}
+
 let attendanceState = null;
 let adminUsers = [];
 let appRoles = [];
@@ -320,8 +329,8 @@ async function apiFetch(path, options = {}) {
     if (res.status === 401 && path === '/api/auth/me') {
       sessionToken = '';
       currentUser = null;
-      localStorage.removeItem(SESSION_KEY);
-      localStorage.removeItem(SESSION_USER_KEY);
+      sessionStorage.removeItem(SESSION_KEY);
+      sessionStorage.removeItem(SESSION_USER_KEY);
       showAuthGate('Tu sesión expiró. Inicia sesión nuevamente.');
     }
 
@@ -2393,8 +2402,8 @@ async function loginApp(username, password) {
 
   sessionToken = result.token;
   currentUser = result.usuario;
-  localStorage.setItem(SESSION_KEY, sessionToken);
-  localStorage.setItem(SESSION_USER_KEY, JSON.stringify(currentUser));
+  sessionStorage.setItem(SESSION_KEY, sessionToken);
+  sessionStorage.setItem(SESSION_USER_KEY, JSON.stringify(currentUser));
 
   // La sesión ya es válida: abre la aplicación inmediatamente.
   updateCurrentUserUI();
@@ -2565,7 +2574,9 @@ function bindCoreNavigationEarly() {
   safeBind('profileThemeMenu', () => {
     toggleTheme();
     const themeSwitch = $('#profileThemeSwitch');
-    if (themeSwitch) themeSwitch.classList.toggle('is-dark', document.documentElement.dataset.theme === 'dark');
+    if (themeSwitch) {
+      themeSwitch.classList.toggle('is-dark', document.documentElement.dataset.theme === 'dark');
+    }
   });
 
   safeBind('profileLogoutMenu', async () => {
@@ -2614,7 +2625,7 @@ async function restoreSession() {
 
   // Restaura la interfaz inmediatamente para no pedir login en cada recarga.
   try {
-    const cached = JSON.parse(localStorage.getItem(SESSION_USER_KEY) || 'null');
+    const cached = JSON.parse(sessionStorage.getItem(SESSION_USER_KEY) || 'null');
     if (cached) {
       currentUser = cached;
       updateCurrentUserUI();
@@ -2629,7 +2640,7 @@ async function restoreSession() {
     if (!result?.usuario) throw new Error('Sesión inválida');
 
     currentUser = result.usuario;
-    localStorage.setItem(SESSION_USER_KEY, JSON.stringify(currentUser));
+    sessionStorage.setItem(SESSION_USER_KEY, JSON.stringify(currentUser));
     updateCurrentUserUI();
     hideAuthGate();
 
@@ -2651,8 +2662,8 @@ async function restoreSession() {
 
     sessionToken = '';
     currentUser = null;
-    localStorage.removeItem(SESSION_KEY);
-    localStorage.removeItem(SESSION_USER_KEY);
+    sessionStorage.removeItem(SESSION_KEY);
+    sessionStorage.removeItem(SESSION_USER_KEY);
     return false;
   }
 }
@@ -2661,8 +2672,8 @@ async function logoutApp() {
   sessionToken = '';
   currentUser = null;
   attendanceState = null;
-  localStorage.removeItem(SESSION_KEY);
-  localStorage.removeItem(SESSION_USER_KEY);
+  sessionStorage.removeItem(SESSION_KEY);
+  sessionStorage.removeItem(SESSION_USER_KEY);
   $('#profileDialog')?.close();
   showAuthGate();
 }
@@ -3944,7 +3955,7 @@ $('#profileForm')?.addEventListener('submit', async (e) => {
     };
     const result = await apiFetch('/api/auth/perfil', { method:'PUT', headers:{'Content-Type':'application/json'}, body:JSON.stringify(payload) });
     currentUser = result.usuario;
-    localStorage.setItem(SESSION_USER_KEY, JSON.stringify(currentUser));
+    sessionStorage.setItem(SESSION_USER_KEY, JSON.stringify(currentUser));
     updateCurrentUserUI();
     $('#profileDialog').close();
     showToast('Tus datos fueron actualizados.', 'Perfil actualizado');

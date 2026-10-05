@@ -4664,3 +4664,48 @@ body.admin-page-open{
 .profile-theme-icon{width:24px;height:24px;display:grid;place-items:center;color:var(--muted)}.profile-theme-icon .icon{width:17px;height:17px}
 .theme-switch{position:relative;width:64px;height:32px;display:block;border-radius:999px;background:#d4d4d4;box-shadow:inset 0 0 0 1px rgba(0,0,0,.10);transition:.18s ease;pointer-events:none}.theme-switch-knob{position:absolute;z-index:3;top:4px;left:4px;width:24px;height:24px;border-radius:50%;background:#fff;box-shadow:0 2px 7px rgba(0,0,0,.22);transition:transform .2s ease}.theme-switch-sun,.theme-switch-moon{position:absolute;top:50%;transform:translateY(-50%);font-size:14px;line-height:1;color:#fff;opacity:.9}.theme-switch-sun{right:9px}.theme-switch-moon{left:9px;opacity:0}.theme-switch.is-dark{background:#242424}.theme-switch.is-dark .theme-switch-knob{transform:translateX(32px)}.theme-switch.is-dark .theme-switch-sun{opacity:0}.theme-switch.is-dark .theme-switch-moon{opacity:1}
 @media(max-width:760px){.admin-page .admin-content{padding:20px 14px!important}.admin-users-cards-v2{grid-template-columns:repeat(auto-fill,minmax(155px,1fr))!important}.profile-dropdown{min-width:min(290px,calc(100vw - 24px))!important}}
+
+
+/* =========================================================
+   V11.8.2 — Tema al final + sesiones independientes
+   ========================================================= */
+
+/* El cambiador de tema es únicamente el switch, al final del menú */
+.profile-dropdown .profile-theme-only{
+  min-height:46px!important;
+  display:flex!important;
+  align-items:center!important;
+  justify-content:flex-end!important;
+  padding:7px 11px!important;
+  grid-template-columns:none!important;
+}
+
+.profile-dropdown .profile-theme-only:hover{
+  background:var(--surface-2)!important;
+}
+
+.profile-theme-only .theme-switch{
+  margin:0!important;
+}
+
+/* Switch más grande y claro */
+.profile-theme-only .theme-switch{
+  width:68px!important;
+  height:34px!important;
+}
+
+.profile-theme-only .theme-switch-knob{
+  top:4px!important;
+  left:4px!important;
+  width:26px!important;
+  height:26px!important;
+}
+
+.profile-theme-only .theme-switch.is-dark .theme-switch-knob{
+  transform:translateX(34px)!important;
+}
+
+.profile-theme-only .theme-switch-sun,
+.profile-theme-only .theme-switch-moon{
+  font-size:15px!important;
+}
