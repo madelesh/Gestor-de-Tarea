@@ -1,4 +1,4 @@
-const APP_VERSION = '11.8.6';
+const APP_VERSION = '11.9';
 const API_BASE = 'https://gestor-tareas-api.detodoec.workers.dev';
 const STORAGE_KEY = 'detodoec_tasks_v1';
 const SETTINGS_KEY = 'detodoec_tasks_settings_v3';
@@ -23,6 +23,10 @@ let appRoles = [];
 let selectedRoleId = '';
 let homeUsers = [];
 let homeRefreshTimer = null;
+let banks = [];
+let bankImageFile = null;
+let bankImageUrl = '';
+let cuadreCurrent = null;
 let focusedCheckinUserId = null;
 let currentAttendanceRows = [];
 let editingCheckinId = null;
@@ -2231,7 +2235,7 @@ async function refreshMyCheckin() {
 function showMyCheckinPage() {
   hideStandalonePages();
 
-  ['home','resumen','tareas','archivados','cotizador','disenos'].forEach((id) => {
+  ['home','resumen','tareas','archivados','cotizador','cuadre','disenos'].forEach((id) => {
     const el = $('#' + id);
     if (el) el.hidden = true;
   });
@@ -2244,7 +2248,7 @@ function showMyCheckinPage() {
 
 function showSettingsPage() {
   hideStandalonePages();
-  ['home','resumen','tareas','archivados','cotizador','disenos'].forEach((id) => {
+  ['home','resumen','tareas','archivados','cotizador','cuadre','disenos'].forEach((id) => {
     const el = $('#' + id);
     if (el) el.hidden = true;
   });
@@ -2259,6 +2263,7 @@ function showMainView(view) {
     home:'home',
     tasks:'tasks',
     quote:'quote',
+    cuadre:'cuadre',
     designs:'designs'
   };
 
@@ -2270,6 +2275,7 @@ function showMainView(view) {
   const isHome = view === 'home';
   const isTasks = view === 'tasks';
   const isQuote = view === 'quote';
+  const isCuadre = view === 'cuadre';
   const isDesigns = view === 'designs';
 
   $('#home').hidden = !isHome;
@@ -2277,11 +2283,13 @@ function showMainView(view) {
   $('#tareas').hidden = !isTasks;
   $('#archivados').hidden = true;
   $('#cotizador').hidden = !isQuote;
+  $('#cuadre').hidden = !isCuadre;
   $('#disenos').hidden = !isDesigns;
 
   $('#navHome')?.classList.toggle('active', isHome);
   $('#navTasks')?.classList.toggle('active', isTasks);
   $('#navQuote')?.classList.toggle('active', isQuote);
+  $('#navCuadre')?.classList.toggle('active', isCuadre);
   $('#navDesigns')?.classList.toggle('active', isDesigns);
 
   if (homeRefreshTimer) {
@@ -2299,6 +2307,7 @@ function showMainView(view) {
     }, 30000);
   }
 
+  if (isCuadre) refreshCuadre();
   if (isQuote) {
     renderQuoteCustomerPicker();
     renderQuoteMaterialSelect();
@@ -2359,6 +2368,7 @@ function updateNavigationPermissions() {
     ['navHome', 'home'],
     ['navTasks', 'tasks'],
     ['navQuote', 'quote'],
+    ['navCuadre', 'cuadre'],
     ['navDesigns', 'designs']
   ];
 
@@ -2424,6 +2434,7 @@ async function loginApp(username, password) {
     if (userCan('home')) showMainView('home');
     else if (userCan('tasks')) showMainView('tasks');
     else if (userCan('quote')) showMainView('quote');
+    else if (userCan('cuadre')) showMainView('cuadre');
     else if (userCan('designs')) showMainView('designs');
 
     await bootstrapPrivateData();
@@ -2502,6 +2513,7 @@ async function refreshCloudData({ notify = true } = {}) {
       jobs.push(refreshAttendance());
       jobs.push(refreshHomeUsers());
       jobs.push(refreshQuoteConfig({ silent:true }));
+      jobs.push(refreshBanks({ silent:true }));
       jobs.push(refreshDesigns({ silent:true }));
       if (currentUser.rol === 'admin') {
         jobs.push(refreshAdminUsers());
@@ -2563,6 +2575,7 @@ function bindCoreNavigationEarly() {
   safeBind('navHome', () => showMainView('home'));
   safeBind('navTasks', () => showMainView('tasks'));
   safeBind('navQuote', () => showMainView('quote'));
+  safeBind('navCuadre', () => showMainView('cuadre'));
   safeBind('navDesigns', () => showMainView('designs'));
 
   safeBind('profileBtn', () => {
@@ -3543,6 +3556,7 @@ async function bootstrapPrivateData() {
     () => refreshTasks(),
     () => refreshEmployees(),
     () => refreshQuoteConfig({ silent:true }),
+    () => refreshBanks({ silent:true }),
     () => refreshDesigns({ silent:true }),
     () => refreshAttendance(),
     () => refreshHomeUsers()
@@ -3569,8 +3583,251 @@ async function bootstrapPrivateData() {
   if (userCan('home')) showMainView('home');
   else if (userCan('tasks')) showMainView('tasks');
   else if (userCan('quote')) showMainView('quote');
+  else if (userCan('cuadre')) showMainView('cuadre');
   else if (userCan('designs')) showMainView('designs');
 }
+
+function formatMoneyInput(value) {
+  return Number(value || 0);
+}
+
+function renderBankImagePreview(url = '') {
+  const box = $('#bankImagePreview');
+  if (!box) return;
+  box.innerHTML = url
+    ? `<img src="${escapeHtml(url)}" alt="" />`
+    : `<svg class="icon"><use href="#icon-wallet"></use></svg>`;
+}
+
+function clearBankForm() {
+  $('#bankForm')?.reset();
+  if ($('#bankId')) $('#bankId').value = '';
+  if ($('#bankOpeningAmount')) $('#bankOpeningAmount').value = '0';
+  if ($('#saveBankBtn')) $('#saveBankBtn').textContent = 'Agregar banco';
+  bankImageFile = null;
+  bankImageUrl = '';
+  renderBankImagePreview('');
+}
+
+function renderAdminBanks() {
+  const list = $('#adminBanksList');
+  if (!list) return;
+  list.innerHTML = '';
+
+  if (!banks.length) {
+    list.innerHTML = '<div class="cuadre-empty">Todavía no hay bancos configurados.</div>';
+    return;
+  }
+
+  banks.forEach((bank) => {
+    const card = document.createElement('article');
+    card.className = 'admin-bank-card';
+    card.innerHTML = `
+      <div class="admin-bank-logo">
+        ${bank.imagen_url ? `<img src="${escapeHtml(bank.imagen_url)}" alt="" />` : iconUse('icon-wallet')}
+      </div>
+      <div class="admin-bank-info">
+        <strong>${escapeHtml(bank.nombre)}</strong>
+        <span>Saldo inicial: ${money(Number(bank.saldo_inicial || 0))}</span>
+      </div>
+      <div class="admin-bank-actions">
+        <button type="button" class="icon-btn" data-edit-bank="${bank.id}" title="Editar">${iconUse('icon-edit')}</button>
+        <button type="button" class="icon-btn danger" data-delete-bank="${bank.id}" title="Eliminar">${iconUse('icon-trash')}</button>
+      </div>
+    `;
+    list.appendChild(card);
+  });
+}
+
+function editBank(id) {
+  const bank = banks.find((item) => String(item.id) === String(id));
+  if (!bank) return;
+  $('#bankId').value = String(bank.id);
+  $('#bankName').value = bank.nombre || '';
+  $('#bankOpeningAmount').value = Number(bank.saldo_inicial || 0);
+  bankImageUrl = bank.imagen_url || '';
+  bankImageFile = null;
+  renderBankImagePreview(bankImageUrl);
+  $('#saveBankBtn').textContent = 'Guardar cambios';
+  $('#bankForm')?.scrollIntoView({ behavior:'smooth', block:'start' });
+}
+
+async function deleteBank(id) {
+  const bank = banks.find((item) => String(item.id) === String(id));
+  if (!bank) return;
+
+  const sure = await themedConfirm({
+    title:'Eliminar banco',
+    message:`¿Eliminar "${bank.nombre}" de la configuración de Cuadre?`,
+    confirmText:'Eliminar',
+    danger:true
+  });
+  if (!sure) return;
+
+  try {
+    await apiFetch(`/api/cuadre/bancos/${id}`, { method:'DELETE' });
+    showToast('Banco eliminado.', 'Cuadre');
+    await refreshBanks();
+  } catch (err) {
+    showToast(err.message, 'No se pudo eliminar');
+  }
+}
+
+async function refreshBanks({ silent = false } = {}) {
+  try {
+    const rows = await apiFetch(`/api/cuadre/bancos?_=${Date.now()}`, { cache:'no-store' });
+    banks = Array.isArray(rows) ? rows : [];
+    renderAdminBanks();
+    renderCuadreBanks();
+  } catch (err) {
+    if (!silent) showToast(err.message, 'No se pudieron cargar los bancos');
+    throw err;
+  }
+}
+
+function renderCuadreBanks() {
+  const grid = $('#cuadreBanksGrid');
+  const empty = $('#cuadreBanksEmpty');
+  if (!grid || !empty) return;
+
+  grid.innerHTML = '';
+
+  banks.forEach((bank) => {
+    const existing = cuadreCurrent?.bancos?.find((item) => String(item.banco_id) === String(bank.id));
+    const finalAmount = existing?.saldo_final ?? '';
+
+    const card = document.createElement('article');
+    card.className = 'cuadre-bank-card';
+    card.innerHTML = `
+      <div class="cuadre-bank-icon">
+        ${bank.imagen_url ? `<img src="${escapeHtml(bank.imagen_url)}" alt="" />` : iconUse('icon-wallet')}
+      </div>
+      <div class="cuadre-bank-copy">
+        <strong>${escapeHtml(bank.nombre)}</strong>
+        <span>Inicio del día: ${money(Number(bank.saldo_inicial || 0))}</span>
+      </div>
+      <label class="cuadre-money-input">
+        <span>$</span>
+        <input type="number" min="0" step="0.01"
+          data-cuadre-bank="${bank.id}"
+          value="${finalAmount === '' ? '' : Number(finalAmount).toFixed(2)}"
+          placeholder="0.00" />
+      </label>
+    `;
+    grid.appendChild(card);
+  });
+
+  empty.hidden = banks.length > 0;
+  updateCuadreTotals();
+}
+
+function updateCuadreTotals() {
+  let bankTotal = 0;
+  $$('[data-cuadre-bank]').forEach((input) => {
+    bankTotal += Math.max(0, Number(input.value || 0));
+  });
+
+  const cash = Math.max(0, Number($('#cuadreCashInput')?.value || 0));
+  if ($('#cuadreBanksTotal')) $('#cuadreBanksTotal').textContent = money(bankTotal);
+  if ($('#cuadreCashTotal')) $('#cuadreCashTotal').textContent = money(cash);
+  if ($('#cuadreGrandTotal')) $('#cuadreGrandTotal').textContent = money(bankTotal + cash);
+}
+
+async function refreshCuadre() {
+  try {
+    if (!banks.length) await refreshBanks({ silent:true });
+
+    const fecha = todayLocal();
+    if ($('#cuadreDateLabel')) $('#cuadreDateLabel').textContent = formatAttendanceDate(fecha);
+
+    const result = await apiFetch(`/api/cuadre/dia?fecha=${encodeURIComponent(fecha)}&_=${Date.now()}`, { cache:'no-store' });
+    cuadreCurrent = result || { fecha, efectivo:0, bancos:[] };
+
+    if ($('#cuadreCashInput')) $('#cuadreCashInput').value = Number(cuadreCurrent.efectivo || 0).toFixed(2);
+    renderCuadreBanks();
+
+    const info = $('#cuadreSavedInfo');
+    if (info) {
+      info.textContent = cuadreCurrent.guardado
+        ? `Guardado por ${cuadreCurrent.usuario_nombre || 'usuario'} · ${formatTime(cuadreCurrent.actualizado_en)}`
+        : 'Aún no hay un cuadre guardado para hoy.';
+    }
+    updateCuadreTotals();
+  } catch (err) {
+    showToast(err.message, 'No se pudo cargar el Cuadre');
+  }
+}
+
+async function saveCuadre() {
+  const btn = $('#saveCuadre');
+  if (btn) btn.disabled = true;
+
+  try {
+    const bancosPayload = $$('[data-cuadre-bank]').map((input) => ({
+      banco_id:Number(input.dataset.cuadreBank),
+      saldo_final:Math.max(0, Number(input.value || 0))
+    }));
+
+    const payload = {
+      fecha:todayLocal(),
+      efectivo:Math.max(0, Number($('#cuadreCashInput')?.value || 0)),
+      bancos:bancosPayload
+    };
+
+    const result = await apiFetch('/api/cuadre/dia', {
+      method:'POST',
+      headers:{'Content-Type':'application/json'},
+      body:JSON.stringify(payload)
+    });
+
+    showToast(result.mensaje || 'Cuadre guardado correctamente.', 'Cuadre guardado');
+    await refreshCuadre();
+  } catch (err) {
+    showToast(err.message, 'No se pudo guardar el Cuadre');
+  } finally {
+    if (btn) btn.disabled = false;
+  }
+}
+
+async function saveBank(e) {
+  e.preventDefault();
+
+  const id = $('#bankId').value.trim();
+  const nombre = $('#bankName').value.trim();
+  const saldoInicial = Math.max(0, Number($('#bankOpeningAmount').value || 0));
+
+  if (!nombre) {
+    showToast('Escribe el nombre del banco.', 'Cuadre');
+    return;
+  }
+
+  const button = $('#saveBankBtn');
+  if (button) button.disabled = true;
+
+  try {
+    let imagenUrl = bankImageUrl || '';
+    if (bankImageFile) imagenUrl = await uploadImage(bankImageFile);
+
+    const result = await apiFetch(id ? `/api/cuadre/bancos/${id}` : '/api/cuadre/bancos', {
+      method:id ? 'PUT' : 'POST',
+      headers:{'Content-Type':'application/json'},
+      body:JSON.stringify({
+        nombre,
+        saldo_inicial:saldoInicial,
+        imagen_url:imagenUrl
+      })
+    });
+
+    showToast(result.mensaje || 'Banco guardado.', 'Cuadre');
+    clearBankForm();
+    await refreshBanks();
+  } catch (err) {
+    showToast(err.message, 'No se pudo guardar el banco');
+  } finally {
+    if (button) button.disabled = false;
+  }
+}
+
 function setTheme(theme, persist = true) {
   const next = theme === 'dark' ? 'dark' : 'light';
   document.documentElement.setAttribute('data-theme', next);
@@ -3620,6 +3877,7 @@ function showAdminSection(section = 'apariencia') {
   if (target === 'acceso') refreshAdminUsers();
   if (target === 'roles') refreshRoles();
   if (target === 'checkin') refreshAttendance();
+  if (target === 'cuadre') refreshBanks({ silent:true });
   if (target === 'cotizador') {
     renderQuotePriceAdmin();
     renderQuoteClientAdmin();
@@ -3639,7 +3897,7 @@ function requestAdminPanel(section = 'apariencia') {
 }
 function openAdminPanel(section = pendingAdminSection || 'apariencia') {
   // Primero abre la página; después carga los módulos.
-  ['home','resumen','tareas','archivados','cotizador','disenos'].forEach((id) => {
+  ['home','resumen','tareas','archivados','cotizador','cuadre','disenos'].forEach((id) => {
     const el = $('#' + id);
     if (el) el.hidden = true;
   });
@@ -3718,6 +3976,27 @@ on('detailImageNext', 'click', () => {
   renderDetailImage(task);
 });
 on('refreshAttendance', 'click', refreshAttendance);
+on('refreshCuadre', 'click', refreshCuadre);
+on('saveCuadre', 'click', saveCuadre);
+$('#cuadreBanksGrid')?.addEventListener('input', updateCuadreTotals);
+$('#cuadreCashInput')?.addEventListener('input', updateCuadreTotals);
+
+$('#bankForm')?.addEventListener('submit', saveBank);
+on('cancelBankEdit', 'click', clearBankForm);
+$('#bankImage')?.addEventListener('change', (e) => {
+  bankImageFile = e.target.files?.[0] || null;
+  if (!bankImageFile) return;
+  const reader = new FileReader();
+  reader.onload = () => renderBankImagePreview(String(reader.result || ''));
+  reader.readAsDataURL(bankImageFile);
+});
+$('#adminBanksList')?.addEventListener('click', (e) => {
+  const edit = e.target.closest('[data-edit-bank]')?.dataset.editBank;
+  const del = e.target.closest('[data-delete-bank]')?.dataset.deleteBank;
+  if (edit) editBank(edit);
+  if (del) deleteBank(del);
+});
+
 on('checkinStartDate', 'change', refreshAttendance);
 on('checkinEndDate', 'change', refreshAttendance);
 on('checkinUserFilter', 'change', refreshAttendance);

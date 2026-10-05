@@ -5264,3 +5264,419 @@ textarea{
     border-color .28s ease,
     color .22s ease!important;
 }
+
+
+/* =========================================================
+   V11.9 — Cuadre diario
+   ========================================================= */
+
+.cuadre-section{
+  width:100%;
+  max-width:none;
+  padding:26px 30px 42px;
+}
+
+.cuadre-page-head{
+  display:flex;
+  align-items:flex-end;
+  justify-content:space-between;
+  gap:18px;
+  margin-bottom:22px;
+}
+
+.cuadre-page-head h1{
+  margin:7px 0 4px;
+  font-size:clamp(34px,5vw,54px);
+  line-height:1;
+}
+
+.cuadre-page-head p{
+  margin:0;
+  color:var(--muted);
+}
+
+.cuadre-date-box{
+  min-width:190px;
+  padding:13px 15px;
+  border:1px solid var(--line);
+  border-radius:16px;
+  background:var(--surface-2);
+}
+
+.cuadre-date-box span{
+  display:block;
+  color:var(--muted);
+  font-size:10px;
+  font-weight:800;
+  text-transform:uppercase;
+}
+
+.cuadre-date-box strong{
+  display:block;
+  margin-top:3px;
+}
+
+.cuadre-layout{
+  display:grid;
+  grid-template-columns:minmax(0,1fr) 320px;
+  gap:18px;
+}
+
+.cuadre-entry-panel,
+.cuadre-summary-panel{
+  border:1px solid var(--line);
+  border-radius:22px;
+  background:var(--surface-2);
+}
+
+.cuadre-entry-panel{
+  padding:20px;
+}
+
+.cuadre-panel-head{
+  display:flex;
+  align-items:center;
+  justify-content:space-between;
+  gap:14px;
+  margin-bottom:16px;
+}
+
+.cuadre-panel-head h2{
+  margin:0;
+}
+
+.cuadre-panel-head p{
+  margin:3px 0 0;
+  color:var(--muted);
+}
+
+.cuadre-banks-grid{
+  display:grid;
+  grid-template-columns:repeat(auto-fit,minmax(260px,1fr));
+  gap:12px;
+}
+
+.cuadre-bank-card,
+.cuadre-cash-card{
+  display:grid;
+  grid-template-columns:54px minmax(0,1fr) minmax(120px,150px);
+  align-items:center;
+  gap:12px;
+  padding:13px;
+  border:1px solid var(--line);
+  border-radius:17px;
+  background:var(--surface);
+}
+
+.cuadre-bank-icon{
+  width:54px;
+  height:54px;
+  display:grid;
+  place-items:center;
+  overflow:hidden;
+  border:1px solid var(--line);
+  border-radius:15px;
+  background:var(--surface-2);
+  color:var(--accent);
+}
+
+.cuadre-bank-icon img{
+  width:100%;
+  height:100%;
+  object-fit:cover;
+}
+
+.cuadre-bank-icon .icon{
+  width:22px;
+  height:22px;
+}
+
+.cuadre-bank-icon.cash{
+  background:color-mix(in srgb,var(--accent) 12%,var(--surface-2));
+}
+
+.cuadre-bank-copy{
+  min-width:0;
+}
+
+.cuadre-bank-copy strong{
+  display:block;
+  font-size:15px;
+}
+
+.cuadre-bank-copy span{
+  display:block;
+  margin-top:3px;
+  color:var(--muted);
+  font-size:11px;
+}
+
+.cuadre-money-input{
+  height:44px;
+  display:grid;
+  grid-template-columns:auto 1fr;
+  align-items:center;
+  overflow:hidden;
+  border:1px solid var(--line);
+  border-radius:12px;
+  background:var(--surface-2);
+}
+
+.cuadre-money-input span{
+  padding-left:12px;
+  color:var(--muted);
+  font-weight:800;
+}
+
+.cuadre-money-input input{
+  width:100%;
+  height:100%;
+  min-width:0;
+  padding:0 12px 0 6px;
+  border:0;
+  outline:0;
+  background:transparent;
+  color:var(--ink);
+  font:inherit;
+  font-weight:800;
+  text-align:right;
+}
+
+.cuadre-cash-card{
+  margin-top:14px;
+}
+
+.cuadre-actions{
+  display:flex;
+  justify-content:flex-end;
+  margin-top:18px;
+}
+
+.cuadre-save-btn{
+  min-height:48px;
+  padding:0 20px!important;
+}
+
+.cuadre-summary-panel{
+  padding:20px;
+  align-self:start;
+  position:sticky;
+  top:96px;
+}
+
+.cuadre-summary-panel h2{
+  margin:6px 0 16px;
+  font-size:28px;
+}
+
+.cuadre-summary-list{
+  display:grid;
+  gap:9px;
+}
+
+.cuadre-summary-list > div{
+  display:flex;
+  justify-content:space-between;
+  gap:14px;
+  padding:11px 0;
+  border-bottom:1px solid var(--line);
+}
+
+.cuadre-summary-list span{
+  color:var(--muted);
+}
+
+.cuadre-summary-list .grand{
+  margin-top:4px;
+  padding:14px;
+  border:1px solid color-mix(in srgb,var(--accent) 28%,var(--line));
+  border-radius:14px;
+  background:color-mix(in srgb,var(--accent) 8%,var(--surface));
+}
+
+.cuadre-summary-list .grand strong{
+  font-size:22px;
+}
+
+.cuadre-saved-info{
+  margin:16px 0 0;
+  color:var(--muted);
+  font-size:11px;
+  line-height:1.4;
+}
+
+.cuadre-empty{
+  padding:18px;
+  border:1px dashed var(--line);
+  border-radius:15px;
+  color:var(--muted);
+  text-align:center;
+}
+
+/* Admin bancos */
+.admin-cuadre-section{
+  width:100%!important;
+  max-width:none!important;
+}
+
+.bank-admin-form{
+  padding:18px 0 22px;
+  border-bottom:1px solid var(--line);
+}
+
+.bank-admin-grid{
+  display:grid;
+  grid-template-columns:minmax(220px,1fr) minmax(180px,.55fr) minmax(220px,.8fr) 80px;
+  align-items:end;
+  gap:12px;
+}
+
+.bank-admin-grid label{
+  display:grid;
+  gap:6px;
+  font-size:12px;
+  font-weight:800;
+}
+
+.bank-admin-grid input{
+  width:100%;
+  min-height:44px;
+  padding:9px 11px;
+  border:1px solid var(--line);
+  border-radius:12px;
+  background:var(--surface-2);
+  color:var(--ink);
+}
+
+.bank-image-preview{
+  width:68px;
+  height:68px;
+  display:grid;
+  place-items:center;
+  overflow:hidden;
+  border:1px solid var(--line);
+  border-radius:16px;
+  background:var(--surface-2);
+  color:var(--muted);
+}
+
+.bank-image-preview img{
+  width:100%;
+  height:100%;
+  object-fit:cover;
+}
+
+.bank-image-preview .icon{
+  width:24px;
+  height:24px;
+}
+
+.bank-admin-actions{
+  display:flex;
+  justify-content:flex-end;
+  gap:8px;
+  margin-top:14px;
+}
+
+.bank-admin-list-head{
+  margin:20px 0 12px;
+}
+
+.bank-admin-list-head h4{
+  margin:0;
+  font-size:20px;
+}
+
+.bank-admin-list-head p{
+  margin:4px 0 0;
+  color:var(--muted);
+}
+
+.admin-banks-list{
+  display:grid;
+  grid-template-columns:repeat(auto-fill,minmax(250px,1fr));
+  gap:12px;
+}
+
+.admin-bank-card{
+  display:grid;
+  grid-template-columns:58px minmax(0,1fr) auto;
+  align-items:center;
+  gap:12px;
+  padding:12px;
+  border:1px solid var(--line);
+  border-radius:16px;
+  background:var(--surface-2);
+}
+
+.admin-bank-logo{
+  width:58px;
+  height:58px;
+  display:grid;
+  place-items:center;
+  overflow:hidden;
+  border:1px solid var(--line);
+  border-radius:14px;
+  background:var(--surface);
+}
+
+.admin-bank-logo img{
+  width:100%;
+  height:100%;
+  object-fit:cover;
+}
+
+.admin-bank-info strong{
+  display:block;
+}
+
+.admin-bank-info span{
+  display:block;
+  margin-top:4px;
+  color:var(--muted);
+  font-size:11px;
+}
+
+.admin-bank-actions{
+  display:flex;
+  gap:6px;
+}
+
+.admin-bank-actions .danger{
+  color:#ff6876;
+}
+
+@media(max-width:1000px){
+  .cuadre-layout{
+    grid-template-columns:1fr;
+  }
+  .cuadre-summary-panel{
+    position:static;
+  }
+  .bank-admin-grid{
+    grid-template-columns:1fr 1fr;
+  }
+}
+
+@media(max-width:650px){
+  .cuadre-section{
+    padding:18px 14px 32px;
+  }
+  .cuadre-page-head{
+    align-items:stretch;
+    flex-direction:column;
+  }
+  .cuadre-date-box{
+    min-width:0;
+  }
+  .cuadre-bank-card,
+  .cuadre-cash-card{
+    grid-template-columns:48px 1fr;
+  }
+  .cuadre-money-input{
+    grid-column:1 / -1;
+  }
+  .bank-admin-grid{
+    grid-template-columns:1fr;
+  }
+}

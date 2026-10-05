@@ -9,7 +9,7 @@
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700;800&display=swap" rel="stylesheet">
   <link id="dynamicFavicon" rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 64 64'%3E%3Crect width='64' height='64' rx='16' fill='%23b9ff39'/%3E%3Cpath d='M18 33l9 9 19-22' fill='none' stroke='%23111' stroke-width='7' stroke-linecap='round' stroke-linejoin='round'/%3E%3C/svg%3E" />
-  <link rel="stylesheet" href="styles.css?v=11.8.6" />
+  <link rel="stylesheet" href="styles.css?v=11.9" />
 </head>
 <body>
   <svg xmlns="http://www.w3.org/2000/svg" style="display:none" aria-hidden="true" focusable="false">
@@ -107,6 +107,7 @@
         <button type="button" class="main-nav-btn active" id="navHome"><svg class="icon"><use href="#icon-home"></use></svg><span>Home</span></button>
         <button type="button" class="main-nav-btn" id="navTasks"><svg class="icon"><use href="#icon-task"></use></svg><span>Tareas</span></button>
         <button type="button" class="main-nav-btn" id="navQuote"><svg class="icon"><use href="#icon-calculator"></use></svg><span>Cotizador</span></button>
+        <button type="button" class="main-nav-btn" id="navCuadre"><svg class="icon"><use href="#icon-wallet"></use></svg><span>Cuadre</span></button>
         <button type="button" class="main-nav-btn" id="navDesigns"><svg class="icon"><use href="#icon-library"></use></svg><span>Diseños</span></button>
       </nav>
 
@@ -337,6 +338,67 @@
           </aside>
         </div>
       </section>
+      <section class="section cuadre-section" id="cuadre" hidden>
+        <div class="cuadre-page-head">
+          <div>
+            <span class="eyebrow">Cuadre</span>
+            <h1>Cierre del día</h1>
+            <p>Registra cuánto quedó en cada banco y cuánto dinero efectivo quedó al finalizar la jornada.</p>
+          </div>
+          <div class="cuadre-date-box">
+            <span>Fecha</span>
+            <strong id="cuadreDateLabel">—</strong>
+          </div>
+        </div>
+
+        <div class="cuadre-layout">
+          <section class="cuadre-entry-panel">
+            <div class="cuadre-panel-head">
+              <div>
+                <h2>Bancos</h2>
+                <p>Escribe el saldo final de cada banco.</p>
+              </div>
+              <button type="button" class="btn btn-outline small" id="refreshCuadre">
+                <svg class="icon"><use href="#icon-refresh"></use></svg><span>Actualizar</span>
+              </button>
+            </div>
+
+            <div id="cuadreBanksGrid" class="cuadre-banks-grid"></div>
+            <div id="cuadreBanksEmpty" class="cuadre-empty" hidden>No hay bancos configurados todavía.</div>
+
+            <div class="cuadre-cash-card">
+              <div class="cuadre-bank-icon cash"><svg class="icon"><use href="#icon-wallet"></use></svg></div>
+              <div class="cuadre-bank-copy">
+                <strong>Efectivo</strong>
+                <span>Dinero físico al finalizar el día</span>
+              </div>
+              <label class="cuadre-money-input">
+                <span>$</span>
+                <input id="cuadreCashInput" type="number" min="0" step="0.01" value="0" />
+              </label>
+            </div>
+
+            <div class="cuadre-actions">
+              <button type="button" class="btn btn-accent cuadre-save-btn" id="saveCuadre">
+                <svg class="icon"><use href="#icon-check"></use></svg>
+                <span>Guardar cuadre del día</span>
+              </button>
+            </div>
+          </section>
+
+          <aside class="cuadre-summary-panel">
+            <span class="eyebrow">Resumen</span>
+            <h2>Total del día</h2>
+            <div class="cuadre-summary-list">
+              <div><span>Total en bancos</span><strong id="cuadreBanksTotal">$0,00</strong></div>
+              <div><span>Efectivo</span><strong id="cuadreCashTotal">$0,00</strong></div>
+              <div class="grand"><span>Total general</span><strong id="cuadreGrandTotal">$0,00</strong></div>
+            </div>
+            <p id="cuadreSavedInfo" class="cuadre-saved-info">Aún no hay un cuadre guardado para hoy.</p>
+          </aside>
+        </div>
+      </section>
+
       <section class="section designs-section" id="disenos" hidden>
         <div class="section-head designs-head">
           <div>
@@ -365,7 +427,7 @@
     <footer class="app-version-footer" aria-label="Versión de la aplicación">
       <span>DeTodoEc</span>
       <span class="version-separator">•</span>
-      <strong>Versión 11.8.6</strong>
+      <strong>Versión 11.9</strong>
     </footer>
   </div>
 
@@ -750,6 +812,7 @@
           <button type="button" class="admin-nav-btn" data-admin-target="acceso"><svg class="icon"><use href="#icon-users"></use></svg><span>Usuarios</span></button>
           <button type="button" class="admin-nav-btn" data-admin-target="roles"><svg class="icon"><use href="#icon-shield"></use></svg><span>Roles</span></button>
           <button type="button" class="admin-nav-btn" data-admin-target="checkin"><svg class="icon"><use href="#icon-clock"></use></svg><span>Check-in</span></button>
+          <button type="button" class="admin-nav-btn" data-admin-target="cuadre"><svg class="icon"><use href="#icon-wallet"></use></svg><span>Cuadre</span></button>
           <button type="button" class="admin-nav-btn" data-admin-target="empleados"><svg class="icon"><use href="#icon-user"></use></svg><span>Empleados</span></button>
           <button type="button" class="admin-nav-btn" data-admin-target="cotizador"><svg class="icon"><use href="#icon-calculator"></use></svg><span>Cotizador</span></button>
           <button type="button" class="admin-nav-btn" data-admin-target="disenos"><svg class="icon"><use href="#icon-library"></use></svg><span>Diseños</span></button>
@@ -870,6 +933,10 @@
                     <label class="discord-switch"><input type="checkbox" data-role-permission="quote" checked /><span></span></label>
                   </div>
                   <div class="role-permission-row">
+                    <div><strong>Cuadre</strong><span>Registrar el cierre diario de bancos y efectivo.</span></div>
+                    <label class="discord-switch"><input type="checkbox" data-role-permission="cuadre" checked /><span></span></label>
+                  </div>
+                  <div class="role-permission-row">
                     <div><strong>Diseños</strong><span>Acceder a la biblioteca de diseños.</span></div>
                     <label class="discord-switch"><input type="checkbox" data-role-permission="designs" checked /><span></span></label>
                   </div>
@@ -944,6 +1011,44 @@
           <div id="attendanceEmpty" class="attendance-empty" hidden>No hay registros de check-in para hoy.</div>
         </div>
       </section>
+
+          <section class="admin-section admin-view admin-cuadre-section" data-admin-view="cuadre" hidden>
+            <div class="admin-section-head">
+              <h3>Cuadre · Bancos</h3>
+              <p>Configura los bancos disponibles durante el día, su imagen y el saldo con el que comienzan.</p>
+            </div>
+
+            <form id="bankForm" class="bank-admin-form">
+              <input type="hidden" id="bankId" />
+              <div class="bank-admin-grid">
+                <label>Nombre del banco
+                  <input id="bankName" required placeholder="Ej. Banco Pichincha" />
+                </label>
+                <label>Saldo inicial ($)
+                  <input id="bankOpeningAmount" type="number" min="0" step="0.01" value="0" required />
+                </label>
+                <label class="bank-image-field">Imagen / logo
+                  <input id="bankImage" type="file" accept="image/*" />
+                </label>
+                <div class="bank-image-preview" id="bankImagePreview">
+                  <svg class="icon"><use href="#icon-wallet"></use></svg>
+                </div>
+              </div>
+
+              <div class="bank-admin-actions">
+                <button type="button" class="btn btn-outline" id="cancelBankEdit">Cancelar</button>
+                <button type="submit" class="btn btn-accent" id="saveBankBtn">Agregar banco</button>
+              </div>
+            </form>
+
+            <div class="bank-admin-list-head">
+              <div>
+                <h4>Bancos configurados</h4>
+                <p>Estos aparecerán automáticamente en la pestaña Cuadre.</p>
+              </div>
+            </div>
+            <div id="adminBanksList" class="admin-banks-list"></div>
+          </section>
 
           <section class="admin-section employee-admin admin-view" data-admin-view="empleados" hidden>
             <div class="admin-section-head"><h3>Empleados</h3><p>Crea, edita o elimina empleados. Aparecerán al crear tareas.</p></div>
@@ -1136,6 +1241,6 @@
     </article>
   </template>
 
-  <script src="app.js?v=11.8.6"></script>
+  <script src="app.js?v=11.9"></script>
 </body>
 </html>
