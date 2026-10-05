@@ -1,4 +1,4 @@
-const APP_VERSION = '11.13.2';
+const APP_VERSION = '11.13.3';
 const API_BASE = 'https://gestor-tareas-api.detodoec.workers.dev';
 const STORAGE_KEY = 'detodoec_tasks_v1';
 const SETTINGS_KEY = 'detodoec_tasks_settings_v3';

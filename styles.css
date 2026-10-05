@@ -7291,3 +7291,39 @@ textarea{
     max-height:calc(100dvh - 16px)!important;
   }
 }
+
+
+/* =========================================================
+   V11.13.3 — Corrección modal Mi Perfil
+   ========================================================= */
+
+/* IMPORTANTE:
+   No forzar display:block sobre <dialog>, porque eso hace que
+   aparezca dentro del flujo normal de Home cuando está cerrado. */
+#profileDialog{
+  display:none!important;
+}
+
+/* Solo se muestra cuando el navegador lo abre realmente */
+#profileDialog[open]{
+  display:block!important;
+  position:fixed!important;
+  inset:50% auto auto 50%!important;
+  transform:translate(-50%,-50%)!important;
+  margin:0!important;
+  z-index:10000!important;
+}
+
+/* El contenido sigue teniendo scroll interno */
+#profileDialog[open] .profile-form{
+  max-height:calc(100dvh - 28px)!important;
+  overflow-y:auto!important;
+  overflow-x:hidden!important;
+  overscroll-behavior:contain!important;
+}
+
+/* Evita cualquier resto visual al cerrar */
+#profileDialog:not([open]){
+  visibility:hidden!important;
+  pointer-events:none!important;
+}
