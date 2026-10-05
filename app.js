@@ -1,4 +1,4 @@
-const APP_VERSION = '11.8.5';
+const APP_VERSION = '11.8.6';
 const API_BASE = 'https://gestor-tareas-api.detodoec.workers.dev';
 const STORAGE_KEY = 'detodoec_tasks_v1';
 const SETTINGS_KEY = 'detodoec_tasks_settings_v3';
@@ -2375,11 +2375,12 @@ function syncProfileThemeControl() {
   const theme = document.documentElement.dataset.theme || 'dark';
   const pill = $('#profileThemeSwitch');
   const label = $('#profileThemeLabel');
-  const symbol = $('#profileThemeSymbol');
 
-  if (pill) pill.classList.toggle('is-dark', theme === 'dark');
+  if (pill) {
+    pill.classList.toggle('is-dark', theme === 'dark');
+    pill.classList.toggle('is-light', theme !== 'dark');
+  }
   if (label) label.textContent = theme === 'dark' ? 'Oscuro' : 'Claro';
-  if (symbol) symbol.textContent = theme === 'dark' ? '☾' : '☀';
 }
 
 function updateCurrentUserUI() {
