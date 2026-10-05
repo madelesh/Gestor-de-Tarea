@@ -1,4 +1,4 @@
-const APP_VERSION = '11.11';
+const APP_VERSION = '11.11.1';
 const API_BASE = 'https://gestor-tareas-api.detodoec.workers.dev';
 const STORAGE_KEY = 'detodoec_tasks_v1';
 const SETTINGS_KEY = 'detodoec_tasks_settings_v3';
@@ -2739,11 +2739,19 @@ function renderProfileGoal() {
   const salesTarget = Number(goal?.objetivo_ventas || 0);
   const tx = Number(goal?.transacciones_mes || 0);
   const txTarget = Number(goal?.objetivo_transacciones || 0);
+  const salesActive = Number(goal?.ventas_activa ?? 1) === 1;
+  const txActive = Number(goal?.transacciones_activa ?? 1) === 1;
 
   const salesPercent = monthlyGoalPercent(sales, salesTarget);
   const txPercent = monthlyGoalPercent(tx, txTarget);
 
   $('#profileGoalMonth').textContent = formatGoalMonth(month);
+
+  const salesItem = $('#profileSalesGoalPercent')?.closest('.profile-goal-item');
+  const txItem = $('#profileTxGoalPercent')?.closest('.profile-goal-item');
+
+  if (salesItem) salesItem.hidden = !salesActive;
+  if (txItem) txItem.hidden = !txActive;
 
   $('#profileSalesGoalPercent').textContent = `${Math.round(salesPercent)}%`;
   $('#profileSalesGoalBar').style.width = `${salesPercent}%`;
@@ -2755,7 +2763,7 @@ function renderProfileGoal() {
   $('#profileTxGoalProgress').textContent = `${Math.round(tx)} transacciones`;
   $('#profileTxGoalTarget').textContent = `Meta ${Math.round(txTarget)}`;
 
-  card.classList.toggle('empty', salesTarget <= 0 && txTarget <= 0);
+  card.classList.toggle('empty', !salesActive && !txActive);
 }
 
 function goalBarMarkup(label, current, target, isMoney = false) {
@@ -2798,11 +2806,13 @@ function renderHomeUsers() {
 
     const goal = goalForUser(user.id);
     const month = goal?.mes || todayLocal().slice(0,7);
+    const salesActive = Number(goal?.ventas_activa ?? 1) === 1;
+    const txActive = Number(goal?.transacciones_activa ?? 1) === 1;
     const goalMarkup = `
-      <div class="home-goal-block ${(!goal || (Number(goal.objetivo_ventas || 0) <= 0 && Number(goal.objetivo_transacciones || 0) <= 0)) ? 'empty' : ''}">
+      <div class="home-goal-block ${(!goal || (!salesActive && !txActive)) ? 'empty' : ''}">
         <div class="home-goal-month">${escapeHtml(formatGoalMonth(month))}</div>
-        ${goalBarMarkup('Ventas', goal?.ventas_mes || 0, goal?.objetivo_ventas || 0, true)}
-        ${goalBarMarkup('Transacciones', goal?.transacciones_mes || 0, goal?.objetivo_transacciones || 0, false)}
+        ${salesActive ? goalBarMarkup('Ventas', goal?.ventas_mes || 0, goal?.objetivo_ventas || 0, true) : ''}
+        ${txActive ? goalBarMarkup('Transacciones', goal?.transacciones_mes || 0, goal?.objetivo_transacciones || 0, false) : ''}
       </div>`;
 
     card.innerHTML = `
@@ -3969,10 +3979,7 @@ async function refreshGoalsToday({ silent = false } = {}) {
 }
 
 function currentGoalConfigMonth() {
-  const input = $('#goalsConfigMonth');
-  const fallback = todayLocal().slice(0,7);
-  if (input && !input.value) input.value = fallback;
-  return input?.value || fallback;
+  return todayLocal().slice(0,7);
 }
 
 function renderGoalsConfig() {
@@ -3981,6 +3988,9 @@ function renderGoalsConfig() {
   list.innerHTML = '';
 
   goalsConfig.forEach((goal) => {
+    const salesActive = Number(goal.ventas_activa ?? 1) === 1;
+    const txActive = Number(goal.transacciones_activa ?? 1) === 1;
+
     const card = document.createElement('article');
     card.className = 'goal-config-row goal-config-row-dual';
     card.dataset.goalUser = goal.usuario_id;
@@ -3996,23 +4006,39 @@ function renderGoalsConfig() {
         </span>
       </div>
 
-      <label>Meta de Ventas ($)
-        <input type="number"
+      <div class="goal-enable-block">
+        <label class="goal-enable-switch">
+          <input type="checkbox" data-goal-sales-active="${goal.usuario_id}" ${salesActive ? 'checked' : ''} />
+          <span class="goal-switch-ui"></span>
+          <strong>Ventas</strong>
+        </label>
+        <input
+          type="number"
           min="0"
           step="0.01"
           inputmode="decimal"
           data-goal-sales-target="${goal.usuario_id}"
-          value="${Number(goal.objetivo_ventas || 0)}" />
-      </label>
+          value="${Number(goal.objetivo_ventas || 0)}"
+          ${salesActive ? '' : 'disabled'}
+        />
+      </div>
 
-      <label>Meta de Transacciones
-        <input type="number"
+      <div class="goal-enable-block">
+        <label class="goal-enable-switch">
+          <input type="checkbox" data-goal-tx-active="${goal.usuario_id}" ${txActive ? 'checked' : ''} />
+          <span class="goal-switch-ui"></span>
+          <strong>Transacciones</strong>
+        </label>
+        <input
+          type="number"
           min="0"
           step="1"
           inputmode="numeric"
           data-goal-tx-target="${goal.usuario_id}"
-          value="${Math.round(Number(goal.objetivo_transacciones || 0))}" />
-      </label>
+          value="${Math.round(Number(goal.objetivo_transacciones || 0))}"
+          ${txActive ? '' : 'disabled'}
+        />
+      </div>
 
       <button type="button" class="btn btn-accent small" data-save-goal="${goal.usuario_id}">
         Guardar
@@ -4021,7 +4047,6 @@ function renderGoalsConfig() {
     list.appendChild(card);
   });
 }
-
 function populateGoalsUserFilter() {
   const select = $('#goalsUserFilter');
   if (!select) return;
@@ -4044,8 +4069,10 @@ function renderGoalsHistory() {
   tbody.innerHTML = '';
 
   goalsHistory.forEach((row) => {
-    const salesPercent = monthlyGoalPercent(row.ventas_acumuladas, row.objetivo_ventas);
-    const txPercent = monthlyGoalPercent(row.transacciones_acumuladas, row.objetivo_transacciones);
+    const salesActive = Number(row.ventas_activa ?? 1) === 1;
+    const txActive = Number(row.transacciones_activa ?? 1) === 1;
+    const salesPercent = salesActive ? monthlyGoalPercent(row.ventas_acumuladas, row.objetivo_ventas) : 0;
+    const txPercent = txActive ? monthlyGoalPercent(row.transacciones_acumuladas, row.objetivo_transacciones) : 0;
 
     const tr = document.createElement('tr');
     tr.innerHTML = `
@@ -4064,6 +4091,7 @@ function renderGoalsHistory() {
       <td><strong>${money(Number(row.ventas_dia || 0))}</strong></td>
       <td><strong>${Math.round(Number(row.transacciones_dia || 0))}</strong></td>
       <td>
+        ${salesActive ? `
         <div class="goal-history-progress">
           <div class="goal-history-value">
             <strong>${money(Number(row.ventas_acumuladas || 0))}</strong>
@@ -4073,9 +4101,10 @@ function renderGoalsHistory() {
             <span class="goal-progress-fill" style="width:${salesPercent}%"></span>
           </div>
           <span>${Math.round(salesPercent)}%</span>
-        </div>
+        </div>` : '<span class="goal-inactive-label">No activa</span>'}
       </td>
       <td>
+        ${txActive ? `
         <div class="goal-history-progress">
           <div class="goal-history-value">
             <strong>${Math.round(Number(row.transacciones_acumuladas || 0))}</strong>
@@ -4085,7 +4114,7 @@ function renderGoalsHistory() {
             <span class="goal-progress-fill" style="width:${txPercent}%"></span>
           </div>
           <span>${Math.round(txPercent)}%</span>
-        </div>
+        </div>` : '<span class="goal-inactive-label">No activa</span>'}
       </td>
     `;
     tbody.appendChild(tr);
@@ -4131,6 +4160,18 @@ async function refreshGoalsAdmin() {
 }
 
 async function saveGoalConfig(userId) {
+  const salesActive = Boolean(
+    document.querySelector(`[data-goal-sales-active="${CSS.escape(String(userId))}"]`)?.checked
+  );
+  const txActive = Boolean(
+    document.querySelector(`[data-goal-tx-active="${CSS.escape(String(userId))}"]`)?.checked
+  );
+
+  if (!salesActive && !txActive) {
+    showToast('Debes dejar al menos una meta activa.', 'Metas');
+    return;
+  }
+
   const salesTarget = Math.max(
     0,
     Number(document.querySelector(`[data-goal-sales-target="${CSS.escape(String(userId))}"]`)?.value || 0)
@@ -4148,7 +4189,9 @@ async function saveGoalConfig(userId) {
       body:JSON.stringify({
         mes:month,
         objetivo_ventas:salesTarget,
-        objetivo_transacciones:txTarget
+        objetivo_transacciones:txTarget,
+        ventas_activa:salesActive,
+        transacciones_activa:txActive
       })
     });
 
@@ -4314,13 +4357,28 @@ on('detailImageNext', 'click', () => {
 });
 on('refreshAttendance', 'click', refreshAttendance);
 on('refreshGoalsHistory', 'click', refreshGoalsHistory);
-on('goalsConfigMonth', 'change', refreshGoalsConfig);
 on('goalsStartDate', 'change', refreshGoalsHistory);
 on('goalsEndDate', 'change', refreshGoalsHistory);
 on('goalsUserFilter', 'change', refreshGoalsHistory);
 $('#goalsConfigList')?.addEventListener('click', (e) => {
   const save = e.target.closest('[data-save-goal]');
   if (save) saveGoalConfig(save.dataset.saveGoal);
+});
+$('#goalsConfigList')?.addEventListener('change', (e) => {
+  const salesToggle = e.target.closest('[data-goal-sales-active]');
+  const txToggle = e.target.closest('[data-goal-tx-active]');
+
+  if (salesToggle) {
+    const id = salesToggle.dataset.goalSalesActive;
+    const input = document.querySelector(`[data-goal-sales-target="${CSS.escape(String(id))}"]`);
+    if (input) input.disabled = !salesToggle.checked;
+  }
+
+  if (txToggle) {
+    const id = txToggle.dataset.goalTxActive;
+    const input = document.querySelector(`[data-goal-tx-target="${CSS.escape(String(id))}"]`);
+    if (input) input.disabled = !txToggle.checked;
+  }
 });
 
 on('refreshCuadre', 'click', refreshCuadre);
