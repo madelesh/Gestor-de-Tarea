@@ -1,4 +1,4 @@
-const APP_VERSION = '11.12.2';
+const APP_VERSION = '11.13';
 const API_BASE = 'https://gestor-tareas-api.detodoec.workers.dev';
 const STORAGE_KEY = 'detodoec_tasks_v1';
 const SETTINGS_KEY = 'detodoec_tasks_settings_v3';
@@ -676,37 +676,27 @@ function fromEmployeeApi(emp) {
 }
 
 async function refreshEmployees({ migrateLocal = true } = {}) {
-  const local = loadEmployees();
+  // V11.13: los responsables de tareas salen de Usuarios, no de la tabla Empleados.
+  // La tabla empleados queda únicamente como respaldo histórico en D1.
   try {
-    let cloud = await apiFetch('/api/empleados');
-    cloud = (Array.isArray(cloud) ? cloud : []).map(fromEmployeeApi);
-    if (migrateLocal && local.length) {
-      const names = new Set(cloud.map((e) => e.name.toLowerCase()));
-      for (const emp of local) {
-        if (!emp?.name || names.has(String(emp.name).toLowerCase())) continue;
-        try {
-          let photoUrl = emp.photo || '';
-          if (photoUrl.startsWith('data:image/')) {
-            const blob = await (await fetch(photoUrl)).blob();
-            const ext = (blob.type.split('/')[1] || 'png').replace('jpeg','jpg');
-            const file = new File([blob], `empleado-${Date.now()}.${ext}`, { type: blob.type });
-            photoUrl = await uploadImage(file);
-          }
-          await apiFetch('/api/empleados', { method:'POST', headers:{'Content-Type':'application/json'}, body:JSON.stringify({ nombre: emp.name, foto_url: photoUrl }) });
-          names.add(String(emp.name).toLowerCase());
-        } catch (err) { console.warn('No se pudo migrar empleado local', emp?.name, err); }
-      }
-      cloud = (await apiFetch('/api/empleados')).map(fromEmployeeApi);
-    }
-    employees = cloud;
-    saveEmployees(cloud);
-    renderEmployeeList();
+    const rows = await apiFetch('/api/usuarios/activos');
+    employees = (Array.isArray(rows) ? rows : [])
+      .filter((user) => user.rol !== 'admin')
+      .map((user) => ({
+        id:String(user.id),
+        name:user.nombre || '',
+        photo:user.foto_url || ''
+      }));
+
+    saveEmployees(employees);
     renderEmployeeFilter();
+    updateWorkerSelects?.();
   } catch (err) {
-    console.error(err);
+    console.error('No se pudieron cargar los usuarios para tareas:', err);
+    const local = loadEmployees();
     employees = local;
-    renderEmployeeList();
     renderEmployeeFilter();
+    updateWorkerSelects?.();
   }
 }
 
@@ -4479,7 +4469,6 @@ function openAdminPanel(section = pendingAdminSection || 'apariencia') {
   document.body.classList.add('standalone-open', 'admin-page-open');
 
   try { showAdminSection(section); } catch (err) { console.error('Admin navegación:', err); }
-  try { renderEmployeeList(); } catch (err) { console.error('Admin empleados:', err); }
   try { renderQuotePriceAdmin(); } catch (err) { console.error('Admin cotizador:', err); }
   try { clearEmployeeForm(); } catch (err) { console.error('Admin formulario:', err); }
 
