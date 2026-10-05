@@ -1,4 +1,4 @@
-const APP_VERSION = '11.9.1';
+const APP_VERSION = '11.10';
 const API_BASE = 'https://gestor-tareas-api.detodoec.workers.dev';
 const STORAGE_KEY = 'detodoec_tasks_v1';
 const SETTINGS_KEY = 'detodoec_tasks_settings_v3';
@@ -27,6 +27,9 @@ let banks = [];
 let bankImageFile = null;
 let bankImageUrl = '';
 let cuadreCurrent = null;
+let goalsToday = [];
+let goalsConfig = [];
+let goalsHistory = [];
 let focusedCheckinUserId = null;
 let currentAttendanceRows = [];
 let editingCheckinId = null;
@@ -2511,6 +2514,7 @@ async function refreshCloudData({ notify = true } = {}) {
       jobs.push(refreshTasks());
       jobs.push(refreshEmployees());
       jobs.push(refreshAttendance());
+      jobs.push(refreshGoalsToday({ silent:true }));
       jobs.push(refreshHomeUsers());
       jobs.push(refreshQuoteConfig({ silent:true }));
       jobs.push(refreshBanks({ silent:true }));
@@ -2704,6 +2708,51 @@ function openProfile() {
   profilePhotoFile = null;
   $('#profilePhoto').value = '';
   $('#profileDialog').showModal();
+  refreshGoalsToday({ silent:true });
+}
+
+function goalForUser(userId) {
+  return goalsToday.find((goal) => String(goal.usuario_id) === String(userId)) || null;
+}
+
+function goalMetricLabel(tipo) {
+  return tipo === 'transacciones' ? 'Transacciones' : 'Ventas pagadas';
+}
+
+function goalValueText(goal, value) {
+  if (!goal) return '—';
+  return goal.tipo === 'transacciones'
+    ? `${Math.round(Number(value || 0))}`
+    : money(Number(value || 0));
+}
+
+function goalPercent(goal) {
+  if (!goal || Number(goal.objetivo || 0) <= 0) return 0;
+  return Math.max(0, Math.min(100, (Number(goal.avance || 0) / Number(goal.objetivo || 0)) * 100));
+}
+
+function renderProfileGoal() {
+  const goal = currentUser ? goalForUser(currentUser.id) : null;
+  const card = $('#profileGoalCard');
+  if (!card) return;
+
+  if (!goal || Number(goal.objetivo || 0) <= 0) {
+    $('#profileGoalTitle').textContent = 'Sin meta configurada';
+    $('#profileGoalPercent').textContent = '0%';
+    $('#profileGoalBar').style.width = '0%';
+    $('#profileGoalProgress').textContent = '—';
+    $('#profileGoalTarget').textContent = '—';
+    card.classList.add('empty');
+    return;
+  }
+
+  card.classList.remove('empty');
+  const percent = goalPercent(goal);
+  $('#profileGoalTitle').textContent = goalMetricLabel(goal.tipo);
+  $('#profileGoalPercent').textContent = `${Math.round(percent)}%`;
+  $('#profileGoalBar').style.width = `${percent}%`;
+  $('#profileGoalProgress').textContent = `Avance: ${goalValueText(goal, goal.avance)}`;
+  $('#profileGoalTarget').textContent = `Meta: ${goalValueText(goal, goal.objetivo)}`;
 }
 
 function renderHomeUsers() {
@@ -2722,22 +2771,49 @@ function renderHomeUsers() {
       ? `Entrada ${formatTime(user.entrada_actual)}`
       : 'Sin jornada abierta';
 
+    const goal = goalForUser(user.id);
+    const percent = goalPercent(goal);
+    const goalMarkup = goal && Number(goal.objetivo || 0) > 0
+      ? `
+        <div class="home-goal-block">
+          <div class="home-goal-head">
+            <span>${escapeHtml(goalMetricLabel(goal.tipo))}</span>
+            <strong>${Math.round(percent)}%</strong>
+          </div>
+          <div class="goal-progress-track">
+            <span class="goal-progress-fill" style="width:${percent}%"></span>
+          </div>
+          <div class="home-goal-foot">
+            <span>${escapeHtml(goalValueText(goal, goal.avance))}</span>
+            <span>Meta ${escapeHtml(goalValueText(goal, goal.objetivo))}</span>
+          </div>
+        </div>`
+      : `
+        <div class="home-goal-block empty">
+          <div class="home-goal-head"><span>Meta diaria</span><strong>—</strong></div>
+          <div class="goal-progress-track"><span class="goal-progress-fill" style="width:0%"></span></div>
+          <div class="home-goal-foot"><span>Sin meta configurada</span><span></span></div>
+        </div>`;
+
     card.innerHTML = `
-      <div class="home-worker-avatar">
-        ${user.foto_url ? `<img src="${escapeHtml(user.foto_url)}" alt="" />` : iconUse('icon-user')}
-        <span class="presence-dot" aria-hidden="true"></span>
-      </div>
+      <div class="home-worker-main">
+        <div class="home-worker-avatar">
+          ${user.foto_url ? `<img src="${escapeHtml(user.foto_url)}" alt="" />` : iconUse('icon-user')}
+          <span class="presence-dot" aria-hidden="true"></span>
+        </div>
 
-      <div class="home-worker-copy">
-        <strong>${escapeHtml(user.nombre || user.usuario)}</strong>
-        <span>${escapeHtml(user.role_name || (user.rol === 'admin' ? 'Administrador' : 'Usuario'))}</span>
-        <small>${escapeHtml(statusDetail)}</small>
-      </div>
+        <div class="home-worker-copy">
+          <strong>${escapeHtml(user.nombre || user.usuario)}</strong>
+          <span>${escapeHtml(user.role_name || (user.rol === 'admin' ? 'Administrador' : 'Usuario'))}</span>
+          <small>${escapeHtml(statusDetail)}</small>
+        </div>
 
-      <div class="home-worker-side">
-        <span class="home-worker-status">${user.online ? 'Online' : 'Offline'}</span>
-        ${isAdminViewer ? '<span class="home-worker-open">Ver check-in ›</span>' : ''}
+        <div class="home-worker-side">
+          <span class="home-worker-status">${user.online ? 'Online' : 'Offline'}</span>
+          ${isAdminViewer ? '<span class="home-worker-open">Ver check-in ›</span>' : ''}
+        </div>
       </div>
+      ${goalMarkup}
     `;
 
     if (isAdminViewer) {
@@ -2752,7 +2828,10 @@ function renderHomeUsers() {
         requestAnimationFrame(() => focusCheckinRows(user.id));
       };
 
-      card.addEventListener('click', openCheckin);
+      card.addEventListener('click', (event) => {
+        if (event.target.closest('.home-goal-block')) return;
+        openCheckin();
+      });
       card.addEventListener('keydown', (e) => {
         if (e.key === 'Enter' || e.key === ' ') {
           e.preventDefault();
@@ -2769,7 +2848,11 @@ function renderHomeUsers() {
 async function refreshHomeUsers() {
   if (!currentUser || !userCan('home')) return;
   try {
-    const rows = await apiFetch(`/api/home/usuarios?_=${Date.now()}`, { cache:'no-store' });
+    const [rows] = await Promise.all([
+      apiFetch(`/api/home/usuarios?_=${Date.now()}`, { cache:'no-store' }),
+      refreshGoalsToday({ silent:true })
+    ]);
+
     homeUsers = Array.isArray(rows)
       ? rows.map((user) => ({ ...user, online:Boolean(Number(user.online)) }))
       : [];
@@ -3559,6 +3642,7 @@ async function bootstrapPrivateData() {
     () => refreshBanks({ silent:true }),
     () => refreshDesigns({ silent:true }),
     () => refreshAttendance(),
+    () => refreshGoalsToday({ silent:true }),
     () => refreshHomeUsers()
   ];
 
@@ -3860,6 +3944,163 @@ async function saveBank(e) {
   }
 }
 
+
+async function refreshGoalsToday({ silent = false } = {}) {
+  if (!currentUser) return [];
+  try {
+    const rows = await apiFetch(`/api/metas/hoy?_=${Date.now()}`, { cache:'no-store' });
+    goalsToday = Array.isArray(rows) ? rows : [];
+    renderProfileGoal();
+    return goalsToday;
+  } catch (err) {
+    if (!silent) showToast(err.message, 'No se pudieron cargar las metas');
+    return [];
+  }
+}
+
+function renderGoalsConfig() {
+  const list = $('#goalsConfigList');
+  if (!list) return;
+  list.innerHTML = '';
+
+  goalsConfig.forEach((goal) => {
+    const card = document.createElement('article');
+    card.className = 'goal-config-row';
+    card.dataset.goalUser = goal.usuario_id;
+    card.innerHTML = `
+      <div class="goal-config-user">
+        <span class="goal-user-avatar">
+          ${goal.foto_url ? `<img src="${escapeHtml(goal.foto_url)}" alt="" />` : iconUse('icon-user')}
+        </span>
+        <span>
+          <strong>${escapeHtml(goal.nombre || goal.usuario)}</strong>
+          <small>@${escapeHtml(goal.usuario)} · ${escapeHtml(goal.role_name || goal.rol || 'Usuario')}</small>
+        </span>
+      </div>
+
+      <label>Tipo de meta
+        <select data-goal-type="${goal.usuario_id}">
+          <option value="ventas" ${goal.tipo === 'ventas' ? 'selected' : ''}>Ventas pagadas ($)</option>
+          <option value="transacciones" ${goal.tipo === 'transacciones' ? 'selected' : ''}>Número de transacciones</option>
+        </select>
+      </label>
+
+      <label>Meta diaria
+        <input type="number"
+          min="0"
+          step="${goal.tipo === 'transacciones' ? '1' : '0.01'}"
+          data-goal-target="${goal.usuario_id}"
+          value="${Number(goal.objetivo || 0)}" />
+      </label>
+
+      <button type="button" class="btn btn-accent small" data-save-goal="${goal.usuario_id}">
+        Guardar
+      </button>
+    `;
+    list.appendChild(card);
+  });
+}
+
+function populateGoalsUserFilter() {
+  const select = $('#goalsUserFilter');
+  if (!select) return;
+  const current = select.value;
+  select.innerHTML = '<option value="">Todos los usuarios</option>' +
+    goalsConfig.map((goal) => `<option value="${goal.usuario_id}">${escapeHtml(goal.nombre || goal.usuario)}</option>`).join('');
+  if (current && [...select.options].some((o) => o.value === current)) select.value = current;
+}
+
+function renderGoalsHistory() {
+  const tbody = $('#goalsHistoryBody');
+  const empty = $('#goalsHistoryEmpty');
+  if (!tbody || !empty) return;
+  tbody.innerHTML = '';
+
+  goalsHistory.forEach((row) => {
+    const percent = Number(row.objetivo || 0) > 0
+      ? Math.max(0, Math.min(100, (Number(row.avance || 0) / Number(row.objetivo || 0)) * 100))
+      : 0;
+
+    const valueText = row.tipo === 'transacciones'
+      ? (value) => `${Math.round(Number(value || 0))}`
+      : (value) => money(Number(value || 0));
+
+    const tr = document.createElement('tr');
+    tr.innerHTML = `
+      <td>${escapeHtml(formatAttendanceDate(row.fecha))}</td>
+      <td>
+        <div class="goal-table-user">
+          <span class="goal-table-avatar">${row.foto_url ? `<img src="${escapeHtml(row.foto_url)}" alt="" />` : iconUse('icon-user')}</span>
+          <span><strong>${escapeHtml(row.nombre || row.usuario)}</strong><small>@${escapeHtml(row.usuario)}</small></span>
+        </div>
+      </td>
+      <td>${escapeHtml(goalMetricLabel(row.tipo))}</td>
+      <td><strong>${escapeHtml(valueText(row.objetivo))}</strong></td>
+      <td><strong>${escapeHtml(valueText(row.avance))}</strong></td>
+      <td>
+        <div class="goal-table-progress">
+          <div class="goal-progress-track"><span class="goal-progress-fill" style="width:${percent}%"></span></div>
+          <strong>${Math.round(percent)}%</strong>
+        </div>
+      </td>
+    `;
+    tbody.appendChild(tr);
+  });
+
+  empty.hidden = goalsHistory.length > 0;
+}
+
+async function refreshGoalsConfig() {
+  const rows = await apiFetch(`/api/metas/config?_=${Date.now()}`, { cache:'no-store' });
+  goalsConfig = Array.isArray(rows) ? rows : [];
+  renderGoalsConfig();
+  populateGoalsUserFilter();
+}
+
+async function refreshGoalsHistory() {
+  const start = $('#goalsStartDate');
+  const end = $('#goalsEndDate');
+  const user = $('#goalsUserFilter');
+
+  if (start && !start.value) start.value = todayLocal();
+  if (end && !end.value) end.value = todayLocal();
+
+  const params = new URLSearchParams();
+  params.set('inicio', start?.value || todayLocal());
+  params.set('fin', end?.value || start?.value || todayLocal());
+  if (user?.value) params.set('usuario_id', user.value);
+  params.set('_', Date.now());
+
+  const rows = await apiFetch(`/api/metas/historial?${params.toString()}`, { cache:'no-store' });
+  goalsHistory = Array.isArray(rows) ? rows : [];
+  renderGoalsHistory();
+}
+
+async function refreshGoalsAdmin() {
+  try {
+    await Promise.all([refreshGoalsConfig(), refreshGoalsHistory()]);
+  } catch (err) {
+    showToast(err.message, 'No se pudieron cargar las metas');
+  }
+}
+
+async function saveGoalConfig(userId) {
+  const type = document.querySelector(`[data-goal-type="${CSS.escape(String(userId))}"]`)?.value || 'ventas';
+  const target = Math.max(0, Number(document.querySelector(`[data-goal-target="${CSS.escape(String(userId))}"]`)?.value || 0));
+
+  try {
+    const result = await apiFetch(`/api/metas/config/${userId}`, {
+      method:'PUT',
+      headers:{'Content-Type':'application/json'},
+      body:JSON.stringify({ tipo:type, objetivo:target })
+    });
+    showToast(result.mensaje || 'Meta guardada.', 'Metas');
+    await Promise.all([refreshGoalsConfig(), refreshGoalsHistory(), refreshGoalsToday({ silent:true })]);
+  } catch (err) {
+    showToast(err.message, 'No se pudo guardar la meta');
+  }
+}
+
 function setTheme(theme, persist = true) {
   const next = theme === 'dark' ? 'dark' : 'light';
   document.documentElement.setAttribute('data-theme', next);
@@ -3909,6 +4150,7 @@ function showAdminSection(section = 'apariencia') {
   if (target === 'acceso') refreshAdminUsers();
   if (target === 'roles') refreshRoles();
   if (target === 'checkin') refreshAttendance();
+  if (target === 'metas') refreshGoalsAdmin();
   if (target === 'cuadre') refreshBanks({ silent:true });
   if (target === 'cotizador') {
     renderQuotePriceAdmin();
@@ -4008,6 +4250,22 @@ on('detailImageNext', 'click', () => {
   renderDetailImage(task);
 });
 on('refreshAttendance', 'click', refreshAttendance);
+on('refreshGoalsHistory', 'click', refreshGoalsHistory);
+on('goalsStartDate', 'change', refreshGoalsHistory);
+on('goalsEndDate', 'change', refreshGoalsHistory);
+on('goalsUserFilter', 'change', refreshGoalsHistory);
+$('#goalsConfigList')?.addEventListener('click', (e) => {
+  const save = e.target.closest('[data-save-goal]');
+  if (save) saveGoalConfig(save.dataset.saveGoal);
+});
+$('#goalsConfigList')?.addEventListener('change', (e) => {
+  const type = e.target.closest('[data-goal-type]');
+  if (!type) return;
+  const id = type.dataset.goalType;
+  const input = document.querySelector(`[data-goal-target="${CSS.escape(String(id))}"]`);
+  if (input) input.step = type.value === 'transacciones' ? '1' : '0.01';
+});
+
 on('refreshCuadre', 'click', refreshCuadre);
 on('saveCuadre', 'click', saveCuadre);
 $('#cuadreBanksGrid')?.addEventListener('input', updateCuadreTotals);
