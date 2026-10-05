@@ -9,7 +9,7 @@
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700;800&display=swap" rel="stylesheet">
   <link id="dynamicFavicon" rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 64 64'%3E%3Crect width='64' height='64' rx='16' fill='%23b9ff39'/%3E%3Cpath d='M18 33l9 9 19-22' fill='none' stroke='%23111' stroke-width='7' stroke-linecap='round' stroke-linejoin='round'/%3E%3C/svg%3E" />
-  <link rel="stylesheet" href="styles.css?v=11.11.3" />
+  <link rel="stylesheet" href="styles.css?v=11.12" />
 </head>
 <body>
   <svg xmlns="http://www.w3.org/2000/svg" style="display:none" aria-hidden="true" focusable="false">
@@ -452,7 +452,7 @@
     <footer class="app-version-footer" aria-label="Versión de la aplicación">
       <span>DeTodoEc</span>
       <span class="version-separator">•</span>
-      <strong>Versión 11.11.3</strong>
+      <strong>Versión 11.12</strong>
     </footer>
   </div>
 
@@ -875,7 +875,24 @@
           <button type="button" class="admin-nav-btn" data-admin-target="acceso"><svg class="icon"><use href="#icon-users"></use></svg><span>Usuarios</span></button>
           <button type="button" class="admin-nav-btn" data-admin-target="roles"><svg class="icon"><use href="#icon-shield"></use></svg><span>Roles</span></button>
           <button type="button" class="admin-nav-btn" data-admin-target="checkin"><svg class="icon"><use href="#icon-clock"></use></svg><span>Check-in</span></button>
-          <button type="button" class="admin-nav-btn" data-admin-target="metas"><svg class="icon"><use href="#icon-target"></use></svg><span>Metas</span></button>
+          <div class="admin-nav-group goals-nav-group">
+            <button type="button" class="admin-nav-btn admin-nav-parent" data-admin-target="metas" id="adminGoalsNav">
+              <svg class="icon"><use href="#icon-target"></use></svg>
+              <span>Metas</span>
+              <span class="admin-nav-caret" aria-hidden="true">⌄</span>
+            </button>
+            <div class="admin-subnav" id="goalsSubnav" hidden>
+              <button type="button" class="admin-subnav-btn active" data-goals-subtarget="editor">
+                <span class="subnav-dot"></span><span>Editor de metas</span>
+              </button>
+              <button type="button" class="admin-subnav-btn" data-goals-subtarget="history">
+                <span class="subnav-dot"></span><span>Historial de metas</span>
+              </button>
+              <button type="button" class="admin-subnav-btn" data-goals-subtarget="banks">
+                <span class="subnav-dot"></span><span>Transacciones por banco</span>
+              </button>
+            </div>
+          </div>
           <button type="button" class="admin-nav-btn" data-admin-target="cuadre"><svg class="icon"><use href="#icon-wallet"></use></svg><span>Cuadre</span></button>
           <button type="button" class="admin-nav-btn" data-admin-target="empleados"><svg class="icon"><use href="#icon-user"></use></svg><span>Empleados</span></button>
           <button type="button" class="admin-nav-btn" data-admin-target="cotizador"><svg class="icon"><use href="#icon-calculator"></use></svg><span>Cotizador</span></button>
@@ -1028,7 +1045,7 @@
           </div>
         </div>
 
-        <section class="goals-config-panel">
+        <section class="goals-config-panel goals-subview" data-goals-subview="editor">
           <div class="goals-section-title">
             <div>
               <h4>Configuración de metas mensuales</h4>
@@ -1044,7 +1061,7 @@
           </div>
         </section>
 
-        <section class="goals-history-panel">
+        <section class="goals-history-panel goals-subview" data-goals-subview="history" hidden>
           <div class="goals-history-head">
             <div>
               <h4>Historial diario</h4>
@@ -1084,6 +1101,45 @@
             </table>
           </div>
           <div id="goalsHistoryEmpty" class="attendance-empty" hidden>No hay datos de metas para este filtro.</div>
+        </section>
+
+        <section class="goals-bank-panel goals-subview" data-goals-subview="banks" hidden>
+          <div class="goals-history-head">
+            <div>
+              <h4>Transacciones por banco</h4>
+              <p>Consulta en qué banco se están realizando más transacciones según el Cuadre registrado por cada usuario.</p>
+            </div>
+            <div class="goals-filters">
+              <label>Usuario
+                <select id="goalsBankUserFilter">
+                  <option value="">Todos los usuarios</option>
+                </select>
+              </label>
+              <label>Fecha de inicio
+                <input type="date" id="goalsBankStartDate" />
+              </label>
+              <label>Fecha final
+                <input type="date" id="goalsBankEndDate" />
+              </label>
+              <button type="button" class="btn btn-outline small" id="refreshGoalsBanks">
+                <svg class="icon"><use href="#icon-refresh"></use></svg><span>Filtrar</span>
+              </button>
+            </div>
+          </div>
+
+          <div class="goals-bank-summary">
+            <div>
+              <span>Total transacciones</span>
+              <strong id="goalsBankTotal">0</strong>
+            </div>
+            <div>
+              <span>Banco con más transacciones</span>
+              <strong id="goalsTopBank">—</strong>
+            </div>
+          </div>
+
+          <div id="goalsBankRanking" class="goals-bank-ranking"></div>
+          <div id="goalsBankEmpty" class="attendance-empty" hidden>No hay transacciones bancarias para este filtro.</div>
         </section>
       </section>
 
@@ -1373,6 +1429,6 @@
     </article>
   </template>
 
-  <script src="app.js?v=11.11.3"></script>
+  <script src="app.js?v=11.12"></script>
 </body>
 </html>

@@ -1,4 +1,4 @@
-const APP_VERSION = '11.11.3';
+const APP_VERSION = '11.12';
 const API_BASE = 'https://gestor-tareas-api.detodoec.workers.dev';
 const STORAGE_KEY = 'detodoec_tasks_v1';
 const SETTINGS_KEY = 'detodoec_tasks_settings_v3';
@@ -30,6 +30,8 @@ let cuadreCurrent = null;
 let goalsToday = [];
 let goalsConfig = [];
 let goalsHistory = [];
+let goalsBankStats = [];
+let goalsActiveSubview = 'editor';
 let focusedCheckinUserId = null;
 let currentAttendanceRows = [];
 let editingCheckinId = null;
@@ -4196,6 +4198,7 @@ async function refreshGoalsConfig() {
   goalsConfig = Array.isArray(rows) ? rows : [];
   renderGoalsConfig();
   populateGoalsUserFilter();
+  populateGoalsBankUserFilter();
 }
 
 async function refreshGoalsHistory() {
@@ -4217,10 +4220,110 @@ async function refreshGoalsHistory() {
   renderGoalsHistory();
 }
 
+
+function setGoalsSubview(target = 'editor') {
+  const allowed = new Set(['editor','history','banks']);
+  goalsActiveSubview = allowed.has(target) ? target : 'editor';
+
+  $$('[data-goals-subview]').forEach((view) => {
+    view.hidden = view.dataset.goalsSubview !== goalsActiveSubview;
+  });
+
+  $$('[data-goals-subtarget]').forEach((btn) => {
+    btn.classList.toggle('active', btn.dataset.goalsSubtarget === goalsActiveSubview);
+  });
+
+  if (goalsActiveSubview === 'editor') refreshGoalsConfig();
+  if (goalsActiveSubview === 'history') refreshGoalsHistory();
+  if (goalsActiveSubview === 'banks') refreshGoalsBankStats();
+}
+
+function populateGoalsBankUserFilter() {
+  const select = $('#goalsBankUserFilter');
+  if (!select) return;
+  const current = select.value;
+
+  select.innerHTML = '<option value="">Todos los usuarios</option>' +
+    goalsConfig.map((goal) =>
+      `<option value="${goal.usuario_id}">${escapeHtml(goal.nombre || goal.usuario)}</option>`
+    ).join('');
+
+  if (current && [...select.options].some((o) => o.value === current)) {
+    select.value = current;
+  }
+}
+
+function renderGoalsBankStats() {
+  const ranking = $('#goalsBankRanking');
+  const empty = $('#goalsBankEmpty');
+  if (!ranking || !empty) return;
+
+  ranking.innerHTML = '';
+
+  const total = goalsBankStats.reduce((sum, row) => sum + Number(row.transacciones || 0), 0);
+  const top = goalsBankStats[0] || null;
+
+  if ($('#goalsBankTotal')) $('#goalsBankTotal').textContent = String(Math.round(total));
+  if ($('#goalsTopBank')) $('#goalsTopBank').textContent = top ? `${top.banco_nombre} · ${Math.round(Number(top.transacciones || 0))}` : '—';
+
+  goalsBankStats.forEach((row, index) => {
+    const count = Math.max(0, Number(row.transacciones || 0));
+    const percent = total > 0 ? Math.min(100, (count / total) * 100) : 0;
+
+    const item = document.createElement('article');
+    item.className = 'goals-bank-rank-item';
+    item.innerHTML = `
+      <div class="goals-bank-rank-position">${index + 1}</div>
+      <div class="goals-bank-rank-logo">
+        ${row.imagen_url ? `<img src="${escapeHtml(row.imagen_url)}" alt="" />` : iconUse('icon-wallet')}
+      </div>
+      <div class="goals-bank-rank-copy">
+        <strong>${escapeHtml(row.banco_nombre || 'Banco')}</strong>
+        <span>${Math.round(count)} transacciones</span>
+        <div class="goal-progress-track">
+          <span class="goal-progress-fill" style="width:${percent}%"></span>
+        </div>
+      </div>
+      <div class="goals-bank-rank-share">${Math.round(percent)}%</div>
+    `;
+    ranking.appendChild(item);
+  });
+
+  empty.hidden = goalsBankStats.length > 0;
+}
+
+async function refreshGoalsBankStats() {
+  const start = $('#goalsBankStartDate');
+  const end = $('#goalsBankEndDate');
+  const user = $('#goalsBankUserFilter');
+
+  if (start && !start.value) start.value = todayLocal();
+  if (end && !end.value) end.value = todayLocal();
+
+  const params = new URLSearchParams();
+  params.set('inicio', start?.value || todayLocal());
+  params.set('fin', end?.value || start?.value || todayLocal());
+  if (user?.value) params.set('usuario_id', user.value);
+  params.set('_', Date.now());
+
+  try {
+    const rows = await apiFetch(`/api/metas/bancos?${params.toString()}`, { cache:'no-store' });
+    goalsBankStats = Array.isArray(rows) ? rows : [];
+    renderGoalsBankStats();
+  } catch (err) {
+    showToast(err.message, 'No se pudieron cargar las transacciones por banco');
+  }
+}
+
 async function refreshGoalsAdmin() {
   try {
     currentGoalConfigMonth();
-    await Promise.all([refreshGoalsConfig(), refreshGoalsHistory()]);
+    await refreshGoalsConfig();
+    populateGoalsBankUserFilter();
+
+    if (goalsActiveSubview === 'history') await refreshGoalsHistory();
+    if (goalsActiveSubview === 'banks') await refreshGoalsBankStats();
+    setGoalsSubview(goalsActiveSubview);
   } catch (err) {
     showToast(err.message, 'No se pudieron cargar las metas');
   }
@@ -4339,7 +4442,12 @@ function showAdminSection(section = 'apariencia') {
   if (target === 'acceso') refreshAdminUsers();
   if (target === 'roles') refreshRoles();
   if (target === 'checkin') refreshAttendance();
-  if (target === 'metas') refreshGoalsAdmin();
+  if (target === 'metas') {
+    const subnav = $('#goalsSubnav');
+    if (subnav) subnav.hidden = false;
+    $('#adminGoalsNav')?.classList.add('expanded');
+    refreshGoalsAdmin();
+  }
   if (target === 'cuadre') refreshBanks({ silent:true });
   if (target === 'cotizador') {
     renderQuotePriceAdmin();
@@ -4440,6 +4548,25 @@ on('detailImageNext', 'click', () => {
 });
 on('refreshAttendance', 'click', refreshAttendance);
 on('refreshGoalsHistory', 'click', refreshGoalsHistory);
+on('refreshGoalsBanks', 'click', refreshGoalsBankStats);
+on('goalsBankStartDate', 'change', refreshGoalsBankStats);
+on('goalsBankEndDate', 'change', refreshGoalsBankStats);
+on('goalsBankUserFilter', 'change', refreshGoalsBankStats);
+
+$('#adminGoalsNav')?.addEventListener('click', () => {
+  const subnav = $('#goalsSubnav');
+  if (!subnav) return;
+  subnav.hidden = !subnav.hidden;
+  $('#adminGoalsNav')?.classList.toggle('expanded', !subnav.hidden);
+  if (!subnav.hidden) setGoalsSubview(goalsActiveSubview || 'editor');
+});
+
+$('#goalsSubnav')?.addEventListener('click', (e) => {
+  const btn = e.target.closest('[data-goals-subtarget]');
+  if (!btn) return;
+  setGoalsSubview(btn.dataset.goalsSubtarget);
+});
+
 on('goalsStartDate', 'change', refreshGoalsHistory);
 on('goalsEndDate', 'change', refreshGoalsHistory);
 on('goalsUserFilter', 'change', refreshGoalsHistory);
