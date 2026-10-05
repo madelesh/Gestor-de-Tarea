@@ -7201,3 +7201,93 @@ textarea{
   background:var(--surface-2)!important;
   color:var(--ink)!important;
 }
+
+
+/* =========================================================
+   V11.13.2 — Mi Perfil con desplazamiento interno
+   ========================================================= */
+
+/* El modal nunca puede superar la altura visible del navegador */
+#profileDialog{
+  width:min(820px, calc(100vw - 28px))!important;
+  max-width:820px!important;
+  max-height:calc(100dvh - 28px)!important;
+  height:auto!important;
+  overflow:hidden!important;
+  display:block!important;
+}
+
+/* Todo el contenido del perfil se desplaza dentro del modal */
+#profileDialog .profile-form{
+  max-height:calc(100dvh - 28px)!important;
+  overflow-y:auto!important;
+  overflow-x:hidden!important;
+  overscroll-behavior:contain!important;
+  scrollbar-gutter:stable!important;
+  padding-bottom:28px!important;
+}
+
+/* Barra de scroll acorde al tema */
+#profileDialog .profile-form{
+  scrollbar-width:thin;
+  scrollbar-color:color-mix(in srgb,var(--muted) 55%,transparent) transparent;
+}
+
+#profileDialog .profile-form::-webkit-scrollbar{
+  width:8px;
+}
+
+#profileDialog .profile-form::-webkit-scrollbar-track{
+  background:transparent;
+}
+
+#profileDialog .profile-form::-webkit-scrollbar-thumb{
+  border-radius:999px;
+  background:color-mix(in srgb,var(--muted) 48%,transparent);
+}
+
+/* Mantiene el encabezado visible al bajar */
+#profileDialog .dialog-head{
+  position:sticky!important;
+  top:0!important;
+  z-index:20!important;
+  padding-top:2px!important;
+  padding-bottom:12px!important;
+  background:var(--surface)!important;
+}
+
+/* Evita que el título o botón cerrar tapen contenido */
+#profileDialog .dialog-head::after{
+  content:"";
+  position:absolute;
+  left:0;
+  right:0;
+  bottom:0;
+  height:1px;
+  background:var(--line);
+}
+
+/* En pantallas bajas aprovecha todavía más espacio */
+@media(max-height:760px){
+  #profileDialog{
+    max-height:calc(100dvh - 16px)!important;
+  }
+
+  #profileDialog .profile-form{
+    max-height:calc(100dvh - 16px)!important;
+    padding:18px!important;
+    padding-bottom:28px!important;
+    gap:14px!important;
+  }
+}
+
+@media(max-width:640px){
+  #profileDialog{
+    width:calc(100vw - 16px)!important;
+    max-height:calc(100dvh - 16px)!important;
+  }
+
+  #profileDialog .profile-form{
+    max-height:calc(100dvh - 16px)!important;
+  }
+}
