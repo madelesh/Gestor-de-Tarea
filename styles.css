@@ -4990,3 +4990,126 @@ body.admin-page-open{
 .profile-theme-icon-only .theme-switch-moon{
   font-size:13px!important;
 }
+
+
+/* =========================================================
+   V11.8.5 — Menú de perfil según referencia
+   ========================================================= */
+
+/* Iconografía del menú */
+#profileEditMenu > .icon{
+  color:#8f9aaa!important;
+}
+
+#profileMyCheckinMenu > .icon{
+  color:var(--accent)!important;
+}
+
+#profileAdminMenu > .icon{
+  color:#8f9aaa!important;
+}
+
+#profileLogoutMenu > .icon{
+  color:#ff5f70!important;
+}
+
+#profileLogoutMenu{
+  color:#ff6876!important;
+}
+
+/* Filas principales limpias */
+.profile-dropdown > button:not(.profile-theme-reference){
+  min-height:48px!important;
+  padding:8px 12px!important;
+  border-radius:11px!important;
+}
+
+.profile-dropdown > button:not(.profile-theme-reference) .icon{
+  width:17px!important;
+  height:17px!important;
+}
+
+/* El tema se ve como la referencia: una sola pastilla */
+.profile-dropdown .profile-theme-reference{
+  width:100%!important;
+  min-height:50px!important;
+  display:flex!important;
+  align-items:center!important;
+  justify-content:flex-start!important;
+  padding:7px 12px!important;
+  margin:1px 0 4px!important;
+  background:transparent!important;
+  border:0!important;
+  border-radius:11px!important;
+}
+
+.profile-dropdown .profile-theme-reference:hover{
+  background:var(--surface-2)!important;
+}
+
+.theme-reference-pill{
+  width:auto!important;
+  min-width:112px!important;
+  height:36px!important;
+  display:inline-flex!important;
+  align-items:center!important;
+  gap:8px!important;
+  padding:0 10px 0 7px!important;
+  border-radius:999px!important;
+  background:#111923!important;
+  color:#fff!important;
+  box-shadow:inset 0 0 0 1px rgba(255,255,255,.08)!important;
+  transition:.18s ease!important;
+}
+
+.theme-reference-dot{
+  width:25px!important;
+  height:25px!important;
+  flex:0 0 25px!important;
+  border-radius:50%!important;
+  background:var(--accent)!important;
+  transition:.18s ease!important;
+}
+
+.theme-reference-pill strong{
+  font-size:15px!important;
+  line-height:1!important;
+  font-weight:900!important;
+  color:inherit!important;
+}
+
+.theme-reference-symbol{
+  margin-left:auto!important;
+  font-size:15px!important;
+  line-height:1!important;
+  color:var(--accent)!important;
+}
+
+/* En oscuro: pastilla lima, texto oscuro, círculo blanco */
+.theme-reference-pill.is-dark{
+  background:var(--accent)!important;
+  color:#10151b!important;
+  box-shadow:none!important;
+}
+
+.theme-reference-pill.is-dark .theme-reference-dot{
+  background:#fff!important;
+}
+
+.theme-reference-pill.is-dark .theme-reference-symbol{
+  color:#fff!important;
+}
+
+/* En claro: fondo oscuro + círculo lima, igual a referencia */
+:root[data-theme="light"] .theme-reference-pill{
+  background:#111923!important;
+  color:#fff!important;
+}
+
+:root[data-theme="light"] .theme-reference-pill .theme-reference-dot{
+  background:var(--accent)!important;
+}
+
+:root[data-theme="light"] .theme-reference-pill .theme-reference-symbol{
+  color:var(--accent)!important;
+}

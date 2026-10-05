@@ -1,4 +1,4 @@
-const APP_VERSION = '11.8.4';
+const APP_VERSION = '11.8.5';
 const API_BASE = 'https://gestor-tareas-api.detodoec.workers.dev';
 const STORAGE_KEY = 'detodoec_tasks_v1';
 const SETTINGS_KEY = 'detodoec_tasks_settings_v3';
@@ -2371,6 +2371,17 @@ function updateNavigationPermissions() {
   if (adminMenu) adminMenu.hidden = currentUser?.rol !== 'admin';
 }
 
+function syncProfileThemeControl() {
+  const theme = document.documentElement.dataset.theme || 'dark';
+  const pill = $('#profileThemeSwitch');
+  const label = $('#profileThemeLabel');
+  const symbol = $('#profileThemeSymbol');
+
+  if (pill) pill.classList.toggle('is-dark', theme === 'dark');
+  if (label) label.textContent = theme === 'dark' ? 'Oscuro' : 'Claro';
+  if (symbol) symbol.textContent = theme === 'dark' ? '☾' : '☀';
+}
+
 function updateCurrentUserUI() {
   if (!currentUser) return;
 
@@ -2383,8 +2394,7 @@ function updateCurrentUserUI() {
   if (topAvatar) topAvatar.innerHTML = userAvatarMarkup(currentUser);
   if (greeting) greeting.textContent = name;
 
-  const themeSwitch = $('#profileThemeSwitch');
-  if (themeSwitch) themeSwitch.classList.toggle('is-dark', document.documentElement.dataset.theme === 'dark');
+  syncProfileThemeControl();
 
   updateNavigationPermissions();
 }
@@ -2573,10 +2583,7 @@ function bindCoreNavigationEarly() {
 
   safeBind('profileThemeMenu', () => {
     toggleTheme();
-    const themeSwitch = $('#profileThemeSwitch');
-    if (themeSwitch) {
-      themeSwitch.classList.toggle('is-dark', document.documentElement.dataset.theme === 'dark');
-    }
+    syncProfileThemeControl();
   });
 
   safeBind('profileLogoutMenu', async () => {
