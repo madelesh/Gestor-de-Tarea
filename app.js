@@ -1,4 +1,4 @@
-const APP_VERSION = '11.11.1';
+const APP_VERSION = '11.11.2';
 const API_BASE = 'https://gestor-tareas-api.detodoec.workers.dev';
 const STORAGE_KEY = 'detodoec_tasks_v1';
 const SETTINGS_KEY = 'detodoec_tasks_settings_v3';
@@ -2804,17 +2804,6 @@ function renderHomeUsers() {
       ? `Entrada ${formatTime(user.entrada_actual)}`
       : 'Sin jornada abierta';
 
-    const goal = goalForUser(user.id);
-    const month = goal?.mes || todayLocal().slice(0,7);
-    const salesActive = Number(goal?.ventas_activa ?? 1) === 1;
-    const txActive = Number(goal?.transacciones_activa ?? 1) === 1;
-    const goalMarkup = `
-      <div class="home-goal-block ${(!goal || (!salesActive && !txActive)) ? 'empty' : ''}">
-        <div class="home-goal-month">${escapeHtml(formatGoalMonth(month))}</div>
-        ${salesActive ? goalBarMarkup('Ventas', goal?.ventas_mes || 0, goal?.objetivo_ventas || 0, true) : ''}
-        ${txActive ? goalBarMarkup('Transacciones', goal?.transacciones_mes || 0, goal?.objetivo_transacciones || 0, false) : ''}
-      </div>`;
-
     card.innerHTML = `
       <div class="home-worker-main">
         <div class="home-worker-avatar">
@@ -2833,7 +2822,6 @@ function renderHomeUsers() {
           ${isAdminViewer ? '<span class="home-worker-open">Ver check-in ›</span>' : ''}
         </div>
       </div>
-      ${goalMarkup}
     `;
 
     if (isAdminViewer) {
@@ -2848,10 +2836,7 @@ function renderHomeUsers() {
         requestAnimationFrame(() => focusCheckinRows(user.id));
       };
 
-      card.addEventListener('click', (event) => {
-        if (event.target.closest('.home-goal-block')) return;
-        openCheckin();
-      });
+      card.addEventListener('click', openCheckin);
       card.addEventListener('keydown', (e) => {
         if (e.key === 'Enter' || e.key === ' ') {
           e.preventDefault();
@@ -2865,6 +2850,88 @@ function renderHomeUsers() {
 
   empty.hidden = homeUsers.length > 0;
 }
+
+function renderHomeGoals() {
+  const grid = $('#homeGoalsGrid');
+  const empty = $('#homeGoalsEmpty');
+  const monthLabel = $('#homeGoalsMonth');
+  if (!grid || !empty) return;
+
+  grid.innerHTML = '';
+
+  const currentMonth = goalsToday[0]?.mes || todayLocal().slice(0,7);
+  if (monthLabel) monthLabel.textContent = formatGoalMonth(currentMonth);
+
+  const usersById = new Map(homeUsers.map((user) => [String(user.id), user]));
+
+  const visibleGoals = goalsToday.filter((goal) => {
+    const salesActive = Number(goal.ventas_activa ?? 1) === 1;
+    const txActive = Number(goal.transacciones_activa ?? 1) === 1;
+    return salesActive || txActive;
+  });
+
+  visibleGoals.forEach((goal) => {
+    const user = usersById.get(String(goal.usuario_id)) || goal;
+    const salesActive = Number(goal.ventas_activa ?? 1) === 1;
+    const txActive = Number(goal.transacciones_activa ?? 1) === 1;
+
+    const salesPercent = monthlyGoalPercent(goal.ventas_mes, goal.objetivo_ventas);
+    const txPercent = monthlyGoalPercent(goal.transacciones_mes, goal.objetivo_transacciones);
+
+    const card = document.createElement('article');
+    card.className = 'home-goal-user-card';
+
+    card.innerHTML = `
+      <div class="home-goal-user-head">
+        <span class="home-goal-user-avatar">
+          ${user.foto_url ? `<img src="${escapeHtml(user.foto_url)}" alt="" />` : iconUse('icon-user')}
+        </span>
+        <span class="home-goal-user-copy">
+          <strong>${escapeHtml(user.nombre || user.usuario || 'Usuario')}</strong>
+          <small>${escapeHtml(user.role_name || (user.rol === 'admin' ? 'Administrador' : 'Usuario'))}</small>
+        </span>
+      </div>
+
+      <div class="home-goal-user-body">
+        ${salesActive ? `
+          <section class="home-goal-metric">
+            <div class="home-goal-metric-head">
+              <span>Ventas</span>
+              <strong>${Math.round(salesPercent)}%</strong>
+            </div>
+            <div class="goal-progress-track">
+              <span class="goal-progress-fill" style="width:${salesPercent}%"></span>
+            </div>
+            <div class="home-goal-metric-foot">
+              <strong>${money(Number(goal.ventas_mes || 0))}</strong>
+              <span>Meta ${money(Number(goal.objetivo_ventas || 0))}</span>
+            </div>
+          </section>
+        ` : ''}
+
+        ${txActive ? `
+          <section class="home-goal-metric">
+            <div class="home-goal-metric-head">
+              <span>Transacciones</span>
+              <strong>${Math.round(txPercent)}%</strong>
+            </div>
+            <div class="goal-progress-track">
+              <span class="goal-progress-fill" style="width:${txPercent}%"></span>
+            </div>
+            <div class="home-goal-metric-foot">
+              <strong>${Math.round(Number(goal.transacciones_mes || 0))}</strong>
+              <span>Meta ${Math.round(Number(goal.objetivo_transacciones || 0))}</span>
+            </div>
+          </section>
+        ` : ''}
+      </div>
+    `;
+
+    grid.appendChild(card);
+  });
+
+  empty.hidden = visibleGoals.length > 0;
+}
 async function refreshHomeUsers() {
   if (!currentUser || !userCan('home')) return;
   try {
@@ -2877,6 +2944,7 @@ async function refreshHomeUsers() {
       ? rows.map((user) => ({ ...user, online:Boolean(Number(user.online)) }))
       : [];
     renderHomeUsers();
+    renderHomeGoals();
   } catch (err) {
     console.error(err);
     showToast(err.message, 'No se pudo actualizar Home');
@@ -3971,6 +4039,7 @@ async function refreshGoalsToday({ silent = false } = {}) {
     const rows = await apiFetch(`/api/metas/hoy?_=${Date.now()}`, { cache:'no-store' });
     goalsToday = Array.isArray(rows) ? rows : [];
     renderProfileGoal();
+    renderHomeGoals();
     return goalsToday;
   } catch (err) {
     if (!silent) showToast(err.message, 'No se pudieron cargar las metas');

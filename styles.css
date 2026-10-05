@@ -6552,3 +6552,194 @@ textarea{
     grid-template-columns:1fr;
   }
 }
+
+
+/* =========================================================
+   V11.11.2 — Metas separadas de Equipo en Home
+   ========================================================= */
+
+/* Equipo vuelve a ser únicamente presencia / check-in */
+.home-team-panel{
+  margin-bottom:18px!important;
+}
+
+.home-worker-card{
+  min-height:0!important;
+}
+
+.home-worker-main{
+  min-height:76px;
+}
+
+/* Nueva sección Metas */
+.home-goals-panel{
+  width:100%;
+  margin-top:18px;
+  padding:20px;
+  border:1px solid var(--line);
+  border-radius:22px;
+  background:var(--surface);
+}
+
+.home-goals-panel .home-panel-head{
+  margin-bottom:16px;
+}
+
+.home-goals-panel .home-panel-head h2{
+  margin:5px 0 3px;
+}
+
+.home-goals-month{
+  flex:0 0 auto;
+  min-height:38px;
+  display:flex;
+  align-items:center;
+  padding:0 13px;
+  border:1px solid var(--line);
+  border-radius:12px;
+  background:var(--surface-2);
+  color:var(--muted);
+  font-size:11px;
+  font-weight:800;
+}
+
+.home-goals-grid{
+  display:grid;
+  grid-template-columns:repeat(auto-fit,minmax(290px,1fr));
+  gap:13px;
+}
+
+.home-goal-user-card{
+  min-width:0;
+  overflow:hidden;
+  border:1px solid var(--line);
+  border-radius:18px;
+  background:var(--surface-2);
+}
+
+.home-goal-user-head{
+  display:flex;
+  align-items:center;
+  gap:11px;
+  padding:13px 14px;
+  border-bottom:1px solid var(--line);
+}
+
+.home-goal-user-avatar{
+  width:44px;
+  height:44px;
+  min-width:44px;
+  display:grid;
+  place-items:center;
+  overflow:hidden;
+  border:1px solid var(--line);
+  border-radius:13px;
+  background:var(--surface);
+}
+
+.home-goal-user-avatar img{
+  width:100%;
+  height:100%;
+  object-fit:cover;
+}
+
+.home-goal-user-avatar .icon{
+  width:18px;
+  height:18px;
+  color:var(--muted);
+}
+
+.home-goal-user-copy{
+  min-width:0;
+}
+
+.home-goal-user-copy strong{
+  display:block;
+  overflow:hidden;
+  white-space:nowrap;
+  text-overflow:ellipsis;
+  font-size:14px;
+}
+
+.home-goal-user-copy small{
+  display:block;
+  margin-top:2px;
+  color:var(--muted);
+  font-size:10px;
+}
+
+.home-goal-user-body{
+  padding:13px 14px 15px;
+}
+
+.home-goal-metric + .home-goal-metric{
+  margin-top:14px;
+  padding-top:14px;
+  border-top:1px solid var(--line);
+}
+
+.home-goal-metric-head,
+.home-goal-metric-foot{
+  display:flex;
+  align-items:center;
+  justify-content:space-between;
+  gap:10px;
+}
+
+.home-goal-metric-head{
+  margin-bottom:7px;
+}
+
+.home-goal-metric-head span{
+  color:var(--muted);
+  font-size:10px;
+  font-weight:900;
+  text-transform:uppercase;
+  letter-spacing:.04em;
+}
+
+.home-goal-metric-head strong{
+  padding:4px 7px;
+  border-radius:999px;
+  background:color-mix(in srgb,var(--accent) 12%,var(--surface));
+  color:var(--accent);
+  font-size:10px;
+}
+
+.home-goal-metric-foot{
+  margin-top:7px;
+}
+
+.home-goal-metric-foot strong{
+  font-size:13px;
+}
+
+.home-goal-metric-foot span{
+  color:var(--muted);
+  font-size:10px;
+  font-weight:700;
+}
+
+/* Los estilos antiguos de meta dentro de la tarjeta de Equipo dejan de aplicar */
+.home-worker-card > .home-goal-block{
+  display:none!important;
+}
+
+@media(max-width:700px){
+  .home-goals-panel{
+    padding:15px;
+  }
+
+  .home-goals-panel .home-panel-head{
+    align-items:flex-start;
+    flex-direction:column;
+  }
+
+  .home-goals-month{
+    width:100%;
+  }
+
+  .home-goals-grid{
+    grid-template-columns:1fr;
+  }
+}
