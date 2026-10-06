@@ -7327,3 +7327,126 @@ textarea{
   visibility:hidden!important;
   pointer-events:none!important;
 }
+
+
+/* =========================================================
+   V12.0-P1 · CONTABILIDAD BETA
+   ========================================================= */
+.accounting-nav-btn small{
+  margin-left:5px;
+  padding:2px 5px;
+  border-radius:999px;
+  background:color-mix(in srgb,var(--accent) 20%,transparent);
+  color:var(--accent);
+  font-size:8px;
+  font-weight:800;
+}
+.accounting-section{max-width:none!important;width:100%!important}
+.accounting-shell{display:flex;flex-direction:column;gap:18px;width:100%}
+.accounting-hero{
+  display:flex;align-items:flex-end;justify-content:space-between;gap:22px;
+  padding:22px 24px;border:1px solid var(--line);border-radius:22px;background:var(--surface);
+}
+.accounting-title-line{display:flex;align-items:center;gap:9px}
+.accounting-beta{
+  padding:4px 8px;border-radius:999px;border:1px solid color-mix(in srgb,var(--accent) 35%,transparent);
+  color:var(--accent);font-size:9px;font-weight:800;letter-spacing:.08em;
+}
+.accounting-hero h1{margin:5px 0 5px;font-size:clamp(22px,3vw,34px)}
+.accounting-hero p{margin:0;color:var(--muted);max-width:780px}
+.accounting-local-picker{min-width:210px;font-size:10px;color:var(--muted);font-weight:700;text-transform:uppercase;letter-spacing:.05em}
+.accounting-local-picker select{margin-top:7px;width:100%;font-size:14px;font-weight:700}
+.accounting-local-warning{
+  display:flex;align-items:center;gap:10px;padding:11px 14px;border-radius:14px;
+  border:1px solid color-mix(in srgb,var(--accent) 22%,var(--line));
+  background:color-mix(in srgb,var(--accent) 5%,var(--surface));color:var(--muted);font-size:11px;
+}
+.accounting-local-warning .icon{color:var(--accent)}
+.accounting-tabs{display:flex;gap:8px;overflow-x:auto;padding:3px 2px 7px}
+.accounting-tabs button{
+  border:1px solid var(--line);background:var(--surface);color:var(--muted);border-radius:12px;
+  padding:10px 13px;white-space:nowrap;font:inherit;font-size:11px;font-weight:700;cursor:pointer;
+}
+.accounting-tabs button.active{background:var(--surface-2);color:var(--ink);border-color:color-mix(in srgb,var(--accent) 34%,var(--line))}
+.accounting-loading{
+  position:sticky;top:12px;z-index:60;align-self:center;display:flex;align-items:center;gap:12px;
+  padding:11px 16px;border:1px solid var(--line);border-radius:15px;background:var(--surface);
+  box-shadow:0 14px 40px rgba(0,0,0,.22)
+}
+.accounting-loading[hidden]{display:none!important}
+.accounting-loading div{display:flex;flex-direction:column;gap:2px}
+.accounting-loading small{color:var(--muted)}
+.accounting-spinner{width:24px;height:24px;border:3px solid var(--line);border-top-color:var(--accent);border-radius:50%;animation:accountingSpin .7s linear infinite}
+@keyframes accountingSpin{to{transform:rotate(360deg)}}
+.accounting-view{animation:accountingViewIn .16s ease-out}
+@keyframes accountingViewIn{from{opacity:.35;transform:translateY(3px)}to{opacity:1;transform:none}}
+.accounting-summary-grid{
+  display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:12px;margin-bottom:18px
+}
+.accounting-summary-grid article{
+  min-height:94px;padding:15px 17px;border:1px solid var(--line);border-radius:17px;background:var(--surface);
+  display:flex;flex-direction:column;justify-content:space-between;gap:10px
+}
+.accounting-summary-grid article span{font-size:10px;color:var(--muted);font-weight:700}
+.accounting-summary-grid article strong{font-size:20px;letter-spacing:-.02em}
+.accounting-summary-grid article.accent{border-color:color-mix(in srgb,var(--accent) 35%,var(--line));background:color-mix(in srgb,var(--accent) 6%,var(--surface))}
+.accounting-summary-grid article.accent strong{color:var(--accent)}
+.accounting-card{
+  border:1px solid var(--line);border-radius:20px;background:var(--surface);padding:18px
+}
+.accounting-card-head{display:flex;align-items:flex-start;justify-content:space-between;gap:14px;margin-bottom:16px}
+.accounting-card-head h3{margin:0 0 4px;font-size:15px}
+.accounting-card-head p{margin:0;color:var(--muted);font-size:10px}
+.accounting-two-column{display:grid;grid-template-columns:minmax(300px,.72fr) minmax(0,1.28fr);gap:16px;align-items:start}
+.accounting-stack{display:flex;flex-direction:column;gap:16px}
+.accounting-form{display:flex;flex-direction:column;gap:12px}
+.accounting-form.compact{gap:10px}
+.accounting-form label{display:flex;flex-direction:column;gap:6px;color:var(--muted);font-size:10px;font-weight:700}
+.accounting-form input,.accounting-form select,.accounting-local-picker select,.accounting-report-filters input,.accounting-report-filters select{
+  min-height:40px;border-radius:11px
+}
+.accounting-inline-fields{display:grid;grid-template-columns:1fr 1fr;gap:10px}
+.accounting-ledger-list,.accounting-balance-list{display:flex;flex-direction:column;gap:9px}
+.accounting-ledger-row,.accounting-balance-row,.accounting-debt-card{
+  display:flex;align-items:center;justify-content:space-between;gap:14px;padding:12px 13px;border:1px solid var(--line);border-radius:13px;background:var(--surface-2)
+}
+.accounting-ledger-main,.accounting-debt-card-main{min-width:0;display:flex;flex-direction:column;gap:3px}
+.accounting-ledger-main strong,.accounting-debt-card-main strong{font-size:11px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.accounting-ledger-main small,.accounting-debt-card-main small,.accounting-balance-row small{color:var(--muted);font-size:9px}
+.accounting-ledger-type{font-size:8px;text-transform:uppercase;letter-spacing:.06em;color:var(--accent);font-weight:800}
+.accounting-ledger-amount{font-size:13px;white-space:nowrap}
+.accounting-ledger-row.gasto .accounting-ledger-amount,.accounting-ledger-row.inversion .accounting-ledger-amount{color:#ff7b7b}
+.accounting-ledger-row.ingreso .accounting-ledger-amount,.accounting-ledger-row.capital .accounting-ledger-amount{color:var(--accent)}
+.accounting-balance-row>div{display:flex;flex-direction:column;gap:2px}
+.accounting-balance-row>strong{font-size:14px}
+.accounting-balance-row>strong.debt{color:#ffb86b}
+.accounting-debt-card-side{display:flex;align-items:center;gap:10px}
+.accounting-debt-card-side>strong{font-size:14px;white-space:nowrap}
+.paid-badge{padding:4px 8px;border-radius:999px;background:color-mix(in srgb,var(--accent) 12%,transparent);color:var(--accent);font-size:8px;font-weight:800}
+.accounting-empty{padding:24px;text-align:center;color:var(--muted);font-size:10px;border:1px dashed var(--line);border-radius:13px}
+.payroll-preview{display:grid;grid-template-columns:1fr 1fr 1fr;gap:8px}
+.payroll-preview>div{padding:10px;border:1px solid var(--line);border-radius:11px;background:var(--surface-2);display:flex;flex-direction:column;gap:5px}
+.payroll-preview span{font-size:8px;color:var(--muted)}
+.payroll-preview strong{font-size:13px}
+.payroll-preview .accent strong{color:var(--accent)}
+.percent-input{display:flex;align-items:center;gap:8px}
+.percent-input input{flex:1}
+.percent-input span{font-size:14px;color:var(--muted)}
+.reports-head{align-items:center}
+.accounting-report-filters{display:flex;gap:8px;align-items:center;flex-wrap:wrap}
+.accounting-report-period{margin:-2px 0 14px;color:var(--accent);font-size:11px;font-weight:800}
+.accounting-report-note{margin-top:14px;padding:11px 13px;border-radius:12px;background:var(--surface-2);color:var(--muted);font-size:10px}
+.accounting-report-note strong{color:var(--ink)}
+@media(max-width:1100px){
+  .accounting-summary-grid{grid-template-columns:repeat(2,minmax(0,1fr))}
+  .accounting-two-column{grid-template-columns:1fr}
+}
+@media(max-width:700px){
+  .accounting-hero{align-items:stretch;flex-direction:column}
+  .accounting-local-picker{min-width:0;width:100%}
+  .accounting-summary-grid{grid-template-columns:1fr}
+  .accounting-inline-fields,.payroll-preview{grid-template-columns:1fr}
+  .accounting-card{padding:14px}
+  .accounting-debt-card{align-items:flex-start;flex-direction:column}
+  .accounting-debt-card-side{width:100%;justify-content:space-between}
+}

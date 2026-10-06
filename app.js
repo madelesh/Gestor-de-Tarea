@@ -1,4 +1,4 @@
-const APP_VERSION = '11.13.3';
+const APP_VERSION = '12.0-P1';
 const API_BASE = 'https://gestor-tareas-api.detodoec.workers.dev';
 const STORAGE_KEY = 'detodoec_tasks_v1';
 const SETTINGS_KEY = 'detodoec_tasks_settings_v3';
@@ -2239,7 +2239,7 @@ async function refreshMyCheckin() {
 function showMyCheckinPage() {
   hideStandalonePages();
 
-  ['home','resumen','tareas','archivados','cotizador','cuadre','disenos'].forEach((id) => {
+  ['home','resumen','tareas','archivados','cotizador','cuadre','contabilidad','disenos'].forEach((id) => {
     const el = $('#' + id);
     if (el) el.hidden = true;
   });
@@ -2252,7 +2252,7 @@ function showMyCheckinPage() {
 
 function showSettingsPage() {
   hideStandalonePages();
-  ['home','resumen','tareas','archivados','cotizador','cuadre','disenos'].forEach((id) => {
+  ['home','resumen','tareas','archivados','cotizador','cuadre','contabilidad','disenos'].forEach((id) => {
     const el = $('#' + id);
     if (el) el.hidden = true;
   });
@@ -2268,6 +2268,7 @@ function showMainView(view) {
     tasks:'tasks',
     quote:'quote',
     cuadre:'cuadre',
+    accounting:'accounting',
     designs:'designs'
   };
 
@@ -2280,6 +2281,7 @@ function showMainView(view) {
   const isTasks = view === 'tasks';
   const isQuote = view === 'quote';
   const isCuadre = view === 'cuadre';
+  const isAccounting = view === 'accounting';
   const isDesigns = view === 'designs';
 
   $('#home').hidden = !isHome;
@@ -2288,12 +2290,14 @@ function showMainView(view) {
   $('#archivados').hidden = true;
   $('#cotizador').hidden = !isQuote;
   $('#cuadre').hidden = !isCuadre;
+  $('#contabilidad').hidden = !isAccounting;
   $('#disenos').hidden = !isDesigns;
 
   $('#navHome')?.classList.toggle('active', isHome);
   $('#navTasks')?.classList.toggle('active', isTasks);
   $('#navQuote')?.classList.toggle('active', isQuote);
   $('#navCuadre')?.classList.toggle('active', isCuadre);
+  $('#navAccounting')?.classList.toggle('active', isAccounting);
   $('#navDesigns')?.classList.toggle('active', isDesigns);
 
   if (homeRefreshTimer) {
@@ -2312,6 +2316,7 @@ function showMainView(view) {
   }
 
   if (isCuadre) refreshCuadre();
+  if (isAccounting) refreshAccountingModule();
   if (isQuote) {
     renderQuoteCustomerPicker();
     renderQuoteMaterialSelect();
@@ -2373,6 +2378,7 @@ function updateNavigationPermissions() {
     ['navTasks', 'tasks'],
     ['navQuote', 'quote'],
     ['navCuadre', 'cuadre'],
+    ['navAccounting', 'accounting'],
     ['navDesigns', 'designs']
   ];
 
@@ -2383,6 +2389,8 @@ function updateNavigationPermissions() {
 
   const adminMenu = $('#profileAdminMenu');
   if (adminMenu) adminMenu.hidden = currentUser?.rol !== 'admin';
+  const accountingNav = $('#navAccounting');
+  if (accountingNav) accountingNav.hidden = currentUser?.rol !== 'admin';
 }
 
 function syncProfileThemeControl() {
@@ -2581,6 +2589,7 @@ function bindCoreNavigationEarly() {
   safeBind('navTasks', () => showMainView('tasks'));
   safeBind('navQuote', () => showMainView('quote'));
   safeBind('navCuadre', () => showMainView('cuadre'));
+  safeBind('navAccounting', () => showMainView('accounting'));
   safeBind('navDesigns', () => showMainView('designs'));
 
   safeBind('profileBtn', () => {
@@ -4582,7 +4591,7 @@ function requestAdminPanel(section = 'apariencia') {
 }
 function openAdminPanel(section = pendingAdminSection || 'apariencia') {
   // Primero abre la página; después carga los módulos.
-  ['home','resumen','tareas','archivados','cotizador','cuadre','disenos'].forEach((id) => {
+  ['home','resumen','tareas','archivados','cotizador','cuadre','contabilidad','disenos'].forEach((id) => {
     const el = $('#' + id);
     if (el) el.hidden = true;
   });
@@ -5371,6 +5380,532 @@ $('#adminDesignList')?.addEventListener('click', (e) => {
   if (editId) editDesign(editId);
   if (deleteId) deleteDesign(deleteId);
 });
+
+
+// ============================================================
+// V12.0-P1 · CONTABILIDAD BETA
+// Local 1 y Local 2 son unidades financieras independientes.
+// ============================================================
+let accountingLocations = [];
+let accountingLocalId = '';
+let accountingUsers = [];
+let accountingEmployeeDebts = [];
+let accountingConfig = { descuento_deuda_empleado_pct: 30 };
+let accountingCurrentTab = 'summary';
+let accountingLoadingDepth = 0;
+
+function accMoney(value) {
+  return Number(value || 0).toLocaleString('es-EC', { style:'currency', currency:'USD' });
+}
+
+function setAccountingLoading(active) {
+  accountingLoadingDepth = Math.max(0, accountingLoadingDepth + (active ? 1 : -1));
+  const el = $('#accountingLoading');
+  if (el) el.hidden = accountingLoadingDepth === 0;
+}
+
+function accountingLocal() {
+  return accountingLocations.find((row) => String(row.id) === String(accountingLocalId)) || null;
+}
+
+function accountingEnsureAdmin() {
+  if (currentUser?.rol === 'admin') return true;
+  showToast('Contabilidad Beta está disponible solo para administradores durante la prueba.', 'Sin permiso');
+  return false;
+}
+
+function showAccountingTab(tab = 'summary') {
+  accountingCurrentTab = tab;
+  $$('[data-accounting-view]').forEach((el) => {
+    el.hidden = el.dataset.accountingView !== tab;
+  });
+  $$('[data-accounting-tab]').forEach((btn) => {
+    btn.classList.toggle('active', btn.dataset.accountingTab === tab);
+  });
+  if (tab === 'reports') refreshAccountingReport();
+}
+
+function fillAccountingUserSelects() {
+  const options = accountingUsers
+    .filter((u) => u.activo !== 0 && u.rol !== 'admin')
+    .map((u) => `<option value="${u.id}">${escapeHtml(u.nombre || u.usuario || 'Usuario')}</option>`)
+    .join('');
+  ['employeeDebtUser','payrollUser'].forEach((id) => {
+    const select = $('#' + id);
+    if (!select) return;
+    const previous = select.value;
+    select.innerHTML = options || '<option value="">No hay empleados</option>';
+    if (previous && [...select.options].some((o) => o.value === previous)) select.value = previous;
+  });
+}
+
+async function loadAccountingBootstrap() {
+  if (!accountingEnsureAdmin()) return false;
+  const [locations, config, users] = await Promise.all([
+    apiFetch('/api/contabilidad/locales'),
+    apiFetch('/api/contabilidad/config'),
+    apiFetch('/api/usuarios')
+  ]);
+  accountingLocations = Array.isArray(locations) ? locations : [];
+  accountingConfig = config || { descuento_deuda_empleado_pct:30 };
+  accountingUsers = Array.isArray(users) ? users : [];
+
+  if (!accountingLocalId || !accountingLocations.some((x) => String(x.id) === String(accountingLocalId))) {
+    accountingLocalId = String(accountingLocations[0]?.id || '');
+  }
+
+  const localSelect = $('#accountingLocalSelect');
+  if (localSelect) {
+    localSelect.innerHTML = accountingLocations
+      .map((row) => `<option value="${row.id}">${escapeHtml(row.nombre)}</option>`)
+      .join('');
+    localSelect.value = accountingLocalId;
+  }
+
+  const pct = Number(accountingConfig.descuento_deuda_empleado_pct ?? 30);
+  if ($('#defaultDebtDiscountPct')) $('#defaultDebtDiscountPct').value = pct;
+  if ($('#payrollDebtPct')) $('#payrollDebtPct').value = pct;
+
+  fillAccountingUserSelects();
+  const loc = accountingLocal();
+  if ($('#accountingLocalNotice') && loc) {
+    $('#accountingLocalNotice').textContent = `Todo lo registrado aquí pertenece únicamente a ${loc.nombre}. No se mezcla con otros locales.`;
+  }
+  return true;
+}
+
+function renderAccountingSummary(data = {}) {
+  const map = {
+    accSummaryCapital:data.capital,
+    accSummaryIncome:data.income,
+    accSummaryExpenses:data.expenses,
+    accSummaryInvestments:data.investments,
+    accSummaryEmployeeDebt:data.employee_debt,
+    accSummaryLocalDebt:data.local_debt,
+    accSummaryPayrollGross:data.payroll_gross,
+    accSummaryFlow:data.flow
+  };
+  Object.entries(map).forEach(([id,value]) => {
+    const el = $('#' + id);
+    if (el) el.textContent = accMoney(value);
+  });
+}
+
+function accountingMovementLabel(type) {
+  return ({
+    ingreso:'Ingreso',
+    gasto:'Gasto',
+    capital:'Inyección de capital',
+    inversion:'Inversión'
+  })[type] || type;
+}
+
+function renderAccountingMovements(rows = []) {
+  const html = rows.length ? rows.map((row) => `
+    <article class="accounting-ledger-row ${escapeHtml(row.tipo)}">
+      <div class="accounting-ledger-main">
+        <span class="accounting-ledger-type">${escapeHtml(accountingMovementLabel(row.tipo))}</span>
+        <strong>${escapeHtml(row.concepto || 'Sin concepto')}</strong>
+        <small>${escapeHtml(row.fecha || '')}${row.cuenta ? ` · ${escapeHtml(row.cuenta)}` : ''}</small>
+      </div>
+      <strong class="accounting-ledger-amount">${accMoney(row.monto)}</strong>
+    </article>
+  `).join('') : '<div class="accounting-empty">Todavía no hay movimientos en este local.</div>';
+
+  if ($('#accountingMovementList')) $('#accountingMovementList').innerHTML = html;
+  if ($('#accountingRecentMovements')) {
+    $('#accountingRecentMovements').innerHTML = rows.slice(0,6).map((row) => `
+      <article class="accounting-ledger-row ${escapeHtml(row.tipo)}">
+        <div class="accounting-ledger-main">
+          <span class="accounting-ledger-type">${escapeHtml(accountingMovementLabel(row.tipo))}</span>
+          <strong>${escapeHtml(row.concepto || 'Sin concepto')}</strong>
+          <small>${escapeHtml(row.fecha || '')}</small>
+        </div>
+        <strong class="accounting-ledger-amount">${accMoney(row.monto)}</strong>
+      </article>
+    `).join('') || '<div class="accounting-empty">Todavía no hay actividad registrada.</div>';
+  }
+}
+
+function renderEmployeeDebtBalances(rows = []) {
+  accountingEmployeeDebts = rows;
+  const box = $('#employeeDebtBalances');
+  if (!box) return;
+  box.innerHTML = rows.length ? rows.map((row) => `
+    <article class="accounting-balance-row">
+      <div>
+        <strong>${escapeHtml(row.nombre || 'Empleado')}</strong>
+        <small>@${escapeHtml(row.usuario || '')}</small>
+      </div>
+      <strong class="${Number(row.saldo || 0) > 0 ? 'debt' : ''}">${accMoney(row.saldo)}</strong>
+    </article>
+  `).join('') : '<div class="accounting-empty">No hay deudas de empleados en este local.</div>';
+  updatePayrollPreview();
+}
+
+function renderLocalDebts(rows = []) {
+  const box = $('#localDebtList');
+  if (!box) return;
+  box.innerHTML = rows.length ? rows.map((row) => `
+    <article class="accounting-debt-card">
+      <div class="accounting-debt-card-main">
+        <span>${escapeHtml(row.acreedor)}</span>
+        <strong>${escapeHtml(row.concepto)}</strong>
+        <small>${escapeHtml(row.fecha)} · Original ${accMoney(row.monto_original)} · Abonado ${accMoney(row.abonado)}</small>
+      </div>
+      <div class="accounting-debt-card-side">
+        <strong>${accMoney(row.saldo)}</strong>
+        ${Number(row.saldo || 0) > 0 ? `<button type="button" class="btn btn-outline small" data-local-debt-pay="${row.id}" data-local-debt-name="${escapeHtml(row.acreedor)}">Abonar</button>` : '<span class="paid-badge">Pagada</span>'}
+      </div>
+    </article>
+  `).join('') : '<div class="accounting-empty">No hay deudas registradas para este local.</div>';
+}
+
+function renderPayroll(rows = []) {
+  const box = $('#payrollList');
+  if (!box) return;
+  box.innerHTML = rows.length ? rows.map((row) => `
+    <article class="accounting-ledger-row payroll">
+      <div class="accounting-ledger-main">
+        <span class="accounting-ledger-type">${escapeHtml(row.nombre || 'Empleado')}</span>
+        <strong>Pago neto ${accMoney(row.sueldo_neto)}</strong>
+        <small>${escapeHtml(row.periodo_inicio)} → ${escapeHtml(row.periodo_fin)} · Deuda descontada ${accMoney(row.descuento_deuda)} (${Number(row.porcentaje_descuento || 0)}%)</small>
+      </div>
+      <strong class="accounting-ledger-amount">${accMoney(row.sueldo_bruto)}</strong>
+    </article>
+  `).join('') : '<div class="accounting-empty">Todavía no hay pagos de sueldo en este local.</div>';
+}
+
+async function refreshAccountingData() {
+  if (!accountingLocalId) return;
+  const localId = encodeURIComponent(accountingLocalId);
+  const [summary, movements, employeeDebt, localDebt, payroll] = await Promise.all([
+    apiFetch(`/api/contabilidad/resumen?local_id=${localId}`),
+    apiFetch(`/api/contabilidad/movimientos?local_id=${localId}&limit=100`),
+    apiFetch(`/api/contabilidad/deudas-empleados?local_id=${localId}`),
+    apiFetch(`/api/contabilidad/deudas-local?local_id=${localId}`),
+    apiFetch(`/api/contabilidad/nominas?local_id=${localId}&limit=40`)
+  ]);
+  renderAccountingSummary(summary || {});
+  renderAccountingMovements(Array.isArray(movements) ? movements : []);
+  renderEmployeeDebtBalances(Array.isArray(employeeDebt) ? employeeDebt : []);
+  renderLocalDebts(Array.isArray(localDebt) ? localDebt : []);
+  renderPayroll(Array.isArray(payroll) ? payroll : []);
+}
+
+async function refreshAccountingModule() {
+  if (!accountingEnsureAdmin()) return;
+  setAccountingLoading(true);
+  try {
+    const ok = await loadAccountingBootstrap();
+    if (!ok) return;
+    await refreshAccountingData();
+    showAccountingTab(accountingCurrentTab || 'summary');
+  } catch (err) {
+    showToast(err.message || 'No se pudo cargar Contabilidad Beta.', 'Contabilidad');
+  } finally {
+    setAccountingLoading(false);
+  }
+}
+
+async function saveAccountingMovement({ tipo, fecha, monto, concepto, cuenta = '' }) {
+  if (!accountingLocalId) throw new Error('Selecciona un local.');
+  return apiFetch('/api/contabilidad/movimientos', {
+    method:'POST',
+    headers:{'Content-Type':'application/json'},
+    body:JSON.stringify({
+      local_id:Number(accountingLocalId),
+      tipo, fecha, monto:Number(monto), concepto, cuenta
+    })
+  });
+}
+
+function updatePayrollPreview() {
+  const userId = String($('#payrollUser')?.value || '');
+  const debt = accountingEmployeeDebts.find((row) => String(row.usuario_id) === userId);
+  const balance = Math.max(0, Number(debt?.saldo || 0));
+  const gross = Math.max(0, Number($('#payrollGross')?.value || 0));
+  const pct = Math.min(100, Math.max(0, Number($('#payrollDebtPct')?.value || 0)));
+  const discount = Math.min(balance, gross * pct / 100);
+  const net = Math.max(0, gross - discount);
+
+  if ($('#payrollDebtBalance')) $('#payrollDebtBalance').textContent = accMoney(balance);
+  if ($('#payrollDebtDiscount')) $('#payrollDebtDiscount').textContent = accMoney(discount);
+  if ($('#payrollNet')) $('#payrollNet').textContent = accMoney(net);
+}
+
+function accountingReportRange(type, value) {
+  const base = value ? new Date(`${value}T12:00:00`) : new Date();
+  const y = base.getFullYear();
+  const m = base.getMonth();
+  const pad = (n) => String(n).padStart(2,'0');
+  const fmt = (d) => `${d.getFullYear()}-${pad(d.getMonth()+1)}-${pad(d.getDate())}`;
+  let start, end;
+
+  if (type === 'daily') {
+    start = end = base;
+  } else if (type === 'fortnight') {
+    if (base.getDate() <= 15) {
+      start = new Date(y,m,1); end = new Date(y,m,15);
+    } else {
+      start = new Date(y,m,16); end = new Date(y,m+1,0);
+    }
+  } else if (type === 'quarterly') {
+    const qm = Math.floor(m/3)*3;
+    start = new Date(y,qm,1); end = new Date(y,qm+3,0);
+  } else {
+    start = new Date(y,m,1); end = new Date(y,m+1,0);
+  }
+  return { inicio:fmt(start), fin:fmt(end) };
+}
+
+async function refreshAccountingReport() {
+  if (!accountingLocalId || accountingCurrentTab !== 'reports') return;
+  const type = $('#accountingReportType')?.value || 'monthly';
+  const date = $('#accountingReportDate')?.value || todayLocal();
+  const range = accountingReportRange(type, date);
+  setAccountingLoading(true);
+  try {
+    const data = await apiFetch(`/api/contabilidad/resumen?local_id=${encodeURIComponent(accountingLocalId)}&inicio=${range.inicio}&fin=${range.fin}`);
+    const map = {
+      capital:data.capital,
+      income:data.income,
+      expenses:data.expenses,
+      investments:data.investments,
+      payroll_gross:data.payroll_gross,
+      payroll_debt_discount:data.payroll_debt_discount,
+      payroll_net:data.payroll_net,
+      flow:data.flow
+    };
+    Object.entries(map).forEach(([key,value]) => {
+      const el = document.querySelector(`[data-report-value="${key}"]`);
+      if (el) el.textContent = accMoney(value);
+    });
+    const labels = { daily:'Diario', fortnight:'Quincenal', monthly:'Mensual', quarterly:'Trimestral' };
+    if ($('#accountingReportPeriod')) {
+      $('#accountingReportPeriod').textContent = `${labels[type]} · ${range.inicio} al ${range.fin} · ${accountingLocal()?.nombre || ''}`;
+    }
+  } catch (err) {
+    showToast(err.message, 'Reporte contable');
+  } finally {
+    setAccountingLoading(false);
+  }
+}
+
+function bindAccountingModule() {
+  $('#accountingTabs')?.addEventListener('click', (event) => {
+    const btn = event.target.closest('[data-accounting-tab]');
+    if (!btn) return;
+    showAccountingTab(btn.dataset.accountingTab);
+  });
+
+  $('#accountingLocalSelect')?.addEventListener('change', async (event) => {
+    accountingLocalId = String(event.target.value || '');
+    const loc = accountingLocal();
+    if ($('#accountingLocalNotice') && loc) {
+      $('#accountingLocalNotice').textContent = `Todo lo registrado aquí pertenece únicamente a ${loc.nombre}. No se mezcla con otros locales.`;
+    }
+    setAccountingLoading(true);
+    try {
+      await refreshAccountingData();
+      if (accountingCurrentTab === 'reports') await refreshAccountingReport();
+    } catch (err) {
+      showToast(err.message, 'No se pudo cambiar de local');
+    } finally {
+      setAccountingLoading(false);
+    }
+  });
+
+  $('#refreshAccountingSummary')?.addEventListener('click', refreshAccountingModule);
+
+  $('#accountingMovementForm')?.addEventListener('submit', async (event) => {
+    event.preventDefault();
+    try {
+      await saveAccountingMovement({
+        tipo:$('#accMovementType').value,
+        fecha:$('#accMovementDate').value,
+        monto:$('#accMovementAmount').value,
+        concepto:$('#accMovementConcept').value.trim(),
+        cuenta:$('#accMovementAccount').value.trim()
+      });
+      event.currentTarget.reset();
+      $('#accMovementDate').value = todayLocal();
+      showToast('Movimiento registrado en el local seleccionado.', 'Contabilidad');
+      await refreshAccountingData();
+    } catch (err) {
+      showToast(err.message, 'No se pudo registrar');
+    }
+  });
+
+  $('#capitalInjectionForm')?.addEventListener('submit', async (event) => {
+    event.preventDefault();
+    try {
+      await saveAccountingMovement({
+        tipo:'capital',
+        fecha:$('#capitalDate').value,
+        monto:$('#capitalAmount').value,
+        concepto:$('#capitalConcept').value.trim(),
+        cuenta:$('#capitalAccount').value.trim()
+      });
+      event.currentTarget.reset();
+      $('#capitalDate').value = todayLocal();
+      showToast('Inyección de capital registrada.', 'Capital');
+      await refreshAccountingData();
+    } catch (err) { showToast(err.message, 'No se pudo registrar'); }
+  });
+
+  $('#investmentForm')?.addEventListener('submit', async (event) => {
+    event.preventDefault();
+    try {
+      await saveAccountingMovement({
+        tipo:'inversion',
+        fecha:$('#investmentDate').value,
+        monto:$('#investmentAmount').value,
+        concepto:$('#investmentConcept').value.trim(),
+        cuenta:$('#investmentAccount').value.trim()
+      });
+      event.currentTarget.reset();
+      $('#investmentDate').value = todayLocal();
+      showToast('Inversión registrada para este local.', 'Inversión');
+      await refreshAccountingData();
+    } catch (err) { showToast(err.message, 'No se pudo registrar'); }
+  });
+
+  $('#employeeDebtForm')?.addEventListener('submit', async (event) => {
+    event.preventDefault();
+    try {
+      await apiFetch('/api/contabilidad/deudas-empleados', {
+        method:'POST',
+        headers:{'Content-Type':'application/json'},
+        body:JSON.stringify({
+          local_id:Number(accountingLocalId),
+          empleado_id:Number($('#employeeDebtUser').value),
+          fecha:$('#employeeDebtDate').value,
+          tipo:$('#employeeDebtType').value,
+          monto:Number($('#employeeDebtAmount').value),
+          concepto:$('#employeeDebtConcept').value.trim()
+        })
+      });
+      event.currentTarget.reset();
+      $('#employeeDebtDate').value = todayLocal();
+      showToast('Movimiento de deuda registrado.', 'Deuda de empleado');
+      await refreshAccountingData();
+    } catch (err) { showToast(err.message, 'No se pudo registrar'); }
+  });
+
+  $('#localDebtForm')?.addEventListener('submit', async (event) => {
+    event.preventDefault();
+    try {
+      await apiFetch('/api/contabilidad/deudas-local', {
+        method:'POST',
+        headers:{'Content-Type':'application/json'},
+        body:JSON.stringify({
+          local_id:Number(accountingLocalId),
+          fecha:$('#localDebtDate').value,
+          acreedor:$('#localDebtCreditor').value.trim(),
+          concepto:$('#localDebtConcept').value.trim(),
+          monto:Number($('#localDebtAmount').value)
+        })
+      });
+      event.currentTarget.reset();
+      $('#localDebtDate').value = todayLocal();
+      showToast('Deuda del local registrada.', 'Deuda local');
+      await refreshAccountingData();
+    } catch (err) { showToast(err.message, 'No se pudo registrar'); }
+  });
+
+  $('#localDebtList')?.addEventListener('click', async (event) => {
+    const btn = event.target.closest('[data-local-debt-pay]');
+    if (!btn) return;
+    const amount = window.prompt(`Valor del abono para ${btn.dataset.localDebtName}:`);
+    if (amount === null) return;
+    const value = Number(String(amount).replace(',','.'));
+    if (!Number.isFinite(value) || value <= 0) {
+      showToast('Escribe un valor válido.', 'Abono');
+      return;
+    }
+    try {
+      await apiFetch(`/api/contabilidad/deudas-local/${btn.dataset.localDebtPay}/abonos`, {
+        method:'POST',
+        headers:{'Content-Type':'application/json'},
+        body:JSON.stringify({ fecha:todayLocal(), monto:value, concepto:'Abono registrado desde Contabilidad Beta' })
+      });
+      showToast('Abono registrado.', 'Deuda local');
+      await refreshAccountingData();
+    } catch (err) { showToast(err.message, 'No se pudo abonar'); }
+  });
+
+  ['payrollUser','payrollGross','payrollDebtPct'].forEach((id) => {
+    $('#' + id)?.addEventListener('input', updatePayrollPreview);
+    $('#' + id)?.addEventListener('change', updatePayrollPreview);
+  });
+
+  $('#payrollConfigForm')?.addEventListener('submit', async (event) => {
+    event.preventDefault();
+    const pct = Number($('#defaultDebtDiscountPct').value);
+    if (!Number.isFinite(pct) || pct < 0 || pct > 100) {
+      showToast('El porcentaje debe estar entre 0 y 100.', 'Configuración');
+      return;
+    }
+    try {
+      const result = await apiFetch('/api/contabilidad/config', {
+        method:'PUT',
+        headers:{'Content-Type':'application/json'},
+        body:JSON.stringify({
+          descuento_deuda_empleado_pct:pct,
+          admin_password:$('#accountingConfigAdminPassword').value
+        })
+      });
+      accountingConfig.descuento_deuda_empleado_pct = pct;
+      $('#payrollDebtPct').value = pct;
+      $('#accountingConfigAdminPassword').value = '';
+      updatePayrollPreview();
+      showToast(result.mensaje || 'Porcentaje actualizado.', 'Contabilidad');
+    } catch (err) {
+      showToast(err.message, 'No se pudo guardar');
+    }
+  });
+
+  $('#payrollForm')?.addEventListener('submit', async (event) => {
+    event.preventDefault();
+    try {
+      const result = await apiFetch('/api/contabilidad/nominas', {
+        method:'POST',
+        headers:{'Content-Type':'application/json'},
+        body:JSON.stringify({
+          local_id:Number(accountingLocalId),
+          empleado_id:Number($('#payrollUser').value),
+          periodo_inicio:$('#payrollStart').value,
+          periodo_fin:$('#payrollEnd').value,
+          sueldo_bruto:Number($('#payrollGross').value),
+          porcentaje_descuento:Number($('#payrollDebtPct').value)
+        })
+      });
+      showToast(`Pago registrado. Neto: ${accMoney(result.sueldo_neto)} · Deuda descontada: ${accMoney(result.descuento_deuda)}`, 'Sueldo pagado');
+      $('#payrollGross').value = '';
+      await refreshAccountingData();
+    } catch (err) { showToast(err.message, 'No se pudo pagar el sueldo'); }
+  });
+
+  $('#refreshAccountingReport')?.addEventListener('click', refreshAccountingReport);
+  $('#accountingReportType')?.addEventListener('change', refreshAccountingReport);
+  $('#accountingReportDate')?.addEventListener('change', refreshAccountingReport);
+
+  const today = todayLocal();
+  ['accMovementDate','employeeDebtDate','localDebtDate','capitalDate','investmentDate','accountingReportDate'].forEach((id) => {
+    if ($('#' + id) && !$('#' + id).value) $('#' + id).value = today;
+  });
+  if ($('#payrollEnd') && !$('#payrollEnd').value) $('#payrollEnd').value = today;
+  if ($('#payrollStart') && !$('#payrollStart').value) {
+    const d = new Date(`${today}T12:00:00`);
+    d.setDate(1);
+    const pad = (n) => String(n).padStart(2,'0');
+    $('#payrollStart').value = `${d.getFullYear()}-${pad(d.getMonth()+1)}-${pad(d.getDate())}`;
+  }
+}
+
+
+try { bindAccountingModule(); } catch (err) { console.error('Contabilidad Beta:', err); }
 
 window.addEventListener('error', (event) => {
   console.error(`[DeTodoEc V${APP_VERSION}]`, event.error || event.message);
