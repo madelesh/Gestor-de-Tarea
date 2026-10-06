@@ -9,7 +9,7 @@
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700;800&display=swap" rel="stylesheet">
   <link id="dynamicFavicon" rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 64 64'%3E%3Crect width='64' height='64' rx='16' fill='%23b9ff39'/%3E%3Cpath d='M18 33l9 9 19-22' fill='none' stroke='%23111' stroke-width='7' stroke-linecap='round' stroke-linejoin='round'/%3E%3C/svg%3E" />
-  <link rel="stylesheet" href="styles.css?v=12.0-p1" />
+  <link rel="stylesheet" href="styles.css?v=11.14" />
 </head>
 <body>
   <svg xmlns="http://www.w3.org/2000/svg" style="display:none" aria-hidden="true" focusable="false">
@@ -111,7 +111,6 @@
         <button type="button" class="main-nav-btn" id="navTasks"><svg class="icon"><use href="#icon-task"></use></svg><span>Tareas</span></button>
         <button type="button" class="main-nav-btn" id="navQuote"><svg class="icon"><use href="#icon-calculator"></use></svg><span>Cotizador</span></button>
         <button type="button" class="main-nav-btn" id="navCuadre"><svg class="icon"><use href="#icon-wallet"></use></svg><span>Cuadre</span></button>
-        <button type="button" class="main-nav-btn accounting-nav-btn" id="navAccounting" hidden><svg class="icon"><use href="#icon-calculator"></use></svg><span>Contabilidad <small>Beta</small></span></button>
         <button type="button" class="main-nav-btn" id="navDesigns"><svg class="icon"><use href="#icon-library"></use></svg><span>Diseños</span></button>
       </nav>
 
@@ -382,9 +381,11 @@
             </div>
 
             <div class="cuadre-bank-list">
-              <div class="cuadre-bank-list-head">
+              <div class="cuadre-bank-list-head cuadre-bank-list-head-v2">
                 <span>Banco</span>
                 <span>Saldo inicial</span>
+                <span>Ingresos</span>
+                <span>Egresos</span>
                 <span>Transacciones</span>
                 <span>Saldo final</span>
               </div>
@@ -392,16 +393,30 @@
             </div>
             <div id="cuadreBanksEmpty" class="cuadre-empty" hidden>No hay bancos configurados todavía.</div>
 
-            <div class="cuadre-cash-card">
-              <div class="cuadre-bank-icon cash"><svg class="icon"><use href="#icon-wallet"></use></svg></div>
-              <div class="cuadre-bank-copy">
-                <strong>Efectivo</strong>
-                <span>Dinero físico al finalizar el día</span>
+            <div class="cuadre-cash-block">
+              <div class="cuadre-cash-card">
+                <div class="cuadre-bank-icon cash"><svg class="icon"><use href="#icon-wallet"></use></svg></div>
+                <div class="cuadre-bank-copy">
+                  <strong>Efectivo inicial</strong>
+                  <span>Dinero físico con el que se inició la jornada</span>
+                </div>
+                <label class="cuadre-money-input">
+                  <span>$</span>
+                  <input id="cuadreCashInitialInput" type="number" min="0" step="0.01" value="0" />
+                </label>
               </div>
-              <label class="cuadre-money-input">
-                <span>$</span>
-                <input id="cuadreCashInput" type="number" min="0" step="0.01" value="0" />
-              </label>
+
+              <div class="cuadre-cash-card">
+                <div class="cuadre-bank-icon cash"><svg class="icon"><use href="#icon-wallet"></use></svg></div>
+                <div class="cuadre-bank-copy">
+                  <strong>Efectivo final</strong>
+                  <span>Dinero físico contado al finalizar la jornada</span>
+                </div>
+                <label class="cuadre-money-input">
+                  <span>$</span>
+                  <input id="cuadreCashInput" type="number" min="0" step="0.01" value="0" />
+                </label>
+              </div>
             </div>
 
             <div class="cuadre-actions">
@@ -416,224 +431,23 @@
             <span class="eyebrow">Resumen</span>
             <h2>Total del día</h2>
             <div class="cuadre-summary-list">
-              <div><span>Total en bancos</span><strong id="cuadreBanksTotal">$0,00</strong></div>
-              <div><span>Efectivo</span><strong id="cuadreCashTotal">$0,00</strong></div>
-              <div class="grand"><span>Total general</span><strong id="cuadreGrandTotal">$0,00</strong></div>
+              <div><span>Bancos iniciales</span><strong id="cuadreBanksInitialTotal">$0,00</strong></div>
+              <div><span>Total ingresos bancos</span><strong id="cuadreIncomeTotal">$0,00</strong></div>
+              <div><span>Total egresos bancos</span><strong id="cuadreExpenseTotal">$0,00</strong></div>
+              <div><span>Bancos finales</span><strong id="cuadreBanksTotal">$0,00</strong></div>
+              <div><span>Efectivo inicial</span><strong id="cuadreCashInitialTotal">$0,00</strong></div>
+              <div><span>Efectivo final</span><strong id="cuadreCashTotal">$0,00</strong></div>
+              <div><span>Capital inicial</span><strong id="cuadreInitialCapital">$0,00</strong></div>
+              <div><span>Efectivo esperado</span><strong id="cuadreExpectedCash">$0,00</strong></div>
+              <div class="grand"><span>Total final</span><strong id="cuadreGrandTotal">$0,00</strong></div>
+            </div>
+            <div id="cuadreDifferenceBox" class="cuadre-difference-box balanced">
+              <span id="cuadreDifferenceLabel">Cuadre correcto</span>
+              <strong id="cuadreDifferenceValue">$0,00</strong>
+              <small id="cuadreDifferenceHelp">El efectivo final coincide con el efectivo esperado.</small>
             </div>
             <p id="cuadreSavedInfo" class="cuadre-saved-info">Aún no hay un cuadre guardado para hoy.</p>
           </aside>
-        </div>
-      </section>
-
-
-      <section class="section accounting-section" id="contabilidad" hidden>
-        <div class="accounting-shell">
-          <div class="accounting-hero">
-            <div>
-              <div class="accounting-title-line">
-                <span class="eyebrow">Finanzas</span>
-                <span class="accounting-beta">BETA · V12</span>
-              </div>
-              <h1>Contabilidad por local</h1>
-              <p>Cada local conserva su propio capital, deudas, movimientos, inversiones y nómina. Los valores nunca se suman entre locales.</p>
-            </div>
-            <label class="accounting-local-picker">Local activo
-              <select id="accountingLocalSelect"></select>
-            </label>
-          </div>
-
-          <div class="accounting-local-warning">
-            <svg class="icon"><use href="#icon-shield"></use></svg>
-            <span id="accountingLocalNotice">Todo lo registrado aquí pertenece únicamente al local seleccionado.</span>
-          </div>
-
-          <nav class="accounting-tabs" id="accountingTabs">
-            <button type="button" class="active" data-accounting-tab="summary">Resumen</button>
-            <button type="button" data-accounting-tab="movements">Movimientos</button>
-            <button type="button" data-accounting-tab="employee-debt">Deuda empleados</button>
-            <button type="button" data-accounting-tab="local-debt">Deuda local</button>
-            <button type="button" data-accounting-tab="capital">Capital e inversión</button>
-            <button type="button" data-accounting-tab="payroll">Sueldos</button>
-            <button type="button" data-accounting-tab="reports">Reportes</button>
-          </nav>
-
-          <div class="accounting-loading" id="accountingLoading" hidden>
-            <span class="accounting-spinner"></span>
-            <div><strong>Cargando contabilidad</strong><small>Consultando únicamente el local seleccionado…</small></div>
-          </div>
-
-          <section class="accounting-view" data-accounting-view="summary">
-            <div class="accounting-summary-grid">
-              <article><span>Capital inyectado</span><strong id="accSummaryCapital">$0,00</strong></article>
-              <article><span>Ingresos registrados</span><strong id="accSummaryIncome">$0,00</strong></article>
-              <article><span>Gastos registrados</span><strong id="accSummaryExpenses">$0,00</strong></article>
-              <article><span>Inversiones</span><strong id="accSummaryInvestments">$0,00</strong></article>
-              <article><span>Deuda de empleados</span><strong id="accSummaryEmployeeDebt">$0,00</strong></article>
-              <article><span>Deuda del local</span><strong id="accSummaryLocalDebt">$0,00</strong></article>
-              <article><span>Sueldos brutos pagados</span><strong id="accSummaryPayrollGross">$0,00</strong></article>
-              <article class="accent"><span>Flujo registrado</span><strong id="accSummaryFlow">$0,00</strong></article>
-            </div>
-            <div class="accounting-card">
-              <div class="accounting-card-head">
-                <div><h3>Actividad reciente</h3><p>Últimos movimientos del local actual.</p></div>
-                <button type="button" class="btn btn-outline small" id="refreshAccountingSummary"><svg class="icon"><use href="#icon-refresh"></use></svg><span>Actualizar</span></button>
-              </div>
-              <div id="accountingRecentMovements" class="accounting-ledger-list"></div>
-            </div>
-          </section>
-
-          <section class="accounting-view" data-accounting-view="movements" hidden>
-            <div class="accounting-two-column">
-              <form id="accountingMovementForm" class="accounting-card accounting-form">
-                <div class="accounting-card-head"><div><h3>Registrar movimiento</h3><p>Ingresos y gastos operativos del local.</p></div></div>
-                <label>Fecha<input type="date" id="accMovementDate" required /></label>
-                <label>Tipo
-                  <select id="accMovementType" required>
-                    <option value="ingreso">Ingreso</option>
-                    <option value="gasto">Gasto</option>
-                  </select>
-                </label>
-                <label>Valor ($)<input type="number" id="accMovementAmount" min="0.01" step="0.01" required /></label>
-                <label>Concepto<input id="accMovementConcept" maxlength="180" placeholder="Ej. Comisión corresponsal, internet, materiales…" required /></label>
-                <label>Cuenta / medio<input id="accMovementAccount" maxlength="120" placeholder="Ej. Efectivo, Pichincha…" /></label>
-                <button type="submit" class="btn btn-accent">Guardar movimiento</button>
-              </form>
-              <div class="accounting-card">
-                <div class="accounting-card-head"><div><h3>Historial</h3><p>No se eliminan movimientos financieros; quedan registrados para auditoría.</p></div></div>
-                <div id="accountingMovementList" class="accounting-ledger-list"></div>
-              </div>
-            </div>
-          </section>
-
-          <section class="accounting-view" data-accounting-view="employee-debt" hidden>
-            <div class="accounting-two-column">
-              <form id="employeeDebtForm" class="accounting-card accounting-form">
-                <div class="accounting-card-head"><div><h3>Movimiento de deuda</h3><p>Registra una nueva deuda o un abono manual del empleado.</p></div></div>
-                <label>Empleado<select id="employeeDebtUser" required></select></label>
-                <label>Fecha<input type="date" id="employeeDebtDate" required /></label>
-                <label>Movimiento
-                  <select id="employeeDebtType">
-                    <option value="cargo">Nueva deuda</option>
-                    <option value="abono">Abono / pago</option>
-                  </select>
-                </label>
-                <label>Valor ($)<input type="number" id="employeeDebtAmount" min="0.01" step="0.01" required /></label>
-                <label>Concepto<input id="employeeDebtConcept" maxlength="180" placeholder="Ej. Faltante de caja, adelanto…" required /></label>
-                <button type="submit" class="btn btn-accent">Registrar</button>
-              </form>
-              <div class="accounting-card">
-                <div class="accounting-card-head"><div><h3>Saldos por empleado</h3><p>La deuda se acumula automáticamente y disminuye con abonos o descuentos de nómina.</p></div></div>
-                <div id="employeeDebtBalances" class="accounting-balance-list"></div>
-              </div>
-            </div>
-          </section>
-
-          <section class="accounting-view" data-accounting-view="local-debt" hidden>
-            <div class="accounting-two-column">
-              <form id="localDebtForm" class="accounting-card accounting-form">
-                <div class="accounting-card-head"><div><h3>Nueva deuda del local</h3><p>Proveedores, préstamos, servicios u otras obligaciones.</p></div></div>
-                <label>Fecha<input type="date" id="localDebtDate" required /></label>
-                <label>Acreedor<input id="localDebtCreditor" maxlength="160" placeholder="Ej. Proveedor XYZ" required /></label>
-                <label>Concepto<input id="localDebtConcept" maxlength="180" required /></label>
-                <label>Valor original ($)<input type="number" id="localDebtAmount" min="0.01" step="0.01" required /></label>
-                <button type="submit" class="btn btn-accent">Crear deuda</button>
-              </form>
-              <div class="accounting-card">
-                <div class="accounting-card-head"><div><h3>Deudas pendientes</h3><p>Usa “Abonar” para reducir una deuda sin alterar su valor original.</p></div></div>
-                <div id="localDebtList" class="accounting-balance-list"></div>
-              </div>
-            </div>
-          </section>
-
-          <section class="accounting-view" data-accounting-view="capital" hidden>
-            <div class="accounting-two-column">
-              <form id="capitalInjectionForm" class="accounting-card accounting-form">
-                <div class="accounting-card-head"><div><h3>Inyección de capital</h3><p>Aumenta el capital del local sin contarlo como venta.</p></div></div>
-                <label>Fecha<input type="date" id="capitalDate" required /></label>
-                <label>Valor ($)<input type="number" id="capitalAmount" min="0.01" step="0.01" required /></label>
-                <label>Origen / concepto<input id="capitalConcept" maxlength="180" placeholder="Ej. Aporte del propietario" required /></label>
-                <label>Cuenta destino<input id="capitalAccount" maxlength="120" placeholder="Ej. Efectivo, Pichincha" /></label>
-                <button type="submit" class="btn btn-accent">Registrar capital</button>
-              </form>
-
-              <form id="investmentForm" class="accounting-card accounting-form">
-                <div class="accounting-card-head"><div><h3>Inversión del local</h3><p>Equipos, máquinas, muebles o mejoras que quedan en el negocio.</p></div></div>
-                <label>Fecha<input type="date" id="investmentDate" required /></label>
-                <label>Valor ($)<input type="number" id="investmentAmount" min="0.01" step="0.01" required /></label>
-                <label>Activo / concepto<input id="investmentConcept" maxlength="180" placeholder="Ej. Impresora, máquina láser…" required /></label>
-                <label>Cuenta de salida<input id="investmentAccount" maxlength="120" placeholder="Ej. Efectivo, banco…" /></label>
-                <button type="submit" class="btn btn-accent">Registrar inversión</button>
-              </form>
-            </div>
-          </section>
-
-          <section class="accounting-view" data-accounting-view="payroll" hidden>
-            <div class="accounting-two-column">
-              <form id="payrollForm" class="accounting-card accounting-form">
-                <div class="accounting-card-head"><div><h3>Pagar sueldo</h3><p>La deuda pendiente se descuenta automáticamente según el porcentaje configurado.</p></div></div>
-                <label>Empleado<select id="payrollUser" required></select></label>
-                <div class="accounting-inline-fields">
-                  <label>Desde<input type="date" id="payrollStart" required /></label>
-                  <label>Hasta<input type="date" id="payrollEnd" required /></label>
-                </div>
-                <label>Sueldo bruto ($)<input type="number" id="payrollGross" min="0.01" step="0.01" required /></label>
-                <label>% descuento de deuda<input type="number" id="payrollDebtPct" min="0" max="100" step="1" value="30" required /></label>
-                <div class="payroll-preview">
-                  <div><span>Deuda actual</span><strong id="payrollDebtBalance">$0,00</strong></div>
-                  <div><span>Descuento estimado</span><strong id="payrollDebtDiscount">$0,00</strong></div>
-                  <div class="accent"><span>Total a pagar</span><strong id="payrollNet">$0,00</strong></div>
-                </div>
-                <button type="submit" class="btn btn-accent">Confirmar pago</button>
-              </form>
-
-              <div class="accounting-stack">
-                <form id="payrollConfigForm" class="accounting-card accounting-form compact">
-                  <div class="accounting-card-head"><div><h3>Regla de descuento</h3><p>Por defecto es 30%. El administrador puede cambiarla.</p></div></div>
-                  <label>Porcentaje predeterminado
-                    <div class="percent-input"><input type="number" id="defaultDebtDiscountPct" min="0" max="100" step="1" value="30" /><span>%</span></div>
-                  </label>
-                  <label>Contraseña de administrador<input type="password" id="accountingConfigAdminPassword" autocomplete="current-password" placeholder="Requerida para guardar" /></label>
-                  <button type="submit" class="btn btn-outline">Guardar porcentaje</button>
-                </form>
-                <div class="accounting-card">
-                  <div class="accounting-card-head"><div><h3>Pagos recientes</h3><p>Historial de nómina del local.</p></div></div>
-                  <div id="payrollList" class="accounting-ledger-list"></div>
-                </div>
-              </div>
-            </div>
-          </section>
-
-          <section class="accounting-view" data-accounting-view="reports" hidden>
-            <div class="accounting-card">
-              <div class="accounting-card-head reports-head">
-                <div><h3>Cuadres y reportes por período</h3><p>Los resultados corresponden únicamente al local seleccionado.</p></div>
-                <div class="accounting-report-filters">
-                  <select id="accountingReportType">
-                    <option value="daily">Diario</option>
-                    <option value="fortnight">Quincenal</option>
-                    <option value="monthly" selected>Mensual</option>
-                    <option value="quarterly">Trimestral</option>
-                  </select>
-                  <input type="date" id="accountingReportDate" />
-                  <button type="button" class="btn btn-outline small" id="refreshAccountingReport">Consultar</button>
-                </div>
-              </div>
-              <div class="accounting-report-period" id="accountingReportPeriod">—</div>
-              <div class="accounting-summary-grid report" id="accountingReportCards">
-                <article><span>Capital inyectado</span><strong data-report-value="capital">$0,00</strong></article>
-                <article><span>Ingresos</span><strong data-report-value="income">$0,00</strong></article>
-                <article><span>Gastos</span><strong data-report-value="expenses">$0,00</strong></article>
-                <article><span>Inversiones</span><strong data-report-value="investments">$0,00</strong></article>
-                <article><span>Sueldos brutos</span><strong data-report-value="payroll_gross">$0,00</strong></article>
-                <article><span>Descuento de deuda</span><strong data-report-value="payroll_debt_discount">$0,00</strong></article>
-                <article><span>Pago neto de sueldos</span><strong data-report-value="payroll_net">$0,00</strong></article>
-                <article class="accent"><span>Flujo registrado</span><strong data-report-value="flow">$0,00</strong></article>
-              </div>
-              <div class="accounting-report-note">
-                <strong>Importante:</strong> este reporte no combina Local 1 y Local 2. Para cambiar de negocio usa el selector “Local activo”.
-              </div>
-            </div>
-          </section>
         </div>
       </section>
 
@@ -665,7 +479,7 @@
     <footer class="app-version-footer" aria-label="Versión de la aplicación">
       <span>DeTodoEc</span>
       <span class="version-separator">•</span>
-      <strong>Versión 12.0-P1</strong>
+      <strong>Versión 11.14</strong>
     </footer>
   </div>
 
@@ -1630,6 +1444,6 @@
     </article>
   </template>
 
-  <script src="app.js?v=12.0-p1"></script>
+  <script src="app.js?v=11.14"></script>
 </body>
 </html>
