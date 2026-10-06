@@ -7497,3 +7497,72 @@ textarea{
   .reviews-main-head{align-items:stretch;flex-direction:column}
   .reviews-main-summary,.approved-review-filters{grid-template-columns:1fr}
 }
+
+
+/* =========================================================
+   V11.18 — Administrador de bancos en una sola vista
+   ========================================================= */
+.bank-manager-head{
+  display:flex;align-items:flex-end;justify-content:space-between;gap:18px;margin-bottom:18px
+}
+.bank-manager-head h3{margin:4px 0 5px;font-size:26px}
+.bank-manager-head p{margin:0;max-width:760px;color:var(--muted);font-size:10px}
+.bank-bulk-panel{
+  border:1px solid var(--line);border-radius:18px;overflow:hidden;background:var(--surface)
+}
+.bank-bulk-head,.bank-bulk-row{
+  display:grid;grid-template-columns:minmax(240px,1.35fr) minmax(150px,.62fr) minmax(260px,1fr) 74px;
+  gap:12px;align-items:center
+}
+.bank-bulk-head{
+  padding:11px 14px;background:var(--surface-2);border-bottom:1px solid var(--line);
+  color:var(--muted);font-size:8px;font-weight:800;text-transform:uppercase;letter-spacing:.04em
+}
+.bank-bulk-list{display:flex!important;flex-direction:column!important;gap:0!important}
+.bank-bulk-row{
+  padding:12px 14px;border-bottom:1px solid var(--line);background:transparent
+}
+.bank-bulk-row:last-child{border-bottom:0}
+.bank-bulk-row.is-deleted{opacity:.48;background:rgba(255,90,90,.04)}
+.bank-bulk-row.is-deleted .bank-bulk-fields{filter:grayscale(.45)}
+.bank-bulk-bank{
+  min-width:0;display:grid;grid-template-columns:48px minmax(0,1fr);gap:11px;align-items:center
+}
+.bank-bulk-logo{
+  width:48px;height:48px;border-radius:13px;display:grid;place-items:center;overflow:hidden;
+  border:1px solid var(--line);background:var(--surface-2);color:var(--muted)
+}
+.bank-bulk-logo img{width:100%;height:100%;object-fit:cover}
+.bank-bulk-logo .icon{width:22px;height:22px}
+.bank-bulk-bank input,.bank-bulk-row input[type="number"]{width:100%;min-height:42px}
+.bank-bulk-image-field{
+  min-width:0;display:grid;grid-template-columns:minmax(0,1fr) auto;gap:8px;align-items:center
+}
+.bank-bulk-image-field input[type="file"]{
+  width:100%;min-width:0;padding:8px;border:1px solid var(--line);border-radius:11px;background:var(--surface-2);
+  color:var(--muted);font-size:9px
+}
+.bank-bulk-image-field small{color:var(--muted);font-size:8px;white-space:nowrap}
+.bank-bulk-delete{
+  justify-self:end;width:42px;height:42px;border-radius:11px
+}
+.bank-bulk-delete.is-undo{color:#f2c94c!important;border-color:rgba(242,201,76,.32)!important}
+.bank-bulk-footer{
+  display:flex;align-items:center;justify-content:space-between;gap:14px;margin-top:14px;
+  padding:14px 15px;border:1px solid var(--line);border-radius:16px;background:var(--surface)
+}
+.bank-bulk-note{display:flex;align-items:center;gap:9px;color:var(--muted);font-size:9px}
+.bank-bulk-note .icon{color:#f2c94c;flex:0 0 auto}
+.bank-save-all{min-width:210px;justify-content:center}
+.bank-bulk-new-badge{
+  display:inline-flex;align-items:center;width:max-content;margin-top:5px;padding:3px 6px;border-radius:999px;
+  background:color-mix(in srgb,var(--accent) 12%,transparent);color:var(--accent);font-size:7px;font-weight:900
+}
+@media(max-width:1050px){
+  .bank-bulk-panel{overflow-x:auto}
+  .bank-bulk-head,.bank-bulk-row{min-width:850px}
+}
+@media(max-width:700px){
+  .bank-manager-head,.bank-bulk-footer{align-items:stretch;flex-direction:column}
+  .bank-save-all{width:100%;min-width:0}
+}

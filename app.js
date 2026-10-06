@@ -1,4 +1,4 @@
-const APP_VERSION = '11.17';
+const APP_VERSION = '11.18';
 const API_BASE = 'https://gestor-tareas-api.detodoec.workers.dev';
 const STORAGE_KEY = 'detodoec_tasks_v1';
 const SETTINGS_KEY = 'detodoec_tasks_settings_v3';
@@ -26,6 +26,7 @@ let homeRefreshTimer = null;
 let banks = [];
 let bankImageFile = null;
 let bankImageUrl = '';
+let bankDraftCounter = 0;
 let cuadreCurrent = null;
 let cuadreSubmission = null;
 let cuadreNotifications = [];
@@ -3801,77 +3802,171 @@ function renderBankImagePreview(url = '') {
     : `<svg class="icon"><use href="#icon-wallet"></use></svg>`;
 }
 
-function clearBankForm() {
-  $('#bankForm')?.reset();
-  if ($('#bankId')) $('#bankId').value = '';
-  if ($('#bankOpeningAmount')) $('#bankOpeningAmount').value = '0';
-  if ($('#saveBankBtn')) $('#saveBankBtn').textContent = 'Agregar banco';
-  bankImageFile = null;
-  bankImageUrl = '';
-  renderBankImagePreview('');
+function bankBulkRowMarkup(bank = {}) {
+  const isNew = !bank.id;
+  const rowId = isNew ? `new-${++bankDraftCounter}` : String(bank.id);
+  const image = bank.imagen_url || '';
+  return `
+    <article class="bank-bulk-row" data-bank-row="${escapeHtml(rowId)}" data-bank-id="${isNew ? '' : escapeHtml(String(bank.id))}" data-current-image="${escapeHtml(image)}">
+      <div class="bank-bulk-bank">
+        <span class="bank-bulk-logo" data-bank-logo-preview>
+          ${image ? `<img src="${escapeHtml(image)}" alt="" />` : iconUse('icon-wallet')}
+        </span>
+        <div class="bank-bulk-fields">
+          <input data-bank-name value="${escapeHtml(bank.nombre || '')}" placeholder="Nombre del banco" />
+          ${isNew ? '<span class="bank-bulk-new-badge">NUEVO</span>' : ''}
+        </div>
+      </div>
+
+      <input data-bank-opening type="number" min="0" step="0.01" inputmode="decimal" value="${Number(bank.saldo_inicial || 0)}" />
+
+      <div class="bank-bulk-image-field">
+        <input data-bank-image type="file" accept="image/*" />
+        <small>${image ? 'Imagen actual' : 'Sin imagen'}</small>
+      </div>
+
+      <button type="button" class="icon-btn danger bank-bulk-delete" data-bank-delete title="${isNew ? 'Quitar fila' : 'Eliminar banco'}">
+        ${iconUse('icon-trash')}
+      </button>
+    </article>`;
 }
 
 function renderAdminBanks() {
   const list = $('#adminBanksList');
+  const empty = $('#adminBanksEmpty');
   if (!list) return;
-  list.innerHTML = '';
 
-  if (!banks.length) {
-    list.innerHTML = '<div class="cuadre-empty">Todavía no hay bancos configurados.</div>';
+  list.innerHTML = banks.map((bank) => bankBulkRowMarkup(bank)).join('');
+  if (empty) empty.hidden = banks.length > 0;
+}
+
+function addBankDraftRow() {
+  const list = $('#adminBanksList');
+  const empty = $('#adminBanksEmpty');
+  if (!list) return;
+  list.insertAdjacentHTML('beforeend', bankBulkRowMarkup({ nombre:'', saldo_inicial:0, imagen_url:'' }));
+  if (empty) empty.hidden = true;
+  list.lastElementChild?.querySelector('[data-bank-name]')?.focus();
+}
+
+function toggleBankDelete(row) {
+  if (!row) return;
+  const id = row.dataset.bankId || '';
+  if (!id) {
+    row.remove();
+    const empty = $('#adminBanksEmpty');
+    if (empty && !$('#adminBanksList')?.children.length) empty.hidden = false;
     return;
   }
 
-  banks.forEach((bank) => {
-    const card = document.createElement('article');
-    card.className = 'admin-bank-card';
-    card.innerHTML = `
-      <div class="admin-bank-logo">
-        ${bank.imagen_url ? `<img src="${escapeHtml(bank.imagen_url)}" alt="" />` : iconUse('icon-wallet')}
-      </div>
-      <div class="admin-bank-info">
-        <strong>${escapeHtml(bank.nombre)}</strong>
-        <span>Saldo inicial: ${money(Number(bank.saldo_inicial || 0))}</span>
-      </div>
-      <div class="admin-bank-actions">
-        <button type="button" class="icon-btn" data-edit-bank="${bank.id}" title="Editar">${iconUse('icon-edit')}</button>
-        <button type="button" class="icon-btn danger" data-delete-bank="${bank.id}" title="Eliminar">${iconUse('icon-trash')}</button>
-      </div>
-    `;
-    list.appendChild(card);
+  const deleted = row.dataset.deleted === '1';
+  row.dataset.deleted = deleted ? '0' : '1';
+  row.classList.toggle('is-deleted', !deleted);
+
+  const btn = row.querySelector('[data-bank-delete]');
+  if (btn) {
+    btn.classList.toggle('is-undo', !deleted);
+    btn.classList.toggle('danger', deleted);
+    btn.title = deleted ? 'Eliminar banco' : 'Deshacer eliminación';
+    btn.innerHTML = deleted ? iconUse('icon-trash') : iconUse('icon-refresh');
+  }
+
+  row.querySelectorAll('input').forEach((input) => {
+    input.disabled = !deleted;
   });
 }
 
-function editBank(id) {
-  const bank = banks.find((item) => String(item.id) === String(id));
-  if (!bank) return;
-  $('#bankId').value = String(bank.id);
-  $('#bankName').value = bank.nombre || '';
-  $('#bankOpeningAmount').value = Number(bank.saldo_inicial || 0);
-  bankImageUrl = bank.imagen_url || '';
-  bankImageFile = null;
-  renderBankImagePreview(bankImageUrl);
-  $('#saveBankBtn').textContent = 'Guardar cambios';
-  $('#bankForm')?.scrollIntoView({ behavior:'smooth', block:'start' });
+function previewBankBulkImage(input) {
+  const row = input.closest('[data-bank-row]');
+  const preview = row?.querySelector('[data-bank-logo-preview]');
+  if (!row || !preview) return;
+  const file = input.files?.[0];
+  if (!file) return;
+
+  const objectUrl = URL.createObjectURL(file);
+  preview.innerHTML = `<img src="${escapeHtml(objectUrl)}" alt="" />`;
 }
 
-async function deleteBank(id) {
-  const bank = banks.find((item) => String(item.id) === String(id));
-  if (!bank) return;
+async function saveAllBanks() {
+  const btn = $('#saveAllBanks');
+  const rows = $$('#adminBanksList [data-bank-row]');
+  if (!rows.length) {
+    showToast('Agrega al menos un banco antes de guardar.', 'Cuadre');
+    return;
+  }
+
+  const prepared = [];
+  for (const row of rows) {
+    const id = row.dataset.bankId || '';
+    const deleted = row.dataset.deleted === '1';
+
+    if (deleted) {
+      if (id) prepared.push({ action:'delete', id });
+      continue;
+    }
+
+    const nombre = row.querySelector('[data-bank-name]')?.value.trim() || '';
+    const saldoInicial = Math.max(0, Number(row.querySelector('[data-bank-opening]')?.value || 0));
+    const file = row.querySelector('[data-bank-image]')?.files?.[0] || null;
+    const currentImage = row.dataset.currentImage || '';
+
+    if (!nombre) {
+      row.querySelector('[data-bank-name]')?.focus();
+      showToast('Todos los bancos deben tener un nombre.', 'Datos incompletos');
+      return;
+    }
+
+    prepared.push({
+      action:id ? 'update' : 'create',
+      id,
+      nombre,
+      saldoInicial,
+      file,
+      currentImage
+    });
+  }
+
+  if (!prepared.length) {
+    showToast('No hay datos para guardar.', 'Cuadre');
+    return;
+  }
 
   const sure = await themedConfirm({
-    title:'Eliminar banco',
-    message:`¿Eliminar "${bank.nombre}" de la configuración de Cuadre?`,
-    confirmText:'Eliminar',
-    danger:true
+    title:'Guardar bancos',
+    message:'¿Guardar todos los cambios realizados en bancos, saldos iniciales, imágenes y eliminaciones?',
+    confirmText:'Guardar todo'
   });
   if (!sure) return;
 
+  if (btn) btn.disabled = true;
+
   try {
-    await apiFetch(`/api/cuadre/bancos/${id}`, { method:'DELETE' });
-    showToast('Banco eliminado.', 'Cuadre');
+    for (const item of prepared) {
+      if (item.action === 'delete') {
+        await apiFetch(`/api/cuadre/bancos/${item.id}`, { method:'DELETE' });
+        continue;
+      }
+
+      let imagenUrl = item.currentImage || '';
+      if (item.file) imagenUrl = await uploadImage(item.file);
+
+      await apiFetch(item.action === 'update' ? `/api/cuadre/bancos/${item.id}` : '/api/cuadre/bancos', {
+        method:item.action === 'update' ? 'PUT' : 'POST',
+        headers:{'Content-Type':'application/json'},
+        body:JSON.stringify({
+          nombre:item.nombre,
+          saldo_inicial:item.saldoInicial,
+          imagen_url:imagenUrl
+        })
+      });
+    }
+
+    showToast('Todos los bancos fueron guardados correctamente.', 'Cambios guardados');
     await refreshBanks();
   } catch (err) {
-    showToast(err.message, 'No se pudo eliminar');
+    showToast(err.message, 'No se pudieron guardar todos los bancos');
+  } finally {
+    if (btn) btn.disabled = false;
   }
 }
 
@@ -4233,45 +4328,6 @@ async function saveCuadre() {
     showToast(result.mensaje||'Cierre enviado al administrador.','En revisión'); await refreshCuadre();
   }catch(err){showToast(err.message,'No se pudo enviar el cierre');}
   finally{if(btn&&!cuadreSubmission?.estado)btn.disabled=false;}
-}
-
-async function saveBank(e) {
-  e.preventDefault();
-
-  const id = $('#bankId').value.trim();
-  const nombre = $('#bankName').value.trim();
-  const saldoInicial = Math.max(0, Number($('#bankOpeningAmount').value || 0));
-
-  if (!nombre) {
-    showToast('Escribe el nombre del banco.', 'Cuadre');
-    return;
-  }
-
-  const button = $('#saveBankBtn');
-  if (button) button.disabled = true;
-
-  try {
-    let imagenUrl = bankImageUrl || '';
-    if (bankImageFile) imagenUrl = await uploadImage(bankImageFile);
-
-    const result = await apiFetch(id ? `/api/cuadre/bancos/${id}` : '/api/cuadre/bancos', {
-      method:id ? 'PUT' : 'POST',
-      headers:{'Content-Type':'application/json'},
-      body:JSON.stringify({
-        nombre,
-        saldo_inicial:saldoInicial,
-        imagen_url:imagenUrl
-      })
-    });
-
-    showToast(result.mensaje || 'Banco guardado.', 'Cuadre');
-    clearBankForm();
-    await refreshBanks();
-  } catch (err) {
-    showToast(err.message, 'No se pudo guardar el banco');
-  } finally {
-    if (button) button.disabled = false;
-  }
 }
 
 
@@ -5000,21 +5056,18 @@ $('#cuadreBanksGrid')?.addEventListener('input', updateCuadreTotals);
 $('#cuadreCashInitialInput')?.addEventListener('input', updateCuadreTotals);
 $('#cuadreCashInput')?.addEventListener('input', updateCuadreTotals);
 
-$('#bankForm')?.addEventListener('submit', saveBank);
-on('cancelBankEdit', 'click', clearBankForm);
-$('#bankImage')?.addEventListener('change', (e) => {
-  bankImageFile = e.target.files?.[0] || null;
-  if (!bankImageFile) return;
-  const reader = new FileReader();
-  reader.onload = () => renderBankImagePreview(String(reader.result || ''));
-  reader.readAsDataURL(bankImageFile);
-});
 $('#adminBanksList')?.addEventListener('click', (e) => {
-  const edit = e.target.closest('[data-edit-bank]')?.dataset.editBank;
-  const del = e.target.closest('[data-delete-bank]')?.dataset.deleteBank;
-  if (edit) editBank(edit);
-  if (del) deleteBank(del);
+  const deleteBtn = e.target.closest('[data-bank-delete]');
+  if (deleteBtn) {
+    toggleBankDelete(deleteBtn.closest('[data-bank-row]'));
+  }
 });
+$('#adminBanksList')?.addEventListener('change', (e) => {
+  const input = e.target.closest('[data-bank-image]');
+  if (input) previewBankBulkImage(input);
+});
+on('addBankDraft', 'click', addBankDraftRow);
+on('saveAllBanks', 'click', saveAllBanks);
 
 on('checkinStartDate', 'change', refreshAttendance);
 on('checkinEndDate', 'change', refreshAttendance);
