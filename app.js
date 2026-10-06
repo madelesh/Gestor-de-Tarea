@@ -1,4 +1,4 @@
-const APP_VERSION = '11.16';
+const APP_VERSION = '11.17';
 const API_BASE = 'https://gestor-tareas-api.detodoec.workers.dev';
 const STORAGE_KEY = 'detodoec_tasks_v1';
 const SETTINGS_KEY = 'detodoec_tasks_settings_v3';
@@ -2244,7 +2244,7 @@ async function refreshMyCheckin() {
 function showMyCheckinPage() {
   hideStandalonePages();
 
-  ['home','resumen','tareas','archivados','cotizador','cuadre','disenos'].forEach((id) => {
+  ['home','resumen','tareas','archivados','cotizador','cuadre','revisiones','disenos'].forEach((id) => {
     const el = $('#' + id);
     if (el) el.hidden = true;
   });
@@ -2273,6 +2273,7 @@ function showMainView(view) {
     tasks:'tasks',
     quote:'quote',
     cuadre:'cuadre',
+    reviews:'reviews',
     designs:'designs'
   };
 
@@ -2285,6 +2286,7 @@ function showMainView(view) {
   const isTasks = view === 'tasks';
   const isQuote = view === 'quote';
   const isCuadre = view === 'cuadre';
+  const isReviews = view === 'reviews';
   const isDesigns = view === 'designs';
 
   $('#home').hidden = !isHome;
@@ -2293,12 +2295,14 @@ function showMainView(view) {
   $('#archivados').hidden = true;
   $('#cotizador').hidden = !isQuote;
   $('#cuadre').hidden = !isCuadre;
+  $('#revisiones').hidden = !isReviews;
   $('#disenos').hidden = !isDesigns;
 
   $('#navHome')?.classList.toggle('active', isHome);
   $('#navTasks')?.classList.toggle('active', isTasks);
   $('#navQuote')?.classList.toggle('active', isQuote);
   $('#navCuadre')?.classList.toggle('active', isCuadre);
+  $('#navReviews')?.classList.toggle('active', isReviews);
   $('#navDesigns')?.classList.toggle('active', isDesigns);
 
   if (homeRefreshTimer) {
@@ -2317,6 +2321,7 @@ function showMainView(view) {
   }
 
   if (isCuadre) refreshCuadre();
+  if (isReviews) refreshMainReviews({ silent:true });
   if (isQuote) {
     renderQuoteCustomerPicker();
     renderQuoteMaterialSelect();
@@ -2388,6 +2393,8 @@ function updateNavigationPermissions() {
 
   const adminMenu = $('#profileAdminMenu');
   if (adminMenu) adminMenu.hidden = currentUser?.rol !== 'admin';
+  const reviewsNav = $('#navReviews');
+  if (reviewsNav) reviewsNav.hidden = currentUser?.rol !== 'admin';
 }
 
 function syncProfileThemeControl() {
@@ -2591,6 +2598,7 @@ function bindCoreNavigationEarly() {
   safeBind('navTasks', () => showMainView('tasks'));
   safeBind('navQuote', () => showMainView('quote'));
   safeBind('navCuadre', () => showMainView('cuadre'));
+  safeBind('navReviews', () => showMainView('reviews'));
   safeBind('navDesigns', () => showMainView('designs'));
 
   safeBind('profileBtn', () => {
@@ -2637,8 +2645,11 @@ function bindCoreNavigationEarly() {
   safeBind('refreshCloud', () => refreshCloudData());
   safeBind('notificationBtn', () => {
     if (!currentUser || currentUser.rol !== 'admin') return;
-    requestAdminPanel('revisiones');
+    const panel = $('#notificationPanel');
+    if (panel) panel.hidden = !panel.hidden;
+    if (panel && !panel.hidden) refreshCuadreNotifications({ silent:true });
   });
+  safeBind('refreshNotifications', () => refreshCuadreNotifications());
 }
 
 bindCoreNavigationEarly();
@@ -2647,6 +2658,11 @@ document.addEventListener('pointerdown', (e) => {
   const menu = $('#profileDropdown');
   const button = $('#profileBtn');
   if (menu && !menu.hidden && !menu.contains(e.target) && !button?.contains(e.target)) menu.hidden = true;
+  const notificationPanel = $('#notificationPanel');
+  const notificationBtn = $('#notificationBtn');
+  if (notificationPanel && !notificationPanel.hidden && !notificationPanel.contains(e.target) && !notificationBtn?.contains(e.target)) {
+    notificationPanel.hidden = true;
+  }
 }, true);
 
 
@@ -4057,16 +4073,28 @@ function updateCuadreSubmitState(submission=null) {
   else if(submission.estado==='aprobado'){btn.classList.add('reviewed');btn.disabled=true;setCuadreFormLocked(true);if(label)label.textContent='Revisado';}
   else if(submission.estado==='rechazado'){btn.classList.add('rejected');if(label)label.textContent='Corregir y reenviar';}
 }
-async function refreshCuadreNotifications({silent=false}={}) {
-  if(!currentUser||currentUser.rol!=='admin') return [];
-  try{ const rows=await apiFetch(`/api/cuadre/solicitudes?estado=pendiente&_=${Date.now()}`,{cache:'no-store'}); cuadreNotifications=Array.isArray(rows)?rows:[]; renderCuadreNotifications(); return cuadreNotifications; }
-  catch(err){ if(!silent)showToast(err.message,'Notificaciones'); return []; }
+async function refreshCuadreNotifications({silent=false}={}){
+  return refreshMainReviews({silent});
 }
 function renderCuadreNotifications(){
-  const count=cuadreNotifications.length,badge=$('#notificationBadge'),side=$('#adminReviewCount');
+  const count=cuadreNotifications.length;
+  const badge=$('#notificationBadge'),side=$('#adminReviewCount'),main=$('#mainReviewCount'),list=$('#notificationList');
   if(badge){badge.textContent=String(count);badge.hidden=count===0;}
   if(side){side.textContent=String(count);side.hidden=count===0;}
-  if($('#reviewPendingCount'))$('#reviewPendingCount').textContent=String(count);
+  if(main){main.textContent=String(count);main.hidden=count===0;}
+  if($('#mainReviewsPending')) $('#mainReviewsPending').textContent=String(count);
+
+  if(!list)return;
+  if(!count){list.innerHTML='<div class="notification-empty">No hay cierres de caja pendientes.</div>';return;}
+  list.innerHTML=cuadreNotifications.map((i)=>`
+    <button type="button" class="notification-item" data-notification-review-id="${i.id}">
+      <span class="notification-item-icon">${iconUse('icon-wallet')}</span>
+      <span class="notification-item-copy">
+        <strong>${escapeHtml(i.usuario_nombre||i.usuario||'Usuario')}</strong>
+        <span>${escapeHtml(i.fecha_local)} · ${i.diferencia_tipo==='faltante'?`Falta ${money(Math.abs(i.diferencia||0))}`:i.diferencia_tipo==='sobrante'?`Sobra ${money(i.diferencia||0)}`:'Cuadre correcto'}</span>
+      </span>
+      <span class="notification-item-time">${formatTime(i.enviado_en)}</span>
+    </button>`).join('');
 }
 function reviewSummary(payload){
   const b=Array.isArray(payload?.bancos)?payload.bancos:[];
@@ -4082,19 +4110,75 @@ function renderCuadreReview(item){
   $('#cuadreReviewSummary').innerHTML=`<article><span>Capital inicial</span><strong>${money(s.initialCapital)}</strong></article><article><span>Bancos finales</span><strong>${money(s.bankFinal)}</strong></article><article><span>Efectivo esperado</span><strong>${money(s.expectedCash)}</strong></article><article><span>Efectivo final</span><strong>${money(s.cashFinal)}</strong></article><article><span>Ingresos bancos</span><strong>${money(s.income)}</strong></article><article><span>Egresos bancos</span><strong>${money(s.expense)}</strong></article><article><span>Transacciones</span><strong>${(p.bancos||[]).reduce((a,x)=>a+Number(x.transacciones||0),0)}</strong></article><article><span>Diferencia</span><strong>${money(s.difference)}</strong></article>`;
   $('#cuadreReviewBanks').innerHTML=(p.bancos||[]).map((b)=>`<div class="cuadre-review-bank-row"><strong>${escapeHtml(b.nombre||`Banco ${b.banco_id}`)}</strong><span>${money(b.saldo_inicial)}</span><span>${money(b.ingresos)}</span><span>${money(b.egresos)}</span><span>${money(b.saldo_final)}</span><span>${Number(b.transacciones||0)}</span></div>`).join('');
   $('#cuadreReviewNote').value=item.observacion_admin||'';
+  const isPending=item.estado==='pendiente';
+  if($('#cuadreReviewNote')) $('#cuadreReviewNote').disabled=!isPending;
+  if($('#approveCuadreReview')) $('#approveCuadreReview').hidden=!isPending;
+  if($('#rejectCuadreReview')) $('#rejectCuadreReview').hidden=!isPending;
 }
 
 function reviewStatusLabel(s){return s==='aprobado'?'Revisado':s==='rechazado'?'Rechazado':'Pendiente';}
+
+function reviewCardHtml(r,{history=false}={}){
+  const d=Number(r.diferencia||0);
+  const dt=Math.abs(d)<.01?'Sin diferencia':d<0?`Falta ${money(Math.abs(d))}`:`Sobra ${money(d)}`;
+  return `<article class="review-card" data-admin-review-id="${r.id}">
+    <div class="review-card-user">
+      <span class="review-card-avatar">${r.foto_url?`<img src="${escapeHtml(r.foto_url)}" alt="" />`:iconUse('icon-user')}</span>
+      <span class="review-card-user-copy"><strong>${escapeHtml(r.usuario_nombre||r.usuario||'Usuario')}</strong><small>${escapeHtml(r.fecha_local)} · ${formatTime(r.enviado_en)}</small></span>
+    </div>
+    <div class="review-card-metric"><small>Diferencia</small><strong>${dt}</strong></div>
+    <div class="review-card-metric"><small>${history?'Aprobado':'Estado'}</small><strong>${history?(r.revisado_en?formatTime(r.revisado_en):'—'):'Pendiente'}</strong></div>
+    <span class="review-status-pill ${history?'aprobado':'pendiente'}">${history?'Revisado':'Pendiente'}</span>
+  </article>`;
+}
+
+function renderMainReviews(){
+  const list=$('#mainReviewList');
+  if(!list)return;
+  const rows=cuadreNotifications;
+  if($('#mainReviewsPending'))$('#mainReviewsPending').textContent=String(rows.length);
+  list.innerHTML=rows.length?rows.map(r=>reviewCardHtml(r)).join(''):'<div class="review-empty">No hay cierres pendientes de revisión.</div>';
+}
+
+function approvedReviewFilteredRows(){
+  const q=($('#approvedReviewSearch')?.value||'').trim().toLowerCase();
+  const start=$('#approvedReviewStart')?.value||'';
+  const end=$('#approvedReviewEnd')?.value||'';
+  return adminReviewRows.filter((r)=>{
+    const name=`${r.usuario_nombre||''} ${r.usuario||''}`.toLowerCase();
+    if(q && !name.includes(q)) return false;
+    if(start && String(r.fecha_local||'')<start) return false;
+    if(end && String(r.fecha_local||'')>end) return false;
+    return true;
+  });
+}
+
 function renderAdminReviews(){
   const list=$('#adminReviewList');if(!list)return;
-  const rows=adminReviewFilter==='todos'?adminReviewRows:adminReviewRows.filter(r=>r.estado===adminReviewFilter);
-  $$('#reviewFilterTabs [data-review-filter]').forEach(b=>b.classList.toggle('active',b.dataset.reviewFilter===adminReviewFilter));
-  if(!rows.length){list.innerHTML=`<div class="review-empty">${adminReviewFilter==='pendiente'?'No hay cierres pendientes de revisión.':adminReviewFilter==='aprobado'?'No hay cierres revisados todavía.':adminReviewFilter==='rechazado'?'No hay cierres rechazados.':'No hay cierres enviados.'}</div>`;return;}
-  list.innerHTML=rows.map(r=>{const d=Number(r.diferencia||0),dt=Math.abs(d)<.01?'Sin diferencia':d<0?`Falta ${money(Math.abs(d))}`:`Sobra ${money(d)}`;return `<article class="review-card" data-admin-review-id="${r.id}"><div class="review-card-user"><span class="review-card-avatar">${r.foto_url?`<img src="${escapeHtml(r.foto_url)}" alt="" />`:iconUse('icon-user')}</span><span class="review-card-user-copy"><strong>${escapeHtml(r.usuario_nombre||r.usuario||'Usuario')}</strong><small>${escapeHtml(r.fecha_local)} · ${formatTime(r.enviado_en)}</small></span></div><div class="review-card-metric"><small>Diferencia</small><strong>${dt}</strong></div><div class="review-card-metric"><small>Revisión</small><strong>${r.revisado_en?formatTime(r.revisado_en):'Pendiente'}</strong></div><span class="review-status-pill ${escapeHtml(r.estado)}">${reviewStatusLabel(r.estado)}</span></article>`;}).join('');
+  const rows=approvedReviewFilteredRows();
+  if($('#approvedReviewCount'))$('#approvedReviewCount').textContent=String(rows.length);
+  list.innerHTML=rows.length?rows.map(r=>reviewCardHtml(r,{history:true})).join(''):'<div class="review-empty">No hay revisiones aprobadas que coincidan con los filtros.</div>';
 }
+
+async function refreshMainReviews({silent=false}={}){
+  if(!currentUser||currentUser.rol!=='admin')return[];
+  try{
+    const rows=await apiFetch(`/api/cuadre/solicitudes?estado=pendiente&_=${Date.now()}`,{cache:'no-store'});
+    cuadreNotifications=Array.isArray(rows)?rows:[];
+    renderCuadreNotifications();
+    renderMainReviews();
+    return cuadreNotifications;
+  }catch(err){if(!silent)showToast(err.message,'No se pudieron cargar las revisiones');return[];}
+}
+
 async function refreshAdminReviews({silent=false}={}){
   if(!currentUser||currentUser.rol!=='admin')return[];
-  try{const rows=await apiFetch(`/api/cuadre/solicitudes?estado=todos&_=${Date.now()}`,{cache:'no-store'});adminReviewRows=Array.isArray(rows)?rows:[];const p=adminReviewRows.filter(r=>r.estado==='pendiente').length,a=adminReviewRows.filter(r=>r.estado==='aprobado').length,x=adminReviewRows.filter(r=>r.estado==='rechazado').length;if($('#reviewPendingCount'))$('#reviewPendingCount').textContent=String(p);if($('#reviewApprovedCount'))$('#reviewApprovedCount').textContent=String(a);if($('#reviewRejectedCount'))$('#reviewRejectedCount').textContent=String(x);cuadreNotifications=adminReviewRows.filter(r=>r.estado==='pendiente');renderCuadreNotifications();renderAdminReviews();return adminReviewRows;}catch(err){if(!silent)showToast(err.message,'No se pudieron cargar las revisiones');return[];}
+  try{
+    const rows=await apiFetch(`/api/cuadre/solicitudes?estado=aprobado&_=${Date.now()}`,{cache:'no-store'});
+    adminReviewRows=Array.isArray(rows)?rows:[];
+    renderAdminReviews();
+    return adminReviewRows;
+  }catch(err){if(!silent)showToast(err.message,'No se pudo cargar el historial de revisiones');return[];}
 }
 
 async function openCuadreReview(id){
@@ -4104,7 +4188,7 @@ async function openCuadreReview(id){
 async function resolveCuadreReview(action){
   if(!activeCuadreReviewId)return; const approve=action==='aprobar';
   const sure=await themedConfirm({title:approve?'Dar visto bueno':'Rechazar cierre',message:approve?'¿Confirmas que revisaste todos los valores y que este cierre puede pasar al cuadre definitivo?':'¿Confirmas que deseas rechazar este cierre para que el usuario lo corrija?',confirmText:approve?'Aprobar cierre':'Rechazar',danger:!approve}); if(!sure)return;
-  try{const r=await apiFetch(`/api/cuadre/solicitudes/${activeCuadreReviewId}/${action}`,{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({observacion:$('#cuadreReviewNote')?.value.trim()||''})});$('#cuadreReviewDialog')?.close();activeCuadreReviewId=null;showToast(r.mensaje||'Procesado',approve?'Revisado':'Rechazado');await Promise.allSettled([refreshCuadreNotifications({silent:true}),refreshAdminReviews({silent:true}),refreshCuadre(),refreshGoalsToday({silent:true})]);}
+  try{const r=await apiFetch(`/api/cuadre/solicitudes/${activeCuadreReviewId}/${action}`,{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({observacion:$('#cuadreReviewNote')?.value.trim()||''})});$('#cuadreReviewDialog')?.close();activeCuadreReviewId=null;showToast(r.mensaje||'Procesado',approve?'Revisado':'Rechazado');await Promise.allSettled([refreshMainReviews({silent:true}),refreshAdminReviews({silent:true}),refreshCuadre(),refreshGoalsToday({silent:true})]);}
   catch(err){showToast(err.message,'No se pudo procesar el cierre');}
 }
 
@@ -4887,10 +4971,30 @@ $('#goalsConfigList')?.addEventListener('change', (e) => {
 on('refreshCuadre', 'click', refreshCuadre);
 on('saveCuadre', 'click', saveCuadre);
 on('refreshAdminReviews', 'click', () => refreshAdminReviews());
+on('refreshMainReviews', 'click', () => refreshMainReviews());
+on('clearApprovedReviewFilters', 'click', () => {
+  if($('#approvedReviewSearch')) $('#approvedReviewSearch').value='';
+  if($('#approvedReviewStart')) $('#approvedReviewStart').value='';
+  if($('#approvedReviewEnd')) $('#approvedReviewEnd').value='';
+  renderAdminReviews();
+});
+['approvedReviewSearch','approvedReviewStart','approvedReviewEnd'].forEach((id)=>{
+  $('#'+id)?.addEventListener(id==='approvedReviewSearch'?'input':'change',renderAdminReviews);
+});
+$('#notificationList')?.addEventListener('click',(e)=>{
+  const item=e.target.closest('[data-notification-review-id]');
+  if(!item)return;
+  $('#notificationPanel').hidden=true;
+  showMainView('reviews');
+  openCuadreReview(item.dataset.notificationReviewId);
+});
+$('#mainReviewList')?.addEventListener('click',(e)=>{
+  const card=e.target.closest('[data-admin-review-id]');
+  if(card)openCuadreReview(card.dataset.adminReviewId);
+});
 on('closeCuadreReview', 'click', () => $('#cuadreReviewDialog')?.close());
 on('approveCuadreReview', 'click', () => resolveCuadreReview('aprobar'));
 on('rejectCuadreReview', 'click', () => resolveCuadreReview('rechazar'));
-$('#reviewFilterTabs')?.addEventListener('click',(e)=>{const b=e.target.closest('[data-review-filter]');if(!b)return;adminReviewFilter=b.dataset.reviewFilter||'pendiente';renderAdminReviews();});
 $('#adminReviewList')?.addEventListener('click',(e)=>{const c=e.target.closest('[data-admin-review-id]');if(c)openCuadreReview(c.dataset.adminReviewId);});
 $('#cuadreBanksGrid')?.addEventListener('input', updateCuadreTotals);
 $('#cuadreCashInitialInput')?.addEventListener('input', updateCuadreTotals);

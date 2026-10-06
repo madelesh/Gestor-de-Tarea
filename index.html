@@ -9,7 +9,7 @@
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700;800&display=swap" rel="stylesheet">
   <link id="dynamicFavicon" rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 64 64'%3E%3Crect width='64' height='64' rx='16' fill='%23b9ff39'/%3E%3Cpath d='M18 33l9 9 19-22' fill='none' stroke='%23111' stroke-width='7' stroke-linecap='round' stroke-linejoin='round'/%3E%3C/svg%3E" />
-  <link rel="stylesheet" href="styles.css?v=11.16" />
+  <link rel="stylesheet" href="styles.css?v=11.17" />
 </head>
 <body>
   <svg xmlns="http://www.w3.org/2000/svg" style="display:none" aria-hidden="true" focusable="false">
@@ -112,6 +112,7 @@
         <button type="button" class="main-nav-btn" id="navTasks"><svg class="icon"><use href="#icon-task"></use></svg><span>Tareas</span></button>
         <button type="button" class="main-nav-btn" id="navQuote"><svg class="icon"><use href="#icon-calculator"></use></svg><span>Cotizador</span></button>
         <button type="button" class="main-nav-btn" id="navCuadre"><svg class="icon"><use href="#icon-wallet"></use></svg><span>Cuadre</span></button>
+        <button type="button" class="main-nav-btn" id="navReviews" hidden><svg class="icon"><use href="#icon-bell"></use></svg><span>Revisiones</span><span class="main-review-count" id="mainReviewCount" hidden>0</span></button>
         <button type="button" class="main-nav-btn" id="navDesigns"><svg class="icon"><use href="#icon-library"></use></svg><span>Diseños</span></button>
       </nav>
 
@@ -122,10 +123,17 @@
         </button>
         <button type="button" class="icon-btn square" id="refreshCloud" title="Actualizar desde la nube" aria-label="Actualizar desde la nube"><svg class="icon"><use href="#icon-refresh"></use></svg></button>
         <div class="notification-wrap" id="notificationWrap" hidden>
-          <button type="button" class="icon-btn square notification-btn" id="notificationBtn" title="Revisiones pendientes" aria-label="Abrir revisiones">
+          <button type="button" class="icon-btn square notification-btn" id="notificationBtn" title="Notificaciones" aria-label="Abrir notificaciones">
             <svg class="icon"><use href="#icon-bell"></use></svg>
-            <span class="notification-badge" id="notificationBadge" hidden>0</span>
           </button>
+          <span class="notification-badge" id="notificationBadge" hidden>0</span>
+          <div class="notification-panel" id="notificationPanel" hidden>
+            <div class="notification-panel-head">
+              <div><strong>Notificaciones</strong><span>Cierres pendientes de revisión</span></div>
+              <button type="button" class="icon-btn small" id="refreshNotifications" title="Actualizar"><svg class="icon"><use href="#icon-refresh"></use></svg></button>
+            </div>
+            <div class="notification-list" id="notificationList"></div>
+          </div>
         </div>
         <button type="button" class="user-menu-btn" id="profileBtn" title="Mi perfil">
           <span class="top-user-avatar" id="topUserAvatar"><svg class="icon"><use href="#icon-user"></use></svg></span>
@@ -458,6 +466,22 @@
         </div>
       </section>
 
+      <section class="section reviews-main-section" id="revisiones" hidden>
+        <div class="reviews-main-head">
+          <div>
+            <span class="eyebrow">Control de caja</span>
+            <h1>Revisiones</h1>
+            <p>Aquí aparecen los cierres de caja que los usuarios enviaron para tu revisión.</p>
+          </div>
+          <button type="button" class="btn btn-outline small" id="refreshMainReviews"><svg class="icon"><use href="#icon-refresh"></use></svg><span>Actualizar</span></button>
+        </div>
+        <div class="reviews-main-summary">
+          <div><span>Pendientes</span><strong id="mainReviewsPending">0</strong></div>
+          <div><span>Acción</span><strong>Revisar y aprobar</strong></div>
+        </div>
+        <div class="review-list" id="mainReviewList"></div>
+      </section>
+
       <section class="section designs-section" id="disenos" hidden>
         <div class="section-head designs-head">
           <div>
@@ -486,7 +510,7 @@
     <footer class="app-version-footer" aria-label="Versión de la aplicación">
       <span>DeTodoEc</span>
       <span class="version-separator">•</span>
-      <strong>Versión 11.16</strong>
+      <strong>Versión 11.17</strong>
     </footer>
   </div>
 
@@ -1266,20 +1290,32 @@
 
           <section class="admin-section admin-view reviews-admin" data-admin-view="revisiones" hidden>
             <div class="admin-users-heading reviews-heading">
-              <div><span class="eyebrow">Control de caja</span><h3>Revisiones</h3><p>Cierres de cuadre enviados por los usuarios.</p></div>
+              <div>
+                <span class="eyebrow">Historial</span>
+                <h3>Revisiones aprobadas</h3>
+                <p>Aquí se guardan únicamente los cierres que el administrador confirmó como correctos.</p>
+              </div>
               <button type="button" class="btn btn-outline small" id="refreshAdminReviews"><svg class="icon"><use href="#icon-refresh"></use></svg><span>Actualizar</span></button>
             </div>
-            <div class="review-stats">
-              <article><span>Pendientes</span><strong id="reviewPendingCount">0</strong></article>
-              <article><span>Revisados</span><strong id="reviewApprovedCount">0</strong></article>
-              <article><span>Rechazados</span><strong id="reviewRejectedCount">0</strong></article>
+
+            <div class="approved-review-filters">
+              <label>Buscar usuario
+                <input id="approvedReviewSearch" placeholder="Nombre o usuario..." />
+              </label>
+              <label>Desde
+                <input id="approvedReviewStart" type="date" />
+              </label>
+              <label>Hasta
+                <input id="approvedReviewEnd" type="date" />
+              </label>
+              <button type="button" class="btn btn-outline small" id="clearApprovedReviewFilters">Limpiar filtros</button>
             </div>
-            <div class="review-filter-tabs" id="reviewFilterTabs">
-              <button type="button" class="active" data-review-filter="pendiente">Pendientes</button>
-              <button type="button" data-review-filter="aprobado">Revisados</button>
-              <button type="button" data-review-filter="rechazado">Rechazados</button>
-              <button type="button" data-review-filter="todos">Todos</button>
+
+            <div class="approved-review-summary">
+              <span>Revisiones encontradas</span>
+              <strong id="approvedReviewCount">0</strong>
             </div>
+
             <div class="review-list" id="adminReviewList"></div>
           </section>
 
@@ -1493,6 +1529,6 @@
     </article>
   </template>
 
-  <script src="app.js?v=11.16"></script>
+  <script src="app.js?v=11.17"></script>
 </body>
 </html>
