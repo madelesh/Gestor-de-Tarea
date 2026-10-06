@@ -1,4 +1,4 @@
-const APP_VERSION = '11.14';
+const APP_VERSION = '11.15';
 const API_BASE = 'https://gestor-tareas-api.detodoec.workers.dev';
 const STORAGE_KEY = 'detodoec_tasks_v1';
 const SETTINGS_KEY = 'detodoec_tasks_settings_v3';
@@ -27,6 +27,9 @@ let banks = [];
 let bankImageFile = null;
 let bankImageUrl = '';
 let cuadreCurrent = null;
+let cuadreSubmission = null;
+let cuadreNotifications = [];
+let activeCuadreReviewId = null;
 let goalsToday = [];
 let goalsConfig = [];
 let goalsHistory = [];
@@ -2411,6 +2414,10 @@ function updateCurrentUserUI() {
 
   syncProfileThemeControl();
 
+  const notificationWrap = $('#notificationWrap');
+  if (notificationWrap) notificationWrap.hidden = currentUser.rol !== 'admin';
+  if (currentUser.rol === 'admin') refreshCuadreNotifications({ silent:true });
+
   updateNavigationPermissions();
 }
 
@@ -2523,6 +2530,7 @@ async function refreshCloudData({ notify = true } = {}) {
       if (currentUser.rol === 'admin') {
         jobs.push(refreshAdminUsers());
         jobs.push(refreshRoles());
+        jobs.push(refreshCuadreNotifications({ silent:true }));
       }
     }
 
@@ -2625,6 +2633,12 @@ function bindCoreNavigationEarly() {
 
   safeBind('homeAttendanceBtn', () => toggleAttendance());
   safeBind('refreshCloud', () => refreshCloudData());
+  safeBind('notificationBtn', () => {
+    const panel = $('#notificationPanel');
+    if (panel) panel.hidden = !panel.hidden;
+    if (panel && !panel.hidden) refreshCuadreNotifications({ silent:true });
+  });
+  safeBind('refreshNotifications', () => refreshCuadreNotifications());
 }
 
 bindCoreNavigationEarly();
@@ -2632,10 +2646,10 @@ bindCoreNavigationEarly();
 document.addEventListener('pointerdown', (e) => {
   const menu = $('#profileDropdown');
   const button = $('#profileBtn');
-  if (!menu || menu.hidden) return;
-  if (!menu.contains(e.target) && !button?.contains(e.target)) {
-    menu.hidden = true;
-  }
+  if (menu && !menu.hidden && !menu.contains(e.target) && !button?.contains(e.target)) menu.hidden = true;
+  const notifPanel = $('#notificationPanel');
+  const notifBtn = $('#notificationBtn');
+  if (notifPanel && !notifPanel.hidden && !notifPanel.contains(e.target) && !notifBtn?.contains(e.target)) notifPanel.hidden = true;
 }, true);
 
 
@@ -4031,87 +4045,99 @@ function updateCuadreTotals() {
   };
 }
 
+
+function setCuadreFormLocked(locked) {
+  ['cuadreCashInitialInput','cuadreCashInput'].forEach((id)=>{ const el=$('#'+id); if(el) el.disabled=locked; });
+  $$('[data-cuadre-income],[data-cuadre-expense],[data-cuadre-transactions]').forEach((el)=>el.disabled=locked);
+}
+function updateCuadreSubmitState(submission=null) {
+  cuadreSubmission=submission;
+  const btn=$('#saveCuadre'); if(!btn) return;
+  const label=btn.querySelector('span');
+  btn.classList.remove('reviewing','reviewed','rejected'); btn.disabled=false; setCuadreFormLocked(false);
+  if(!submission){ if(label) label.textContent='Enviar cierre para revisión'; return; }
+  if(submission.estado==='pendiente'){btn.classList.add('reviewing');btn.disabled=true;setCuadreFormLocked(true);if(label)label.textContent='En revisión';}
+  else if(submission.estado==='aprobado'){btn.classList.add('reviewed');btn.disabled=true;setCuadreFormLocked(true);if(label)label.textContent='Revisado';}
+  else if(submission.estado==='rechazado'){btn.classList.add('rejected');if(label)label.textContent='Corregir y reenviar';}
+}
+async function refreshCuadreNotifications({silent=false}={}) {
+  if(!currentUser||currentUser.rol!=='admin') return [];
+  try{ const rows=await apiFetch(`/api/cuadre/solicitudes?estado=pendiente&_=${Date.now()}`,{cache:'no-store'}); cuadreNotifications=Array.isArray(rows)?rows:[]; renderCuadreNotifications(); return cuadreNotifications; }
+  catch(err){ if(!silent)showToast(err.message,'Notificaciones'); return []; }
+}
+function renderCuadreNotifications(){
+  const badge=$('#notificationBadge'),list=$('#notificationList'); if(!badge||!list)return;
+  badge.textContent=String(cuadreNotifications.length); badge.hidden=!cuadreNotifications.length;
+  if(!cuadreNotifications.length){list.innerHTML='<div class="notification-empty">No hay cierres de caja pendientes.</div>';return;}
+  list.innerHTML=cuadreNotifications.map((i)=>`<button type="button" class="notification-item" data-cuadre-review-id="${i.id}"><span class="notification-item-icon">${iconUse('icon-wallet')}</span><span class="notification-item-copy"><strong>Cierre de caja · ${escapeHtml(i.usuario_nombre||i.usuario||'Usuario')}</strong><span>${escapeHtml(i.fecha_local)} · ${i.diferencia_tipo==='faltante'?`Falta ${money(Math.abs(i.diferencia||0))}`:i.diferencia_tipo==='sobrante'?`Sobra ${money(i.diferencia||0)}`:'Cuadre correcto'}</span></span><span class="notification-item-time">${formatTime(i.enviado_en)}</span></button>`).join('');
+}
+function reviewSummary(payload){
+  const b=Array.isArray(payload?.bancos)?payload.bancos:[];
+  const bankInitial=b.reduce((s,x)=>s+Number(x.saldo_inicial||0),0), income=b.reduce((s,x)=>s+Number(x.ingresos||0),0), expense=b.reduce((s,x)=>s+Number(x.egresos||0),0), bankFinal=b.reduce((s,x)=>s+Number(x.saldo_final||0),0);
+  const cashInitial=Number(payload?.efectivo_inicial||0),cashFinal=Number(payload?.efectivo||0),initialCapital=bankInitial+cashInitial,expectedCash=initialCapital-bankFinal,difference=cashFinal-expectedCash;
+  return {bankInitial,income,expense,bankFinal,cashInitial,cashFinal,initialCapital,expectedCash,difference};
+}
+function renderCuadreReview(item){
+  const p=item.payload||{},s=reviewSummary(p);
+  $('#cuadreReviewTitle').textContent=`Cierre de caja · ${item.usuario_nombre||item.usuario||'Usuario'}`;
+  $('#cuadreReviewMeta').textContent=`${item.fecha_local} · enviado ${formatTime(item.enviado_en)}`;
+  $('#cuadreReviewStatus').textContent=Math.abs(s.difference)<.01?'Cuadre correcto: no existe diferencia.':s.difference<0?`Atención: falta ${money(Math.abs(s.difference))}.`:`Atención: sobra ${money(s.difference)}.`;
+  $('#cuadreReviewSummary').innerHTML=`<article><span>Capital inicial</span><strong>${money(s.initialCapital)}</strong></article><article><span>Bancos finales</span><strong>${money(s.bankFinal)}</strong></article><article><span>Efectivo esperado</span><strong>${money(s.expectedCash)}</strong></article><article><span>Efectivo final</span><strong>${money(s.cashFinal)}</strong></article><article><span>Ingresos bancos</span><strong>${money(s.income)}</strong></article><article><span>Egresos bancos</span><strong>${money(s.expense)}</strong></article><article><span>Transacciones</span><strong>${(p.bancos||[]).reduce((a,x)=>a+Number(x.transacciones||0),0)}</strong></article><article><span>Diferencia</span><strong>${money(s.difference)}</strong></article>`;
+  $('#cuadreReviewBanks').innerHTML=(p.bancos||[]).map((b)=>`<div class="cuadre-review-bank-row"><strong>${escapeHtml(b.nombre||`Banco ${b.banco_id}`)}</strong><span>${money(b.saldo_inicial)}</span><span>${money(b.ingresos)}</span><span>${money(b.egresos)}</span><span>${money(b.saldo_final)}</span><span>${Number(b.transacciones||0)}</span></div>`).join('');
+  $('#cuadreReviewNote').value=item.observacion_admin||'';
+}
+async function openCuadreReview(id){
+  try{const item=await apiFetch(`/api/cuadre/solicitudes/${id}`);activeCuadreReviewId=Number(id);renderCuadreReview(item);$('#notificationPanel').hidden=true;$('#cuadreReviewDialog')?.showModal();}
+  catch(err){showToast(err.message,'No se pudo abrir el cierre');}
+}
+async function resolveCuadreReview(action){
+  if(!activeCuadreReviewId)return; const approve=action==='aprobar';
+  const sure=await themedConfirm({title:approve?'Dar visto bueno':'Rechazar cierre',message:approve?'¿Confirmas que revisaste todos los valores y que este cierre puede pasar al cuadre definitivo?':'¿Confirmas que deseas rechazar este cierre para que el usuario lo corrija?',confirmText:approve?'Aprobar cierre':'Rechazar',danger:!approve}); if(!sure)return;
+  try{const r=await apiFetch(`/api/cuadre/solicitudes/${activeCuadreReviewId}/${action}`,{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({observacion:$('#cuadreReviewNote')?.value.trim()||''})});$('#cuadreReviewDialog')?.close();activeCuadreReviewId=null;showToast(r.mensaje||'Procesado',approve?'Revisado':'Rechazado');await Promise.allSettled([refreshCuadreNotifications({silent:true}),refreshCuadre(),refreshGoalsToday({silent:true})]);}
+  catch(err){showToast(err.message,'No se pudo procesar el cierre');}
+}
+
 async function refreshCuadre() {
   try {
     if (!banks.length) await refreshBanks({ silent:true });
-
-    const fecha = todayLocal();
-    if ($('#cuadreDateLabel')) $('#cuadreDateLabel').textContent = formatAttendanceDate(fecha);
-
-    const result = await apiFetch(`/api/cuadre/dia?fecha=${encodeURIComponent(fecha)}&_=${Date.now()}`, { cache:'no-store' });
-    cuadreCurrent = result || { fecha, efectivo_inicial:0, efectivo:0, bancos:[] };
-
-    if ($('#cuadreCashInitialInput')) $('#cuadreCashInitialInput').value = Number(cuadreCurrent.efectivo_inicial || 0).toFixed(2);
-    if ($('#cuadreCashInput')) $('#cuadreCashInput').value = Number(cuadreCurrent.efectivo || 0).toFixed(2);
-    renderCuadreBanks();
-
-    const info = $('#cuadreSavedInfo');
-    if (info) {
-      info.textContent = cuadreCurrent.guardado
-        ? `Guardado por ${cuadreCurrent.usuario_nombre || 'usuario'} · ${formatTime(cuadreCurrent.actualizado_en)}`
-        : 'Aún no hay un cuadre guardado para hoy.';
+    const fecha=todayLocal();
+    if ($('#cuadreDateLabel')) $('#cuadreDateLabel').textContent=formatAttendanceDate(fecha);
+    const [approved,subres]=await Promise.all([
+      apiFetch(`/api/cuadre/dia?fecha=${encodeURIComponent(fecha)}&_=${Date.now()}`,{cache:'no-store'}),
+      apiFetch(`/api/cuadre/solicitud-actual?fecha=${encodeURIComponent(fecha)}&_=${Date.now()}`,{cache:'no-store'})
+    ]);
+    const submission=subres?.solicitud||null, pending=submission?.payload||null;
+    if(pending&&submission.estado!=='aprobado') cuadreCurrent={fecha,guardado:false,efectivo_inicial:Number(pending.efectivo_inicial||0),efectivo:Number(pending.efectivo||0),bancos:Array.isArray(pending.bancos)?pending.bancos:[]};
+    else cuadreCurrent=approved||{fecha,efectivo_inicial:0,efectivo:0,bancos:[]};
+    if($('#cuadreCashInitialInput'))$('#cuadreCashInitialInput').value=Number(cuadreCurrent.efectivo_inicial||0).toFixed(2);
+    if($('#cuadreCashInput'))$('#cuadreCashInput').value=Number(cuadreCurrent.efectivo||0).toFixed(2);
+    renderCuadreBanks(); updateCuadreSubmitState(submission);
+    const info=$('#cuadreSavedInfo');
+    if(info){
+      if(submission?.estado==='pendiente')info.textContent=`Enviado a revisión · ${formatTime(submission.enviado_en)}`;
+      else if(submission?.estado==='aprobado')info.textContent=`Revisado por ${submission.admin_nombre||'administrador'} · ${formatTime(submission.revisado_en)}`;
+      else if(submission?.estado==='rechazado')info.textContent=`Rechazado por administrador${submission.observacion_admin?` · ${submission.observacion_admin}`:''}`;
+      else info.textContent=cuadreCurrent.guardado?`Guardado por ${cuadreCurrent.usuario_nombre||'usuario'} · ${formatTime(cuadreCurrent.actualizado_en)}`:'Aún no hay un cierre enviado para hoy.';
     }
     updateCuadreTotals();
-  } catch (err) {
-    showToast(err.message, 'No se pudo cargar el Cuadre');
-  }
+  } catch(err){showToast(err.message,'No se pudo cargar el Cuadre');}
 }
 
 async function saveCuadre() {
-  const btn = $('#saveCuadre');
-  if (btn) btn.disabled = true;
-
-  try {
-    const totals = updateCuadreTotals();
-
-    const bancosPayload = $$('.cuadre-bank-row-v2').map((row) => {
-      const finalEl = row.querySelector('[data-cuadre-bank]');
-      const bancoId = Number(finalEl?.dataset.cuadreBank || 0);
-      const opening = Number(row.dataset.bankOpening || 0);
-      const income = Math.max(0, Number(row.querySelector(`[data-cuadre-income="${bancoId}"]`)?.value || 0));
-      const expense = Math.max(0, Number(row.querySelector(`[data-cuadre-expense="${bancoId}"]`)?.value || 0));
-      const txInput = row.querySelector(`[data-cuadre-transactions="${bancoId}"]`);
-      const saldoFinal = opening + income - expense;
-
-      if (saldoFinal < -0.005) {
-        throw new Error(`El banco con saldo inicial ${money(opening)} queda con saldo final negativo. Revisa ingresos y egresos.`);
-      }
-
-      return {
-        banco_id:bancoId,
-        ingresos:income,
-        egresos:expense,
-        saldo_final:saldoFinal,
-        transacciones:Math.max(0, Math.round(Number(txInput?.value || 0)))
-      };
+  const btn=$('#saveCuadre'); if(btn)btn.disabled=true;
+  try{
+    const totals=updateCuadreTotals();
+    const bancosPayload=$$('.cuadre-bank-row-v2').map((row)=>{
+      const finalEl=row.querySelector('[data-cuadre-bank]'),bancoId=Number(finalEl?.dataset.cuadreBank||0),bank=banks.find((b)=>Number(b.id)===bancoId),opening=Number(row.dataset.bankOpening||0),income=Math.max(0,Number(row.querySelector(`[data-cuadre-income="${bancoId}"]`)?.value||0)),expense=Math.max(0,Number(row.querySelector(`[data-cuadre-expense="${bancoId}"]`)?.value||0)),tx=row.querySelector(`[data-cuadre-transactions="${bancoId}"]`),saldoFinal=opening+income-expense;
+      if(saldoFinal<-.005)throw new Error(`El banco ${bank?.nombre||bancoId} queda con saldo final negativo.`);
+      return {banco_id:bancoId,nombre:bank?.nombre||`Banco ${bancoId}`,saldo_inicial:opening,ingresos:income,egresos:expense,saldo_final:saldoFinal,transacciones:Math.max(0,Math.round(Number(tx?.value||0)))};
     });
-
-    const payload = {
-      fecha:todayLocal(),
-      efectivo_inicial:totals.cashInitial,
-      efectivo:totals.cashFinal,
-      bancos:bancosPayload
-    };
-
-    const result = await apiFetch('/api/cuadre/dia', {
-      method:'POST',
-      headers:{'Content-Type':'application/json'},
-      body:JSON.stringify(payload)
-    });
-
-    const diffText = Math.abs(totals.difference) < 0.01
-      ? 'Cuadre correcto.'
-      : totals.difference < 0
-        ? `Falta ${money(Math.abs(totals.difference))}.`
-        : `Sobra ${money(totals.difference)}.`;
-
-    showToast(`${result.mensaje || 'Cuadre guardado correctamente.'} ${diffText}`, 'Cuadre guardado');
-    await refreshCuadre();
-  } catch (err) {
-    showToast(err.message, 'No se pudo guardar el Cuadre');
-  } finally {
-    if (btn) btn.disabled = false;
-  }
+    const diffText=Math.abs(totals.difference)<.01?'El cuadre no tiene diferencias.':totals.difference<0?`Actualmente falta ${money(Math.abs(totals.difference))}.`:`Actualmente sobra ${money(totals.difference)}.`;
+    const sure=await themedConfirm({title:'Enviar cierre de caja',message:`¿Estás seguro de que todos los datos ingresados son correctos? ${diffText} Al enviarlo quedará en revisión del administrador.`,confirmText:'Sí, enviar a revisión'}); if(!sure)return;
+    const result=await apiFetch('/api/cuadre/solicitudes',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({fecha:todayLocal(),efectivo_inicial:totals.cashInitial,efectivo:totals.cashFinal,bancos:bancosPayload})});
+    showToast(result.mensaje||'Cierre enviado al administrador.','En revisión'); await refreshCuadre();
+  }catch(err){showToast(err.message,'No se pudo enviar el cierre');}
+  finally{if(btn&&!cuadreSubmission?.estado)btn.disabled=false;}
 }
 
 async function saveBank(e) {
