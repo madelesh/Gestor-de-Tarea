@@ -1,4 +1,4 @@
-const APP_VERSION = '11.18';
+const APP_VERSION = '11.19';
 const API_BASE = 'https://gestor-tareas-api.detodoec.workers.dev';
 const STORAGE_KEY = 'detodoec_tasks_v1';
 const SETTINGS_KEY = 'detodoec_tasks_settings_v3';
@@ -27,6 +27,7 @@ let banks = [];
 let bankImageFile = null;
 let bankImageUrl = '';
 let bankDraftCounter = 0;
+let cnbConfig={efectivo_inicial:5000,guayaquil_orlando_base:3000,guayaquil_kevin_base:2500,valor_transaccion:0.35,margen_faltante:2,margen_sobrante:5};
 let cuadreCurrent = null;
 let cuadreSubmission = null;
 let cuadreNotifications = [];
@@ -3802,368 +3803,25 @@ function renderBankImagePreview(url = '') {
     : `<svg class="icon"><use href="#icon-wallet"></use></svg>`;
 }
 
-function bankBulkRowMarkup(bank = {}) {
-  const isNew = !bank.id;
-  const rowId = isNew ? `new-${++bankDraftCounter}` : String(bank.id);
-  const image = bank.imagen_url || '';
-  return `
-    <article class="bank-bulk-row" data-bank-row="${escapeHtml(rowId)}" data-bank-id="${isNew ? '' : escapeHtml(String(bank.id))}" data-current-image="${escapeHtml(image)}">
-      <div class="bank-bulk-bank">
-        <span class="bank-bulk-logo" data-bank-logo-preview>
-          ${image ? `<img src="${escapeHtml(image)}" alt="" />` : iconUse('icon-wallet')}
-        </span>
-        <div class="bank-bulk-fields">
-          <input data-bank-name value="${escapeHtml(bank.nombre || '')}" placeholder="Nombre del banco" />
-          ${isNew ? '<span class="bank-bulk-new-badge">NUEVO</span>' : ''}
-        </div>
-      </div>
-
-      <input data-bank-opening type="number" min="0" step="0.01" inputmode="decimal" value="${Number(bank.saldo_inicial || 0)}" />
-
-      <div class="bank-bulk-image-field">
-        <input data-bank-image type="file" accept="image/*" />
-        <small>${image ? 'Imagen actual' : 'Sin imagen'}</small>
-      </div>
-
-      <button type="button" class="icon-btn danger bank-bulk-delete" data-bank-delete title="${isNew ? 'Quitar fila' : 'Eliminar banco'}">
-        ${iconUse('icon-trash')}
-      </button>
-    </article>`;
-}
-
-function renderAdminBanks() {
-  const list = $('#adminBanksList');
-  const empty = $('#adminBanksEmpty');
-  if (!list) return;
-
-  list.innerHTML = banks.map((bank) => bankBulkRowMarkup(bank)).join('');
-  if (empty) empty.hidden = banks.length > 0;
-}
-
-function addBankDraftRow() {
-  const list = $('#adminBanksList');
-  const empty = $('#adminBanksEmpty');
-  if (!list) return;
-  list.insertAdjacentHTML('beforeend', bankBulkRowMarkup({ nombre:'', saldo_inicial:0, imagen_url:'' }));
-  if (empty) empty.hidden = true;
-  list.lastElementChild?.querySelector('[data-bank-name]')?.focus();
-}
-
-function toggleBankDelete(row) {
-  if (!row) return;
-  const id = row.dataset.bankId || '';
-  if (!id) {
-    row.remove();
-    const empty = $('#adminBanksEmpty');
-    if (empty && !$('#adminBanksList')?.children.length) empty.hidden = false;
-    return;
-  }
-
-  const deleted = row.dataset.deleted === '1';
-  row.dataset.deleted = deleted ? '0' : '1';
-  row.classList.toggle('is-deleted', !deleted);
-
-  const btn = row.querySelector('[data-bank-delete]');
-  if (btn) {
-    btn.classList.toggle('is-undo', !deleted);
-    btn.classList.toggle('danger', deleted);
-    btn.title = deleted ? 'Eliminar banco' : 'Deshacer eliminación';
-    btn.innerHTML = deleted ? iconUse('icon-trash') : iconUse('icon-refresh');
-  }
-
-  row.querySelectorAll('input').forEach((input) => {
-    input.disabled = !deleted;
-  });
-}
-
-function previewBankBulkImage(input) {
-  const row = input.closest('[data-bank-row]');
-  const preview = row?.querySelector('[data-bank-logo-preview]');
-  if (!row || !preview) return;
-  const file = input.files?.[0];
-  if (!file) return;
-
-  const objectUrl = URL.createObjectURL(file);
-  preview.innerHTML = `<img src="${escapeHtml(objectUrl)}" alt="" />`;
-}
-
-async function saveAllBanks() {
-  const btn = $('#saveAllBanks');
-  const rows = $$('#adminBanksList [data-bank-row]');
-  if (!rows.length) {
-    showToast('Agrega al menos un banco antes de guardar.', 'Cuadre');
-    return;
-  }
-
-  const prepared = [];
-  for (const row of rows) {
-    const id = row.dataset.bankId || '';
-    const deleted = row.dataset.deleted === '1';
-
-    if (deleted) {
-      if (id) prepared.push({ action:'delete', id });
-      continue;
-    }
-
-    const nombre = row.querySelector('[data-bank-name]')?.value.trim() || '';
-    const saldoInicial = Math.max(0, Number(row.querySelector('[data-bank-opening]')?.value || 0));
-    const file = row.querySelector('[data-bank-image]')?.files?.[0] || null;
-    const currentImage = row.dataset.currentImage || '';
-
-    if (!nombre) {
-      row.querySelector('[data-bank-name]')?.focus();
-      showToast('Todos los bancos deben tener un nombre.', 'Datos incompletos');
-      return;
-    }
-
-    prepared.push({
-      action:id ? 'update' : 'create',
-      id,
-      nombre,
-      saldoInicial,
-      file,
-      currentImage
-    });
-  }
-
-  if (!prepared.length) {
-    showToast('No hay datos para guardar.', 'Cuadre');
-    return;
-  }
-
-  const sure = await themedConfirm({
-    title:'Guardar bancos',
-    message:'¿Guardar todos los cambios realizados en bancos, saldos iniciales, imágenes y eliminaciones?',
-    confirmText:'Guardar todo'
-  });
-  if (!sure) return;
-
-  if (btn) btn.disabled = true;
-
-  try {
-    for (const item of prepared) {
-      if (item.action === 'delete') {
-        await apiFetch(`/api/cuadre/bancos/${item.id}`, { method:'DELETE' });
-        continue;
-      }
-
-      let imagenUrl = item.currentImage || '';
-      if (item.file) imagenUrl = await uploadImage(item.file);
-
-      await apiFetch(item.action === 'update' ? `/api/cuadre/bancos/${item.id}` : '/api/cuadre/bancos', {
-        method:item.action === 'update' ? 'PUT' : 'POST',
-        headers:{'Content-Type':'application/json'},
-        body:JSON.stringify({
-          nombre:item.nombre,
-          saldo_inicial:item.saldoInicial,
-          imagen_url:imagenUrl
-        })
-      });
-    }
-
-    showToast('Todos los bancos fueron guardados correctamente.', 'Cambios guardados');
-    await refreshBanks();
-  } catch (err) {
-    showToast(err.message, 'No se pudieron guardar todos los bancos');
-  } finally {
-    if (btn) btn.disabled = false;
-  }
-}
-
-async function refreshBanks({ silent = false } = {}) {
-  try {
-    const rows = await apiFetch(`/api/cuadre/bancos?_=${Date.now()}`, { cache:'no-store' });
-    banks = Array.isArray(rows) ? rows : [];
-    renderAdminBanks();
-    renderCuadreBanks();
-  } catch (err) {
-    if (!silent) showToast(err.message, 'No se pudieron cargar los bancos');
-    throw err;
-  }
-}
-
-function renderCuadreBanks() {
-  const grid = $('#cuadreBanksGrid');
-  const empty = $('#cuadreBanksEmpty');
-  if (!grid || !empty) return;
-
-  grid.innerHTML = '';
-
-  banks.forEach((bank) => {
-    const existing = cuadreCurrent?.bancos?.find((item) => String(item.banco_id) === String(bank.id));
-    const openingAmount = Number(existing?.saldo_inicial ?? bank.saldo_inicial ?? 0);
-    const income = existing?.ingresos ?? '';
-    const expense = existing?.egresos ?? '';
-    const transactions = existing?.transacciones ?? '';
-
-    const calculatedFinal = openingAmount
-      + Math.max(0, Number(income || 0))
-      - Math.max(0, Number(expense || 0));
-
-    const row = document.createElement('article');
-    row.className = 'cuadre-bank-row cuadre-bank-row-v2';
-    row.dataset.bankOpening = String(openingAmount);
-    row.innerHTML = `
-      <div class="cuadre-bank-main">
-        <div class="cuadre-bank-icon">
-          ${bank.imagen_url ? `<img src="${escapeHtml(bank.imagen_url)}" alt="" />` : iconUse('icon-wallet')}
-        </div>
-        <div class="cuadre-bank-copy">
-          <strong>${escapeHtml(bank.nombre)}</strong>
-          <span>Banco configurado</span>
-        </div>
-      </div>
-
-      <div class="cuadre-bank-opening">
-        <span class="cuadre-mobile-label">Saldo inicial</span>
-        <strong>${money(openingAmount)}</strong>
-      </div>
-
-      <label class="cuadre-money-input cuadre-list-money">
-        <span class="cuadre-mobile-label">Ingresos</span>
-        <span class="currency">$</span>
-        <input
-          type="number"
-          min="0"
-          step="0.01"
-          inputmode="decimal"
-          data-cuadre-income="${bank.id}"
-          value="${income === '' ? '' : Number(income).toFixed(2)}"
-          placeholder="0.00"
-        />
-      </label>
-
-      <label class="cuadre-money-input cuadre-list-money">
-        <span class="cuadre-mobile-label">Egresos</span>
-        <span class="currency">$</span>
-        <input
-          type="number"
-          min="0"
-          step="0.01"
-          inputmode="decimal"
-          data-cuadre-expense="${bank.id}"
-          value="${expense === '' ? '' : Number(expense).toFixed(2)}"
-          placeholder="0.00"
-        />
-      </label>
-
-      <label class="cuadre-list-input">
-        <span class="cuadre-mobile-label">Transacciones</span>
-        <input
-          type="number"
-          min="0"
-          step="1"
-          inputmode="numeric"
-          data-cuadre-transactions="${bank.id}"
-          value="${transactions === '' ? '' : Number(transactions)}"
-          placeholder="0"
-        />
-      </label>
-
-      <div class="cuadre-bank-calculated">
-        <span class="cuadre-mobile-label">Saldo final</span>
-        <strong data-cuadre-bank="${bank.id}">${money(calculatedFinal)}</strong>
-      </div>
-    `;
-    grid.appendChild(row);
-  });
-
-  empty.hidden = banks.length > 0;
-  updateCuadreTotals();
-}
-
-function updateCuadreTotals() {
-  let bankInitialTotal = 0;
-  let bankIncomeTotal = 0;
-  let bankExpenseTotal = 0;
-  let bankFinalTotal = 0;
-
-  $$('.cuadre-bank-row-v2').forEach((row) => {
-    const bankId = row.querySelector('[data-cuadre-bank]')?.dataset.cuadreBank;
-    const opening = Number(row.dataset.bankOpening || 0);
-    const income = Math.max(0, Number(row.querySelector(`[data-cuadre-income="${bankId}"]`)?.value || 0));
-    const expense = Math.max(0, Number(row.querySelector(`[data-cuadre-expense="${bankId}"]`)?.value || 0));
-    const finalAmount = opening + income - expense;
-
-    bankInitialTotal += opening;
-    bankIncomeTotal += income;
-    bankExpenseTotal += expense;
-    bankFinalTotal += finalAmount;
-
-    const finalEl = row.querySelector('[data-cuadre-bank]');
-    if (finalEl) {
-      finalEl.textContent = money(finalAmount);
-      finalEl.classList.toggle('negative', finalAmount < -0.005);
-    }
-  });
-
-  const cashInitial = Math.max(0, Number($('#cuadreCashInitialInput')?.value || 0));
-  const cashFinal = Math.max(0, Number($('#cuadreCashInput')?.value || 0));
-
-  // Capital que existía al inicio = bancos iniciales + efectivo inicial.
-  const initialCapital = bankInitialTotal + cashInitial;
-
-  // Si el capital solo se movió entre bancos y efectivo, este es el efectivo
-  // que debería existir al final después de calcular los saldos finales bancarios.
-  const expectedCash = initialCapital - bankFinalTotal;
-
-  // Diferencia positiva = sobra efectivo. Negativa = falta efectivo.
-  const difference = cashFinal - expectedCash;
-  const finalTotal = bankFinalTotal + cashFinal;
-
-  if ($('#cuadreBanksInitialTotal')) $('#cuadreBanksInitialTotal').textContent = money(bankInitialTotal);
-  if ($('#cuadreIncomeTotal')) $('#cuadreIncomeTotal').textContent = money(bankIncomeTotal);
-  if ($('#cuadreExpenseTotal')) $('#cuadreExpenseTotal').textContent = money(bankExpenseTotal);
-  if ($('#cuadreBanksTotal')) $('#cuadreBanksTotal').textContent = money(bankFinalTotal);
-  if ($('#cuadreCashInitialTotal')) $('#cuadreCashInitialTotal').textContent = money(cashInitial);
-  if ($('#cuadreCashTotal')) $('#cuadreCashTotal').textContent = money(cashFinal);
-  if ($('#cuadreInitialCapital')) $('#cuadreInitialCapital').textContent = money(initialCapital);
-  if ($('#cuadreExpectedCash')) $('#cuadreExpectedCash').textContent = money(expectedCash);
-  if ($('#cuadreGrandTotal')) $('#cuadreGrandTotal').textContent = money(finalTotal);
-
-  const box = $('#cuadreDifferenceBox');
-  const label = $('#cuadreDifferenceLabel');
-  const value = $('#cuadreDifferenceValue');
-  const help = $('#cuadreDifferenceHelp');
-
-  if (box && label && value && help) {
-    box.classList.remove('balanced','shortage','surplus');
-
-    if (Math.abs(difference) < 0.01) {
-      box.classList.add('balanced');
-      label.textContent = 'Cuadre correcto';
-      value.textContent = money(0);
-      help.textContent = 'El efectivo final coincide con el efectivo esperado.';
-    } else if (difference < 0) {
-      box.classList.add('shortage');
-      label.textContent = 'Falta dinero';
-      value.textContent = money(Math.abs(difference));
-      help.textContent = `Debería haber ${money(expectedCash)} en efectivo, pero se registraron ${money(cashFinal)}.`;
-    } else {
-      box.classList.add('surplus');
-      label.textContent = 'Sobra dinero';
-      value.textContent = money(difference);
-      help.textContent = `Debería haber ${money(expectedCash)} en efectivo, pero se registraron ${money(cashFinal)}.`;
-    }
-  }
-
-  return {
-    bankInitialTotal, bankIncomeTotal, bankExpenseTotal, bankFinalTotal,
-    cashInitial, cashFinal, initialCapital, expectedCash, difference, finalTotal
-  };
-}
-
-
-function setCuadreFormLocked(locked) {
-  ['cuadreCashInitialInput','cuadreCashInput'].forEach((id)=>{ const el=$('#'+id); if(el) el.disabled=locked; });
-  $$('[data-cuadre-income],[data-cuadre-expense],[data-cuadre-transactions]').forEach((el)=>el.disabled=locked);
-}
+function renderAdminBanks(){}
+function findCnbBankLogo(key){const a={guayaquil:['guayaquil'],pichincha:['pichincha'],pacifico:['pacífico','pacifico'],produbanco:['produbanco'],yaganaste:['ya ganaste','yaganaste'],minegocio:['mi negocio','minegocio']};const terms=a[String(key||'').toLowerCase()]||[String(key||'').toLowerCase()];return banks.find(b=>terms.some(t=>String(b.nombre||'').toLowerCase().includes(t)))?.imagen_url||'';}
+function renderCnbLogos(){$$('[data-cnb-logo]').forEach(box=>{const u=findCnbBankLogo(box.dataset.cnbLogo);box.innerHTML=u?`<img src="${escapeHtml(u)}" alt="" />`:iconUse('icon-wallet');});}
+async function refreshBanks({silent=false}={}){try{const rows=await apiFetch(`/api/cuadre/bancos?_=${Date.now()}`,{cache:'no-store'});banks=Array.isArray(rows)?rows:[];renderCnbLogos();}catch(err){if(!silent)showToast(err.message,'No se pudieron cargar los bancos');}}
+function applyCnbConfig(d={}){cnbConfig={efectivo_inicial:Number(d.efectivo_inicial??5000),guayaquil_orlando_base:Number(d.guayaquil_orlando_base??3000),guayaquil_kevin_base:Number(d.guayaquil_kevin_base??2500),valor_transaccion:Number(d.valor_transaccion??.35),margen_faltante:Number(d.margen_faltante??2),margen_sobrante:Number(d.margen_sobrante??5)};const sm=(id,v)=>{if($('#'+id))$('#'+id).textContent=money(v)};sm('cnbInitialCashLabel',cnbConfig.efectivo_inicial);sm('cnbTxRateLabel',cnbConfig.valor_transaccion);sm('cnbGuayaquilOrlandoBase',cnbConfig.guayaquil_orlando_base);sm('cnbGuayaquilKevinBase',cnbConfig.guayaquil_kevin_base);sm('sumExpected',cnbConfig.efectivo_inicial);sm('sumTxRate',cnbConfig.valor_transaccion);if($('#cnbShortMarginLabel'))$('#cnbShortMarginLabel').textContent=`Hasta ${money(cnbConfig.margen_faltante)}`;if($('#cnbOverMarginLabel'))$('#cnbOverMarginLabel').textContent=`Hasta ${money(cnbConfig.margen_sobrante)}`;if($('#adminCnbInitialCash'))$('#adminCnbInitialCash').value=cnbConfig.efectivo_inicial;if($('#adminCnbOrlandoBase'))$('#adminCnbOrlandoBase').value=cnbConfig.guayaquil_orlando_base;if($('#adminCnbKevinBase'))$('#adminCnbKevinBase').value=cnbConfig.guayaquil_kevin_base;if($('#adminCnbTxRate'))$('#adminCnbTxRate').value=cnbConfig.valor_transaccion;}
+async function refreshCnbConfig({silent=false}={}){try{const d=await apiFetch(`/api/cuadre/config?_=${Date.now()}`,{cache:'no-store'});applyCnbConfig(d||{});updateCuadreTotals();return cnbConfig}catch(err){if(!silent)showToast(err.message,'No se pudo cargar la configuración');return cnbConfig}}
+async function saveCnbAdminConfig(e){e?.preventDefault();const p={efectivo_inicial:Math.max(0,Number($('#adminCnbInitialCash')?.value||0)),guayaquil_orlando_base:Math.max(0,Number($('#adminCnbOrlandoBase')?.value||0)),guayaquil_kevin_base:Math.max(0,Number($('#adminCnbKevinBase')?.value||0)),valor_transaccion:Math.max(0,Number($('#adminCnbTxRate')?.value||0))};const ok=await themedConfirm({title:'Guardar configuración del Cuadre',message:'¿Aplicar estos valores a los próximos cierres?',confirmText:'Guardar configuración'});if(!ok)return;try{const r=await apiFetch('/api/cuadre/config',{method:'PUT',headers:{'Content-Type':'application/json'},body:JSON.stringify(p)});applyCnbConfig(r.config||p);showToast('Configuración actualizada.','Cuadre')}catch(err){showToast(err.message,'No se pudo guardar la configuración')}}
+function renderCuadreBanks(){renderCnbLogos();updateCuadreTotals();}
+function cnbNumber(id){return Number($('#'+id)?.value||0)}function cnbTx(id){return Math.max(0,Math.round(Number($('#'+id)?.value||0)))}
+function currentCnbPayload(){const o=cnbNumber('cnbGuayaquilOrlando'),k=cnbNumber('cnbGuayaquilKevin'),p1=cnbNumber('cnbPichincha1'),p2=cnbNumber('cnbPichincha2'),pa=cnbNumber('cnbPacifico'),pr=cnbNumber('cnbProdubancoAvailable'),so=Math.max(0,cnbNumber('cnbProdubancoOverdraft')),ya=cnbNumber('cnbYaGanaste'),mi=cnbNumber('cnbMiNegocio'),ef=Math.max(0,cnbNumber('cnbCash'));const cuentas=[{clave:'guayaquil_orlando',banco:'Banco de Guayaquil',cuenta:'Orlando Vera Silvia',valor_1:o,valor_2:cnbConfig.guayaquil_orlando_base,resultado:o-cnbConfig.guayaquil_orlando_base,transacciones:cnbTx('cnbTxGuayaquilOrlando')},{clave:'guayaquil_kevin',banco:'Banco de Guayaquil',cuenta:'Kevin Lascano',valor_1:k,valor_2:cnbConfig.guayaquil_kevin_base,resultado:k-cnbConfig.guayaquil_kevin_base,transacciones:cnbTx('cnbTxGuayaquilKevin')},{clave:'pichincha',banco:'Banco Pichincha',cuenta:'Ahorros 1 + Ahorros 2',valor_1:p1,valor_2:p2,resultado:p1+p2,transacciones:cnbTx('cnbTxPichincha')},{clave:'pacifico',banco:'Banco Pacífico',cuenta:'Saldo actual',valor_1:pa,valor_2:0,resultado:pa,transacciones:cnbTx('cnbTxPacifico')},{clave:'produbanco',banco:'Banco Produbanco',cuenta:'Disponible - Sobregiro',valor_1:pr,valor_2:so,resultado:pr-so,transacciones:cnbTx('cnbTxProdubanco')},{clave:'yaganaste',banco:'Ya Ganaste',cuenta:'Saldo actual',valor_1:ya,valor_2:0,resultado:ya,transacciones:cnbTx('cnbTxYaGanaste')},{clave:'minegocio',banco:'Mi Negocio',cuenta:'Saldo actual',valor_1:mi,valor_2:0,resultado:mi,transacciones:cnbTx('cnbTxMiNegocio')}];const tb=cuentas.reduce((s,x)=>s+x.resultado,0),tt=cuentas.reduce((s,x)=>s+x.transacciones,0),vt=tt*cnbConfig.valor_transaccion,te=tb+ef+vt,ve=cnbConfig.efectivo_inicial,d=te-ve,ok=d>=-cnbConfig.margen_faltante-.0001&&d<=cnbConfig.margen_sobrante+.0001;return{fecha:todayLocal(),tipo_cuadre:'cnb_v2',config_usada:{...cnbConfig},cuentas,efectivo:ef,total_bancos:tb,total_transacciones:tt,valor_transacciones:vt,total_encontrado:te,valor_esperado:ve,diferencia:d,dentro_margen:ok};}
+function updateCuadreTotals(){const p=currentCnbPayload(),m=Object.fromEntries(p.cuentas.map(x=>[x.clave,x])),sm=(id,v)=>{if($('#'+id))$('#'+id).textContent=money(v)};sm('cnbGuayaquilOrlandoResult',m.guayaquil_orlando.resultado);sm('cnbGuayaquilKevinResult',m.guayaquil_kevin.resultado);sm('cnbPichinchaResult',m.pichincha.resultado);sm('cnbPacificoResult',m.pacifico.resultado);sm('cnbProdubancoResult',m.produbanco.resultado);sm('cnbYaGanasteResult',m.yaganaste.resultado);sm('cnbMiNegocioResult',m.minegocio.resultado);sm('cnbCashResult',p.efectivo);sm('sumGuayaquilOrlando',m.guayaquil_orlando.resultado);sm('sumGuayaquilKevin',m.guayaquil_kevin.resultado);sm('sumGuayaquilTotal',m.guayaquil_orlando.resultado+m.guayaquil_kevin.resultado);sm('sumPichincha',m.pichincha.resultado);sm('sumPacifico',m.pacifico.resultado);sm('sumProdubanco',m.produbanco.resultado);sm('sumYaGanaste',m.yaganaste.resultado);sm('sumMiNegocio',m.minegocio.resultado);sm('sumBanksTotal',p.total_bancos);sm('sumCash',p.efectivo);sm('sumTxValue',p.valor_transacciones);sm('sumTxValue2',p.valor_transacciones);sm('sumFound',p.total_encontrado);sm('sumExpected',p.valor_esperado);sm('sumTxRate',cnbConfig.valor_transaccion);if($('#sumTransactions'))$('#sumTransactions').textContent=String(p.total_transacciones);const b=$('#cuadreDifferenceBox'),l=$('#cuadreDifferenceLabel'),v=$('#cuadreDifferenceValue'),h=$('#cuadreDifferenceHelp');if(b&&l&&v&&h){b.classList.remove('balanced','shortage','surplus');if(p.dentro_margen){b.classList.add('balanced');l.textContent='Cuadre correcto';v.textContent=money(p.diferencia);h.textContent=Math.abs(p.diferencia)<.01?'Sin diferencia. Se aprobará automáticamente.':p.diferencia<0?`Faltan ${money(Math.abs(p.diferencia))}, dentro del margen permitido de ${money(cnbConfig.margen_faltante)}. Se aprobará automáticamente.`:`Sobran ${money(p.diferencia)}, dentro del margen permitido de ${money(cnbConfig.margen_sobrante)}. Se aprobará automáticamente.`}else if(p.diferencia<0){b.classList.add('shortage');l.textContent='No cuadró · Falta dinero';v.textContent=money(Math.abs(p.diferencia));h.textContent=`Supera el margen de faltante permitido (${money(cnbConfig.margen_faltante)}). Irá a revisión.`}else{b.classList.add('surplus');l.textContent='No cuadró · Sobra dinero';v.textContent=money(p.diferencia);h.textContent=`Supera el margen de sobrante permitido (${money(cnbConfig.margen_sobrante)}). Irá a revisión.`}}return p;}
+function setCnbFormValues(p={}){const m=Object.fromEntries((p.cuentas||[]).map(x=>[x.clave,x])),set=(id,v)=>{if($('#'+id))$('#'+id).value=v===undefined||v===null?'':Number(v)};set('cnbGuayaquilOrlando',m.guayaquil_orlando?.valor_1);set('cnbGuayaquilKevin',m.guayaquil_kevin?.valor_1);set('cnbPichincha1',m.pichincha?.valor_1);set('cnbPichincha2',m.pichincha?.valor_2);set('cnbPacifico',m.pacifico?.valor_1);set('cnbProdubancoAvailable',m.produbanco?.valor_1);set('cnbProdubancoOverdraft',m.produbanco?.valor_2);set('cnbYaGanaste',m.yaganaste?.valor_1);set('cnbMiNegocio',m.minegocio?.valor_1);set('cnbCash',p.efectivo);set('cnbTxGuayaquilOrlando',m.guayaquil_orlando?.transacciones??0);set('cnbTxGuayaquilKevin',m.guayaquil_kevin?.transacciones??0);set('cnbTxPichincha',m.pichincha?.transacciones??0);set('cnbTxPacifico',m.pacifico?.transacciones??0);set('cnbTxProdubanco',m.produbanco?.transacciones??0);set('cnbTxYaGanaste',m.yaganaste?.transacciones??0);set('cnbTxMiNegocio',m.minegocio?.transacciones??0);if(p.config_usada)applyCnbConfig(p.config_usada);updateCuadreTotals();}
+function setCuadreFormLocked(locked){['cnbGuayaquilOrlando','cnbGuayaquilKevin','cnbPichincha1','cnbPichincha2','cnbPacifico','cnbProdubancoAvailable','cnbProdubancoOverdraft','cnbYaGanaste','cnbMiNegocio','cnbCash','cnbTxGuayaquilOrlando','cnbTxGuayaquilKevin','cnbTxPichincha','cnbTxPacifico','cnbTxProdubanco','cnbTxYaGanaste','cnbTxMiNegocio'].forEach(id=>{const e=$('#'+id);if(e)e.disabled=locked})}
 function updateCuadreSubmitState(submission=null) {
   cuadreSubmission=submission;
   const btn=$('#saveCuadre'); if(!btn) return;
   const label=btn.querySelector('span');
   btn.classList.remove('reviewing','reviewed','rejected'); btn.disabled=false; setCuadreFormLocked(false);
-  if(!submission){ if(label) label.textContent='Enviar cierre para revisión'; return; }
+  if(!submission){ if(label) label.textContent='Cerrar cuadre del día'; return; }
   if(submission.estado==='pendiente'){btn.classList.add('reviewing');btn.disabled=true;setCuadreFormLocked(true);if(label)label.textContent='En revisión';}
   else if(submission.estado==='aprobado'){btn.classList.add('reviewed');btn.disabled=true;setCuadreFormLocked(true);if(label)label.textContent='Revisado';}
   else if(submission.estado==='rechazado'){btn.classList.add('rejected');if(label)label.textContent='Corregir y reenviar';}
@@ -4191,26 +3849,8 @@ function renderCuadreNotifications(){
       <span class="notification-item-time">${formatTime(i.enviado_en)}</span>
     </button>`).join('');
 }
-function reviewSummary(payload){
-  const b=Array.isArray(payload?.bancos)?payload.bancos:[];
-  const bankInitial=b.reduce((s,x)=>s+Number(x.saldo_inicial||0),0), income=b.reduce((s,x)=>s+Number(x.ingresos||0),0), expense=b.reduce((s,x)=>s+Number(x.egresos||0),0), bankFinal=b.reduce((s,x)=>s+Number(x.saldo_final||0),0);
-  const cashInitial=Number(payload?.efectivo_inicial||0),cashFinal=Number(payload?.efectivo||0),initialCapital=bankInitial+cashInitial,expectedCash=initialCapital-bankFinal,difference=cashFinal-expectedCash;
-  return {bankInitial,income,expense,bankFinal,cashInitial,cashFinal,initialCapital,expectedCash,difference};
-}
-function renderCuadreReview(item){
-  const p=item.payload||{},s=reviewSummary(p);
-  $('#cuadreReviewTitle').textContent=`Cierre de caja · ${item.usuario_nombre||item.usuario||'Usuario'}`;
-  $('#cuadreReviewMeta').textContent=`${item.fecha_local} · enviado ${formatTime(item.enviado_en)}`;
-  $('#cuadreReviewStatus').textContent=Math.abs(s.difference)<.01?'Cuadre correcto: no existe diferencia.':s.difference<0?`Atención: falta ${money(Math.abs(s.difference))}.`:`Atención: sobra ${money(s.difference)}.`;
-  $('#cuadreReviewSummary').innerHTML=`<article><span>Capital inicial</span><strong>${money(s.initialCapital)}</strong></article><article><span>Bancos finales</span><strong>${money(s.bankFinal)}</strong></article><article><span>Efectivo esperado</span><strong>${money(s.expectedCash)}</strong></article><article><span>Efectivo final</span><strong>${money(s.cashFinal)}</strong></article><article><span>Ingresos bancos</span><strong>${money(s.income)}</strong></article><article><span>Egresos bancos</span><strong>${money(s.expense)}</strong></article><article><span>Transacciones</span><strong>${(p.bancos||[]).reduce((a,x)=>a+Number(x.transacciones||0),0)}</strong></article><article><span>Diferencia</span><strong>${money(s.difference)}</strong></article>`;
-  $('#cuadreReviewBanks').innerHTML=(p.bancos||[]).map((b)=>`<div class="cuadre-review-bank-row"><strong>${escapeHtml(b.nombre||`Banco ${b.banco_id}`)}</strong><span>${money(b.saldo_inicial)}</span><span>${money(b.ingresos)}</span><span>${money(b.egresos)}</span><span>${money(b.saldo_final)}</span><span>${Number(b.transacciones||0)}</span></div>`).join('');
-  $('#cuadreReviewNote').value=item.observacion_admin||'';
-  const isPending=item.estado==='pendiente';
-  if($('#cuadreReviewNote')) $('#cuadreReviewNote').disabled=!isPending;
-  if($('#approveCuadreReview')) $('#approveCuadreReview').hidden=!isPending;
-  if($('#rejectCuadreReview')) $('#rejectCuadreReview').hidden=!isPending;
-}
-
+function reviewSummary(p){return{totalBanks:Number(p?.total_bancos||0),cash:Number(p?.efectivo||0),txCount:Number(p?.total_transacciones||0),txValue:Number(p?.valor_transacciones||0),found:Number(p?.total_encontrado||0),expected:Number(p?.valor_esperado||0),difference:Number(p?.diferencia||0),within:Boolean(p?.dentro_margen)}}
+function renderCuadreReview(item){const p=item.payload||{},s=reviewSummary(p),cfg=p.config_usada||{};$('#cuadreReviewTitle').textContent=`Cierre de caja · ${item.usuario_nombre||item.usuario||'Usuario'}`;$('#cuadreReviewMeta').textContent=`${item.fecha_local} · enviado ${formatTime(item.enviado_en)}`;$('#cuadreReviewStatus').textContent=s.within?`Cuadre dentro del margen. Diferencia ${money(s.difference)}.`:s.difference<0?`No cuadró: falta ${money(Math.abs(s.difference))}.`:`No cuadró: sobra ${money(s.difference)}.`;$('#cuadreReviewSummary').innerHTML=`<article><span>Total bancos</span><strong>${money(s.totalBanks)}</strong></article><article><span>Efectivo</span><strong>${money(s.cash)}</strong></article><article><span>Comisión</span><strong>${money(s.txValue)}</strong></article><article><span>Total encontrado</span><strong>${money(s.found)}</strong></article><article><span>Esperado</span><strong>${money(s.expected)}</strong></article><article><span>Transacciones</span><strong>${s.txCount}</strong></article><article><span>Margen</span><strong>-${money(cfg.margen_faltante??2)} / +${money(cfg.margen_sobrante??5)}</strong></article><article><span>Diferencia</span><strong>${money(s.difference)}</strong></article>`;$('#cuadreReviewBanks').innerHTML=(p.cuentas||[]).map(c=>`<div class="cuadre-review-bank-row"><strong>${escapeHtml(c.banco||'')}<small>${escapeHtml(c.cuenta||'')}</small></strong><span>${money(c.valor_1)}</span><span>${money(c.valor_2)}</span><span>${money(c.resultado)}</span><span>${Number(c.transacciones||0)}</span><span>${money(Number(c.transacciones||0)*Number(cfg.valor_transaccion??.35))}</span></div>`).join('');$('#cuadreReviewNote').value=item.observacion_admin||'';const pending=item.estado==='pendiente';if($('#cuadreReviewNote'))$('#cuadreReviewNote').disabled=!pending;if($('#approveCuadreReview'))$('#approveCuadreReview').hidden=!pending;if($('#rejectCuadreReview'))$('#rejectCuadreReview').hidden=!pending;}
 function reviewStatusLabel(s){return s==='aprobado'?'Revisado':s==='rechazado'?'Rechazado':'Pendiente';}
 
 function reviewCardHtml(r,{history=false}={}){
@@ -4287,49 +3927,8 @@ async function resolveCuadreReview(action){
   catch(err){showToast(err.message,'No se pudo procesar el cierre');}
 }
 
-async function refreshCuadre() {
-  try {
-    if (!banks.length) await refreshBanks({ silent:true });
-    const fecha=todayLocal();
-    if ($('#cuadreDateLabel')) $('#cuadreDateLabel').textContent=formatAttendanceDate(fecha);
-    const [approved,subres]=await Promise.all([
-      apiFetch(`/api/cuadre/dia?fecha=${encodeURIComponent(fecha)}&_=${Date.now()}`,{cache:'no-store'}),
-      apiFetch(`/api/cuadre/solicitud-actual?fecha=${encodeURIComponent(fecha)}&_=${Date.now()}`,{cache:'no-store'})
-    ]);
-    const submission=subres?.solicitud||null, pending=submission?.payload||null;
-    if(pending&&submission.estado!=='aprobado') cuadreCurrent={fecha,guardado:false,efectivo_inicial:Number(pending.efectivo_inicial||0),efectivo:Number(pending.efectivo||0),bancos:Array.isArray(pending.bancos)?pending.bancos:[]};
-    else cuadreCurrent=approved||{fecha,efectivo_inicial:0,efectivo:0,bancos:[]};
-    if($('#cuadreCashInitialInput'))$('#cuadreCashInitialInput').value=Number(cuadreCurrent.efectivo_inicial||0).toFixed(2);
-    if($('#cuadreCashInput'))$('#cuadreCashInput').value=Number(cuadreCurrent.efectivo||0).toFixed(2);
-    renderCuadreBanks(); updateCuadreSubmitState(submission);
-    const info=$('#cuadreSavedInfo');
-    if(info){
-      if(submission?.estado==='pendiente')info.textContent=`Enviado a revisión · ${formatTime(submission.enviado_en)}`;
-      else if(submission?.estado==='aprobado')info.textContent=`Revisado por ${submission.admin_nombre||'administrador'} · ${formatTime(submission.revisado_en)}`;
-      else if(submission?.estado==='rechazado')info.textContent=`Rechazado por administrador${submission.observacion_admin?` · ${submission.observacion_admin}`:''}`;
-      else info.textContent=cuadreCurrent.guardado?`Guardado por ${cuadreCurrent.usuario_nombre||'usuario'} · ${formatTime(cuadreCurrent.actualizado_en)}`:'Aún no hay un cierre enviado para hoy.';
-    }
-    updateCuadreTotals();
-  } catch(err){showToast(err.message,'No se pudo cargar el Cuadre');}
-}
-
-async function saveCuadre() {
-  const btn=$('#saveCuadre'); if(btn)btn.disabled=true;
-  try{
-    const totals=updateCuadreTotals();
-    const bancosPayload=$$('.cuadre-bank-row-v2').map((row)=>{
-      const finalEl=row.querySelector('[data-cuadre-bank]'),bancoId=Number(finalEl?.dataset.cuadreBank||0),bank=banks.find((b)=>Number(b.id)===bancoId),opening=Number(row.dataset.bankOpening||0),income=Math.max(0,Number(row.querySelector(`[data-cuadre-income="${bancoId}"]`)?.value||0)),expense=Math.max(0,Number(row.querySelector(`[data-cuadre-expense="${bancoId}"]`)?.value||0)),tx=row.querySelector(`[data-cuadre-transactions="${bancoId}"]`),saldoFinal=opening+income-expense;
-      if(saldoFinal<-.005)throw new Error(`El banco ${bank?.nombre||bancoId} queda con saldo final negativo.`);
-      return {banco_id:bancoId,nombre:bank?.nombre||`Banco ${bancoId}`,saldo_inicial:opening,ingresos:income,egresos:expense,saldo_final:saldoFinal,transacciones:Math.max(0,Math.round(Number(tx?.value||0)))};
-    });
-    const diffText=Math.abs(totals.difference)<.01?'El cuadre no tiene diferencias.':totals.difference<0?`Actualmente falta ${money(Math.abs(totals.difference))}.`:`Actualmente sobra ${money(totals.difference)}.`;
-    const sure=await themedConfirm({title:'Enviar cierre de caja',message:`¿Estás seguro de que todos los datos ingresados son correctos? ${diffText} Al enviarlo quedará en revisión del administrador.`,confirmText:'Sí, enviar a revisión'}); if(!sure)return;
-    const result=await apiFetch('/api/cuadre/solicitudes',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({fecha:todayLocal(),efectivo_inicial:totals.cashInitial,efectivo:totals.cashFinal,bancos:bancosPayload})});
-    showToast(result.mensaje||'Cierre enviado al administrador.','En revisión'); await refreshCuadre();
-  }catch(err){showToast(err.message,'No se pudo enviar el cierre');}
-  finally{if(btn&&!cuadreSubmission?.estado)btn.disabled=false;}
-}
-
+async function refreshCuadre(){try{const fecha=todayLocal();if($('#cuadreDateLabel'))$('#cuadreDateLabel').textContent=formatAttendanceDate(fecha);await Promise.allSettled([refreshBanks({silent:true}),refreshCnbConfig({silent:true})]);const r=await apiFetch(`/api/cuadre/solicitud-actual?fecha=${encodeURIComponent(fecha)}&_=${Date.now()}`,{cache:'no-store'}),s=r?.solicitud||null;if(s?.payload)setCnbFormValues(s.payload);else updateCuadreTotals();updateCuadreSubmitState(s);const info=$('#cuadreSavedInfo');if(info){if(s?.estado==='pendiente')info.textContent=`En revisión · ${formatTime(s.enviado_en)}`;else if(s?.estado==='aprobado'&&Number(s.auto_aprobado||0)===1)info.textContent=`Aprobado automáticamente · ${formatTime(s.revisado_en||s.enviado_en)}`;else if(s?.estado==='aprobado')info.textContent=`Revisado por ${s.admin_nombre||'administrador'} · ${formatTime(s.revisado_en)}`;else if(s?.estado==='rechazado')info.textContent=`Rechazado${s.observacion_admin?` · ${s.observacion_admin}`:''}`;else info.textContent='Aún no hay un cierre registrado para hoy.'}}catch(err){showToast(err.message,'No se pudo cargar el Cuadre')}}
+async function saveCuadre(){const btn=$('#saveCuadre');if(btn)btn.disabled=true;try{const p=updateCuadreTotals(),m=`Margen: falta hasta ${money(cnbConfig.margen_faltante)} o sobra hasta ${money(cnbConfig.margen_sobrante)}.`;const st=p.dentro_margen?`El cuadre está dentro del margen y se aprobará automáticamente. ${m}`:p.diferencia<0?`Faltan ${money(Math.abs(p.diferencia))}. Supera el margen y pasará a revisión. ${m}`:`Sobran ${money(p.diferencia)}. Supera el margen y pasará a revisión. ${m}`;const ok=await themedConfirm({title:'Cerrar cuadre del día',message:`¿Estás seguro de que los datos son correctos? ${st}`,confirmText:'Sí, cerrar cuadre'});if(!ok)return;const r=await apiFetch('/api/cuadre/solicitudes',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify(p)});showToast(r.mensaje||'Cierre procesado.',r.estado==='aprobado'?'Cuadre aprobado':'En revisión');await Promise.allSettled([refreshCuadre(),currentUser?.rol==='admin'?refreshMainReviews({silent:true}):Promise.resolve(),refreshGoalsToday({silent:true})])}catch(err){showToast(err.message,'No se pudo cerrar el cuadre')}finally{if(btn&&!cuadreSubmission?.estado)btn.disabled=false}}
 
 async function refreshGoalsToday({ silent = false } = {}) {
   if (!currentUser) return [];
@@ -4858,7 +4457,7 @@ function showAdminSection(section = 'apariencia') {
     $('#adminGoalsNav')?.classList.add('expanded');
   }
   if (target === 'revisiones') refreshAdminReviews({ silent:true });
-  if (target === 'cuadre') refreshBanks({ silent:true });
+  if (target === 'cuadre') { refreshBanks({ silent:true }); refreshCnbConfig({ silent:true }); }
   if (target === 'cotizador') {
     renderQuotePriceAdmin();
     renderQuoteClientAdmin();
@@ -5026,6 +4625,8 @@ $('#goalsConfigList')?.addEventListener('change', (e) => {
 
 on('refreshCuadre', 'click', refreshCuadre);
 on('saveCuadre', 'click', saveCuadre);
+$('#cnbAdminConfigForm')?.addEventListener('submit', saveCnbAdminConfig);
+['cnbGuayaquilOrlando','cnbGuayaquilKevin','cnbPichincha1','cnbPichincha2','cnbPacifico','cnbProdubancoAvailable','cnbProdubancoOverdraft','cnbYaGanaste','cnbMiNegocio','cnbCash','cnbTxGuayaquilOrlando','cnbTxGuayaquilKevin','cnbTxPichincha','cnbTxPacifico','cnbTxProdubanco','cnbTxYaGanaste','cnbTxMiNegocio'].forEach(id=>$('#'+id)?.addEventListener('input',updateCuadreTotals));
 on('refreshAdminReviews', 'click', () => refreshAdminReviews());
 on('refreshMainReviews', 'click', () => refreshMainReviews());
 on('clearApprovedReviewFilters', 'click', () => {
@@ -5052,22 +4653,7 @@ on('closeCuadreReview', 'click', () => $('#cuadreReviewDialog')?.close());
 on('approveCuadreReview', 'click', () => resolveCuadreReview('aprobar'));
 on('rejectCuadreReview', 'click', () => resolveCuadreReview('rechazar'));
 $('#adminReviewList')?.addEventListener('click',(e)=>{const c=e.target.closest('[data-admin-review-id]');if(c)openCuadreReview(c.dataset.adminReviewId);});
-$('#cuadreBanksGrid')?.addEventListener('input', updateCuadreTotals);
-$('#cuadreCashInitialInput')?.addEventListener('input', updateCuadreTotals);
-$('#cuadreCashInput')?.addEventListener('input', updateCuadreTotals);
 
-$('#adminBanksList')?.addEventListener('click', (e) => {
-  const deleteBtn = e.target.closest('[data-bank-delete]');
-  if (deleteBtn) {
-    toggleBankDelete(deleteBtn.closest('[data-bank-row]'));
-  }
-});
-$('#adminBanksList')?.addEventListener('change', (e) => {
-  const input = e.target.closest('[data-bank-image]');
-  if (input) previewBankBulkImage(input);
-});
-on('addBankDraft', 'click', addBankDraftRow);
-on('saveAllBanks', 'click', saveAllBanks);
 
 on('checkinStartDate', 'change', refreshAttendance);
 on('checkinEndDate', 'change', refreshAttendance);

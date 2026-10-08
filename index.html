@@ -9,7 +9,7 @@
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700;800&display=swap" rel="stylesheet">
   <link id="dynamicFavicon" rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 64 64'%3E%3Crect width='64' height='64' rx='16' fill='%23b9ff39'/%3E%3Cpath d='M18 33l9 9 19-22' fill='none' stroke='%23111' stroke-width='7' stroke-linecap='round' stroke-linejoin='round'/%3E%3C/svg%3E" />
-  <link rel="stylesheet" href="styles.css?v=11.18" />
+  <link rel="stylesheet" href="styles.css?v=11.19" />
 </head>
 <body>
   <svg xmlns="http://www.w3.org/2000/svg" style="display:none" aria-hidden="true" focusable="false">
@@ -370,98 +370,132 @@
           </aside>
         </div>
       </section>
-      <section class="section cuadre-section" id="cuadre" hidden>
+      <section class="section cuadre-section cuadre-cnb-section" id="cuadre" hidden>
         <div class="cuadre-page-head">
-          <div>
-            <span class="eyebrow">Cuadre</span>
-            <h1>Cierre del día</h1>
-            <p>Registra cuánto quedó en cada banco y cuánto dinero efectivo quedó al finalizar la jornada.</p>
-          </div>
-          <div class="cuadre-date-box">
-            <span>Fecha</span>
-            <strong id="cuadreDateLabel">—</strong>
-          </div>
+          <div><span class="eyebrow">Cuadre CNB</span><h1>Cierre del día</h1><p>Ingresa los saldos reales y las transacciones. El sistema calcula el cuadre automáticamente.</p></div>
+          <div class="cuadre-date-box"><span>Fecha</span><strong id="cuadreDateLabel">—</strong></div>
         </div>
 
-        <div class="cuadre-layout">
-          <section class="cuadre-entry-panel">
+        <div class="cnb-config-strip">
+          <div><span>Efectivo inicial</span><strong id="cnbInitialCashLabel">$5.000,00</strong></div>
+          <div><span>Valor por transacción</span><strong id="cnbTxRateLabel">$0,35</strong></div>
+          <div><span>Margen faltante</span><strong id="cnbShortMarginLabel">Hasta $2,00</strong></div>
+          <div><span>Margen sobrante</span><strong id="cnbOverMarginLabel">Hasta $5,00</strong></div>
+        </div>
+
+        <div class="cnb-layout">
+          <section class="cnb-entry-panel">
             <div class="cuadre-panel-head">
-              <div>
-                <h2>Bancos</h2>
-                <p>Escribe el saldo final de cada banco.</p>
-              </div>
-              <button type="button" class="btn btn-outline small" id="refreshCuadre">
-                <svg class="icon"><use href="#icon-refresh"></use></svg><span>Actualizar</span>
-              </button>
+              <div><h2>Cuentas y bancos</h2><p>Completa los valores que aparecen en cada cuenta.</p></div>
+              <button type="button" class="btn btn-outline small" id="refreshCuadre"><svg class="icon"><use href="#icon-refresh"></use></svg><span>Actualizar</span></button>
             </div>
 
-            <div class="cuadre-bank-list">
-              <div class="cuadre-bank-list-head cuadre-bank-list-head-v2">
-                <span>Banco</span>
-                <span>Saldo inicial</span>
-                <span>Ingresos</span>
-                <span>Egresos</span>
-                <span>Transacciones</span>
-                <span>Saldo final</span>
-              </div>
-              <div id="cuadreBanksGrid" class="cuadre-banks-grid"></div>
-            </div>
-            <div id="cuadreBanksEmpty" class="cuadre-empty" hidden>No hay bancos configurados todavía.</div>
-
-            <div class="cuadre-cash-block">
-              <div class="cuadre-cash-card">
-                <div class="cuadre-bank-icon cash"><svg class="icon"><use href="#icon-wallet"></use></svg></div>
-                <div class="cuadre-bank-copy">
-                  <strong>Efectivo inicial</strong>
-                  <span>Dinero físico con el que se inició la jornada</span>
+            <div class="cnb-bank-grid">
+              <article class="cnb-bank-card guayaquil">
+                <div class="cnb-bank-title"><div class="cnb-bank-icon" data-cnb-logo="guayaquil"><svg class="icon"><use href="#icon-wallet"></use></svg></div><div><strong>Banco de Guayaquil</strong><span>Cuenta Orlando Vera Silvia</span></div></div>
+                <div class="cnb-fields">
+                  <label>Saldo actual CNB<div class="money-field"><span>$</span><input id="cnbGuayaquilOrlando" type="number" step="0.01" inputmode="decimal" placeholder="0.00" /></div></label>
+                  <div class="cnb-formula-box"><span>Se resta</span><strong id="cnbGuayaquilOrlandoBase">$3.000,00</strong></div>
+                  <div class="cnb-result-box"><span>Resultado</span><strong id="cnbGuayaquilOrlandoResult">$0,00</strong></div>
+                  <label>Transacciones<input id="cnbTxGuayaquilOrlando" type="number" min="0" step="1" value="0" /></label>
                 </div>
-                <label class="cuadre-money-input">
-                  <span>$</span>
-                  <input id="cuadreCashInitialInput" type="number" min="0" step="0.01" value="0" />
-                </label>
-              </div>
+              </article>
 
-              <div class="cuadre-cash-card">
-                <div class="cuadre-bank-icon cash"><svg class="icon"><use href="#icon-wallet"></use></svg></div>
-                <div class="cuadre-bank-copy">
-                  <strong>Efectivo final</strong>
-                  <span>Dinero físico contado al finalizar la jornada</span>
+              <article class="cnb-bank-card guayaquil">
+                <div class="cnb-bank-title"><div class="cnb-bank-icon" data-cnb-logo="guayaquil"><svg class="icon"><use href="#icon-wallet"></use></svg></div><div><strong>Banco de Guayaquil</strong><span>Cuenta Kevin Lascano</span></div></div>
+                <div class="cnb-fields">
+                  <label>Saldo actual CNB<div class="money-field"><span>$</span><input id="cnbGuayaquilKevin" type="number" step="0.01" inputmode="decimal" placeholder="0.00" /></div></label>
+                  <div class="cnb-formula-box"><span>Se resta</span><strong id="cnbGuayaquilKevinBase">$2.500,00</strong></div>
+                  <div class="cnb-result-box"><span>Resultado</span><strong id="cnbGuayaquilKevinResult">$0,00</strong></div>
+                  <label>Transacciones<input id="cnbTxGuayaquilKevin" type="number" min="0" step="1" value="0" /></label>
                 </div>
-                <label class="cuadre-money-input">
-                  <span>$</span>
-                  <input id="cuadreCashInput" type="number" min="0" step="0.01" value="0" />
-                </label>
-              </div>
+              </article>
+
+              <article class="cnb-bank-card">
+                <div class="cnb-bank-title"><div class="cnb-bank-icon" data-cnb-logo="pichincha"><svg class="icon"><use href="#icon-wallet"></use></svg></div><div><strong>Banco Pichincha</strong><span>Dos cuentas de ahorro</span></div></div>
+                <div class="cnb-fields two-values">
+                  <label>Ahorros 1<div class="money-field"><span>$</span><input id="cnbPichincha1" type="number" step="0.01" placeholder="0.00" /></div></label>
+                  <label>Ahorros 2<div class="money-field"><span>$</span><input id="cnbPichincha2" type="number" step="0.01" placeholder="0.00" /></div></label>
+                  <div class="cnb-result-box"><span>Suma</span><strong id="cnbPichinchaResult">$0,00</strong></div>
+                  <label>Transacciones<input id="cnbTxPichincha" type="number" min="0" step="1" value="0" /></label>
+                </div>
+              </article>
+
+              <article class="cnb-bank-card">
+                <div class="cnb-bank-title"><div class="cnb-bank-icon" data-cnb-logo="pacifico"><svg class="icon"><use href="#icon-wallet"></use></svg></div><div><strong>Banco Pacífico</strong><span>Saldo actual</span></div></div>
+                <div class="cnb-fields simple">
+                  <label>Saldo actual<div class="money-field"><span>$</span><input id="cnbPacifico" type="number" step="0.01" placeholder="0.00" /></div></label>
+                  <div class="cnb-result-box"><span>Resultado</span><strong id="cnbPacificoResult">$0,00</strong></div>
+                  <label>Transacciones<input id="cnbTxPacifico" type="number" min="0" step="1" value="0" /></label>
+                </div>
+              </article>
+
+              <article class="cnb-bank-card">
+                <div class="cnb-bank-title"><div class="cnb-bank-icon" data-cnb-logo="produbanco"><svg class="icon"><use href="#icon-wallet"></use></svg></div><div><strong>Banco Produbanco</strong><span>Saldo disponible menos sobregiro</span></div></div>
+                <div class="cnb-fields two-values">
+                  <label>Saldo disponible<div class="money-field"><span>$</span><input id="cnbProdubancoAvailable" type="number" step="0.01" placeholder="0.00" /></div></label>
+                  <label>Sobregiro<div class="money-field"><span>$</span><input id="cnbProdubancoOverdraft" type="number" min="0" step="0.01" placeholder="0.00" /></div></label>
+                  <div class="cnb-result-box"><span>Resultado</span><strong id="cnbProdubancoResult">$0,00</strong></div>
+                  <label>Transacciones<input id="cnbTxProdubanco" type="number" min="0" step="1" value="0" /></label>
+                </div>
+              </article>
+
+              <article class="cnb-bank-card">
+                <div class="cnb-bank-title"><div class="cnb-bank-icon" data-cnb-logo="yaganaste"><svg class="icon"><use href="#icon-wallet"></use></svg></div><div><strong>Ya Ganaste</strong><span>Saldo actual</span></div></div>
+                <div class="cnb-fields simple">
+                  <label>Saldo actual<div class="money-field"><span>$</span><input id="cnbYaGanaste" type="number" step="0.01" placeholder="0.00" /></div></label>
+                  <div class="cnb-result-box"><span>Resultado</span><strong id="cnbYaGanasteResult">$0,00</strong></div>
+                  <label>Transacciones<input id="cnbTxYaGanaste" type="number" min="0" step="1" value="0" /></label>
+                </div>
+              </article>
+
+              <article class="cnb-bank-card">
+                <div class="cnb-bank-title"><div class="cnb-bank-icon" data-cnb-logo="minegocio"><svg class="icon"><use href="#icon-wallet"></use></svg></div><div><strong>Mi Negocio</strong><span>Saldo actual</span></div></div>
+                <div class="cnb-fields simple">
+                  <label>Saldo actual<div class="money-field"><span>$</span><input id="cnbMiNegocio" type="number" step="0.01" placeholder="0.00" /></div></label>
+                  <div class="cnb-result-box"><span>Resultado</span><strong id="cnbMiNegocioResult">$0,00</strong></div>
+                  <label>Transacciones<input id="cnbTxMiNegocio" type="number" min="0" step="1" value="0" /></label>
+                </div>
+              </article>
+
+              <article class="cnb-bank-card cash">
+                <div class="cnb-bank-title"><div class="cnb-bank-icon cash"><svg class="icon"><use href="#icon-wallet"></use></svg></div><div><strong>Efectivo</strong><span>Dinero contado en caja</span></div></div>
+                <div class="cnb-fields cash-only">
+                  <label>Efectivo actual<div class="money-field"><span>$</span><input id="cnbCash" type="number" min="0" step="0.01" placeholder="0.00" /></div></label>
+                  <div class="cnb-result-box"><span>Resultado</span><strong id="cnbCashResult">$0,00</strong></div>
+                </div>
+              </article>
             </div>
 
-            <div class="cuadre-actions">
-              <button type="button" class="btn btn-accent cuadre-save-btn" id="saveCuadre">
-                <svg class="icon"><use href="#icon-check"></use></svg>
-                <span>Guardar cuadre del día</span>
-              </button>
-            </div>
+            <div class="cuadre-actions"><button type="button" class="btn btn-accent cuadre-submit-btn" id="saveCuadre"><svg class="icon"><use href="#icon-check"></use></svg><span>Cerrar cuadre del día</span></button></div>
           </section>
 
-          <aside class="cuadre-summary-panel">
-            <span class="eyebrow">Resumen</span>
-            <h2>Total del día</h2>
-            <div class="cuadre-summary-list">
-              <div><span>Bancos iniciales</span><strong id="cuadreBanksInitialTotal">$0,00</strong></div>
-              <div><span>Total ingresos bancos</span><strong id="cuadreIncomeTotal">$0,00</strong></div>
-              <div><span>Total egresos bancos</span><strong id="cuadreExpenseTotal">$0,00</strong></div>
-              <div><span>Bancos finales</span><strong id="cuadreBanksTotal">$0,00</strong></div>
-              <div><span>Efectivo inicial</span><strong id="cuadreCashInitialTotal">$0,00</strong></div>
-              <div><span>Efectivo final</span><strong id="cuadreCashTotal">$0,00</strong></div>
-              <div><span>Capital inicial</span><strong id="cuadreInitialCapital">$0,00</strong></div>
-              <div><span>Efectivo esperado</span><strong id="cuadreExpectedCash">$0,00</strong></div>
-              <div class="grand"><span>Total final</span><strong id="cuadreGrandTotal">$0,00</strong></div>
+          <aside class="cnb-summary-panel">
+            <span class="eyebrow">Cuadre detallado</span><h2>Resumen del día</h2>
+            <div class="cnb-summary-list">
+              <div><span>Guayaquil · Orlando</span><strong id="sumGuayaquilOrlando">$0,00</strong></div>
+              <div><span>Guayaquil · Kevin</span><strong id="sumGuayaquilKevin">$0,00</strong></div>
+              <div class="subtotal"><span>Total Banco Guayaquil</span><strong id="sumGuayaquilTotal">$0,00</strong></div>
+              <div><span>Pichincha</span><strong id="sumPichincha">$0,00</strong></div>
+              <div><span>Pacífico</span><strong id="sumPacifico">$0,00</strong></div>
+              <div><span>Produbanco</span><strong id="sumProdubanco">$0,00</strong></div>
+              <div><span>Ya Ganaste</span><strong id="sumYaGanaste">$0,00</strong></div>
+              <div><span>Mi Negocio</span><strong id="sumMiNegocio">$0,00</strong></div>
+              <div class="subtotal"><span>Total bancos</span><strong id="sumBanksTotal">$0,00</strong></div>
+              <div><span>Efectivo</span><strong id="sumCash">$0,00</strong></div>
+              <div><span>Comisión transacciones</span><strong id="sumTxValue">$0,00</strong></div>
+              <div class="grand"><span>Total encontrado</span><strong id="sumFound">$0,00</strong></div>
+              <div><span>Valor esperado</span><strong id="sumExpected">$5.000,00</strong></div>
             </div>
-            <div id="cuadreDifferenceBox" class="cuadre-difference-box balanced">
-              <span id="cuadreDifferenceLabel">Cuadre correcto</span>
-              <strong id="cuadreDifferenceValue">$0,00</strong>
-              <small id="cuadreDifferenceHelp">El efectivo final coincide con el efectivo esperado.</small>
+            <div class="cnb-transactions-summary">
+              <div><span>Total transacciones</span><strong id="sumTransactions">0</strong></div>
+              <div><span>Valor por transacción</span><strong id="sumTxRate">$0,35</strong></div>
+              <div class="grand"><span>Comisión generada</span><strong id="sumTxValue2">$0,00</strong></div>
+              <small>La comisión sí se suma al total encontrado.</small>
             </div>
-            <p id="cuadreSavedInfo" class="cuadre-saved-info">Aún no hay un cuadre guardado para hoy.</p>
+            <div class="cnb-margin-box"><strong>Margen permitido</strong><span>Puede faltar hasta <b>$2,00</b> o sobrar hasta <b>$5,00</b> y seguirá siendo un cuadre correcto.</span></div>
+            <div id="cuadreDifferenceBox" class="cuadre-difference-box balanced"><span id="cuadreDifferenceLabel">Cuadre correcto</span><strong id="cuadreDifferenceValue">$0,00</strong><small id="cuadreDifferenceHelp">La diferencia está dentro del margen permitido.</small></div>
+            <p id="cuadreSavedInfo" class="cuadre-saved-info">Aún no hay un cierre registrado para hoy.</p>
           </aside>
         </div>
       </section>
@@ -510,7 +544,7 @@
     <footer class="app-version-footer" aria-label="Versión de la aplicación">
       <span>DeTodoEc</span>
       <span class="version-separator">•</span>
-      <strong>Versión 11.18</strong>
+      <strong>Versión 11.19</strong>
     </footer>
   </div>
 
@@ -855,7 +889,7 @@
       <div class="cuadre-review-status" id="cuadreReviewStatus"></div>
       <div class="cuadre-review-summary" id="cuadreReviewSummary"></div>
       <div class="cuadre-review-bank-table">
-        <div class="cuadre-review-bank-head"><span>Banco</span><span>Inicial</span><span>Ingresos</span><span>Egresos</span><span>Final</span><span>Trans.</span></div>
+        <div class="cuadre-review-bank-head"><span>Cuenta</span><span>Valor 1</span><span>Valor 2</span><span>Resultado</span><span>Trans.</span><span>Comisión</span></div>
         <div id="cuadreReviewBanks"></div>
       </div>
       <label class="cuadre-review-note"><span>Observación del administrador (opcional)</span><textarea id="cuadreReviewNote" rows="3" maxlength="500" placeholder="Observación…"></textarea></label>
@@ -1320,38 +1354,15 @@
           </section>
 
           <section class="admin-section admin-view admin-cuadre-section" data-admin-view="cuadre" hidden>
-            <div class="bank-manager-head">
-              <div>
-                <span class="eyebrow">Configuración de cuadre</span>
-                <h3>Bancos</h3>
-                <p>Edita nombres, saldos iniciales e imágenes directamente en la lista. Los cambios no se guardan hasta pulsar el botón inferior.</p>
-              </div>
-              <button type="button" class="btn btn-outline" id="addBankDraft">
-                <span class="admin-create-plus">+</span><span>Agregar banco</span>
-              </button>
-            </div>
-
-            <div class="bank-bulk-panel">
-              <div class="bank-bulk-head">
-                <span>Banco</span>
-                <span>Saldo inicial</span>
-                <span>Imagen / logo</span>
-                <span>Acción</span>
-              </div>
-              <div id="adminBanksList" class="admin-banks-list bank-bulk-list"></div>
-              <div id="adminBanksEmpty" class="cuadre-empty" hidden>No hay bancos configurados. Pulsa “Agregar banco” para crear uno.</div>
-            </div>
-
-            <div class="bank-bulk-footer">
-              <div class="bank-bulk-note">
-                <svg class="icon"><use href="#icon-alert"></use></svg>
-                <span>Revisa todos los datos antes de guardar. El botón aplica altas, cambios y eliminaciones de una sola vez.</span>
-              </div>
-              <button type="button" class="btn btn-accent bank-save-all" id="saveAllBanks">
-                <svg class="icon"><use href="#icon-check"></use></svg>
-                <span>Guardar todos los datos</span>
-              </button>
-            </div>
+            <div class="bank-manager-head"><div><span class="eyebrow">Configuración de cuadre</span><h3>Parámetros del CNB</h3><p>Estos valores controlan las fórmulas del cierre diario.</p></div></div>
+            <form id="cnbAdminConfigForm" class="cnb-admin-config">
+              <article class="cnb-admin-config-card"><span class="cnb-admin-config-icon"><svg class="icon"><use href="#icon-wallet"></use></svg></span><div><strong>Efectivo inicial esperado</strong><small>Valor base del cierre.</small></div><label><span>$</span><input id="adminCnbInitialCash" type="number" min="0" step="0.01" value="5000" /></label></article>
+              <article class="cnb-admin-config-card"><span class="cnb-admin-config-icon"><svg class="icon"><use href="#icon-wallet"></use></svg></span><div><strong>Guayaquil · Orlando Vera Silvia</strong><small>Base que se resta al saldo CNB.</small></div><label><span>$</span><input id="adminCnbOrlandoBase" type="number" min="0" step="0.01" value="3000" /></label></article>
+              <article class="cnb-admin-config-card"><span class="cnb-admin-config-icon"><svg class="icon"><use href="#icon-wallet"></use></svg></span><div><strong>Guayaquil · Kevin Lascano</strong><small>Base que se resta al saldo CNB.</small></div><label><span>$</span><input id="adminCnbKevinBase" type="number" min="0" step="0.01" value="2500" /></label></article>
+              <article class="cnb-admin-config-card"><span class="cnb-admin-config-icon"><svg class="icon"><use href="#icon-calculator"></use></svg></span><div><strong>Valor por transacción</strong><small>Se suma al cuadre. Por defecto $0,35.</small></div><label><span>$</span><input id="adminCnbTxRate" type="number" min="0" step="0.01" value="0.35" /></label></article>
+              <div class="cnb-margin-admin"><strong>Margen automático</strong><span>Faltante permitido hasta <b>$2,00</b> · Sobrante permitido hasta <b>$5,00</b>.</span></div>
+              <div class="cnb-admin-save-row"><div class="bank-bulk-note"><svg class="icon"><use href="#icon-alert"></use></svg><span>Los cierres anteriores conservan la configuración usada cuando fueron cerrados.</span></div><button type="submit" class="btn btn-accent" id="saveCnbAdminConfig"><svg class="icon"><use href="#icon-check"></use></svg><span>Guardar configuración</span></button></div>
+            </form>
           </section>
 
           <section class="admin-section quote-admin-section admin-view" data-admin-view="cotizador" hidden>
@@ -1526,6 +1537,6 @@
     </article>
   </template>
 
-  <script src="app.js?v=11.18"></script>
+  <script src="app.js?v=11.19"></script>
 </body>
 </html>
