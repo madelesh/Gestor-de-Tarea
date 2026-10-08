@@ -1,4 +1,4 @@
-const APP_VERSION = '11.21';
+const APP_VERSION = '11.21.1';
 const API_BASE = 'https://gestor-tareas-api.detodoec.workers.dev';
 const STORAGE_KEY = 'detodoec_tasks_v1';
 const SETTINGS_KEY = 'detodoec_tasks_settings_v3';
@@ -4228,6 +4228,20 @@ async function saveCuadre(){
     await Promise.allSettled([refreshCuadre(),currentUser?.rol==='admin'?refreshMainReviews({silent:true}):Promise.resolve(),refreshGoalsToday({silent:true})]);
   }catch(err){showToast(err.message,'No se pudo revisar el cuadre')}
   finally{if(btn&&!cuadreSubmission?.estado)btn.disabled=false}
+}
+
+async function refreshGoalsToday({ silent = false } = {}) {
+  if (!currentUser) return [];
+  try {
+    const rows = await apiFetch(`/api/metas/hoy?_=${Date.now()}`, { cache:'no-store' });
+    goalsToday = Array.isArray(rows) ? rows : [];
+    renderProfileGoal();
+    renderHomeGoals();
+    return goalsToday;
+  } catch (err) {
+    if (!silent) showToast(err.message, 'No se pudieron cargar las metas');
+    return [];
+  }
 }
 
 function currentGoalConfigMonth() {
