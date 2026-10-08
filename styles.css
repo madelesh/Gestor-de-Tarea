@@ -7624,3 +7624,16 @@ textarea{
 .cnb-config-strip{display:grid!important;grid-template-columns:minmax(280px,380px)!important}
 .cnb-config-strip>div:nth-child(n+2){display:none!important}
 .cnb-margin-box{display:none!important}
+
+/* V11.21 - el margen solo es visible para administradores */
+.cuadre-cnb-section .cnb-config-strip,.cuadre-cnb-section .cnb-margin-box{display:none!important}
+.cuadre-review-head-actions{display:flex;gap:8px;align-items:center}
+.cuadre-review-bank-row input,.cuadre-review-summary input{width:100%;min-height:38px;font-size:12px}
+.cuadre-review-edit-cash{display:flex;flex-direction:column;gap:5px}
+.cuadre-review-edit-cash span{font-size:8px;color:var(--muted)}
+.cuadre-review-bank-row small{display:block;color:var(--muted);font-size:8px;margin-top:2px}
+
+/* V11.21 ajuste: usuario solo ve Efectivo inicial de los parámetros superiores */
+.cuadre-cnb-section .cnb-config-strip{display:grid!important;grid-template-columns:minmax(260px,360px)!important}
+.cuadre-cnb-section .cnb-config-strip>div:nth-child(n+2){display:none!important}
+.cuadre-cnb-section .cnb-margin-box{display:none!important}

@@ -1,4 +1,4 @@
-const APP_VERSION = '11.20';
+const APP_VERSION = '11.21';
 const API_BASE = 'https://gestor-tareas-api.detodoec.workers.dev';
 const STORAGE_KEY = 'detodoec_tasks_v1';
 const SETTINGS_KEY = 'detodoec_tasks_settings_v3';
@@ -42,6 +42,9 @@ let cuadreCurrent = null;
 let cuadreSubmission = null;
 let cuadreNotifications = [];
 let activeCuadreReviewId = null;
+let activeCuadreReviewData = null;
+let cuadreReviewEditing = false;
+let notificationPollTimer = null;
 let adminReviewRows = [];
 let adminReviewFilter = 'pendiente';
 let goalsToday = [];
@@ -2437,7 +2440,11 @@ function updateCurrentUserUI() {
 
   const notificationWrap = $('#notificationWrap');
   if (notificationWrap) notificationWrap.hidden = currentUser.rol !== 'admin';
-  if (currentUser.rol === 'admin') refreshCuadreNotifications({ silent:true });
+  if (currentUser.rol === 'admin') {
+    refreshCuadreNotifications({ silent:true });
+    if (notificationPollTimer) clearInterval(notificationPollTimer);
+    notificationPollTimer=setInterval(()=>refreshCuadreNotifications({silent:true}),30000);
+  } else if (notificationPollTimer) { clearInterval(notificationPollTimer); notificationPollTimer=null; }
 
   updateNavigationPermissions();
 }
@@ -3893,7 +3900,7 @@ function applyCnbBankMetaToUi(){
   Object.entries(sumLabels).forEach(([id, text]) => { if($('#'+id)) $('#'+id).textContent = text; });
 }
 function renderCnbLogos(){
-  $('[data-cnb-logo]').forEach(box=>{
+  $$('[data-cnb-logo]').forEach(box=>{
     const u=findCnbBankLogo(box.dataset.cnbLogo);
     box.innerHTML=u?`<img src="${escapeHtml(u)}" alt="" />`:iconUse('icon-wallet');
   });
@@ -4021,11 +4028,11 @@ function updateCuadreTotals(){
     b.classList.remove('balanced','shortage','surplus');
     if(p.dentro_margen){
       b.classList.add('balanced');l.textContent='Cuadre correcto';v.textContent=money(p.diferencia);
-      h.textContent=Math.abs(p.diferencia)<.01?'Sin diferencia. Se aprobará automáticamente.':p.diferencia<0?`Faltan ${money(Math.abs(p.diferencia))}, dentro del margen permitido de ${money(cnbConfig.margen_faltante)}. Se aprobará automáticamente.`:`Sobran ${money(p.diferencia)}, dentro del margen permitido de ${money(cnbConfig.margen_sobrante)}. Se aprobará automáticamente.`;
+      h.textContent=Math.abs(p.diferencia)<.01?'Sin diferencia. Se aprobará automáticamente.':'Cuadre correcto. Se aprobará automáticamente.';
     }else if(p.diferencia<0){
-      b.classList.add('shortage');l.textContent='No cuadró · Falta dinero';v.textContent=money(Math.abs(p.diferencia));h.textContent=`Supera el margen de faltante permitido (${money(cnbConfig.margen_faltante)}). El cuadre quedará en revisión.`;
+      b.classList.add('shortage');l.textContent='No cuadró · Falta dinero';v.textContent=money(Math.abs(p.diferencia));h.textContent='El cuadre no coincide. Quedará en revisión del administrador.';
     }else{
-      b.classList.add('surplus');l.textContent='No cuadró · Sobra dinero';v.textContent=money(p.diferencia);h.textContent=`Supera el margen de sobrante permitido (${money(cnbConfig.margen_sobrante)}). El cuadre quedará en revisión.`;
+      b.classList.add('surplus');l.textContent='No cuadró · Sobra dinero';v.textContent=money(p.diferencia);h.textContent='El cuadre no coincide. Quedará en revisión del administrador.';
     }
   }
   return p;
@@ -4066,7 +4073,70 @@ function renderCuadreNotifications(){
     </button>`).join('');
 }
 function reviewSummary(p){return{totalBanks:Number(p?.total_bancos||0),cash:Number(p?.efectivo||0),txCount:Number(p?.total_transacciones||0),txValue:Number(p?.valor_transacciones||0),found:Number(p?.total_encontrado||0),expected:Number(p?.valor_esperado||0),difference:Number(p?.diferencia||0),within:Boolean(p?.dentro_margen)}}
-function renderCuadreReview(item){const p=item.payload||{},s=reviewSummary(p),cfg=p.config_usada||{};$('#cuadreReviewTitle').textContent=`Cierre de caja · ${item.usuario_nombre||item.usuario||'Usuario'}`;$('#cuadreReviewMeta').textContent=`${item.fecha_local} · enviado ${formatTime(item.enviado_en)}`;$('#cuadreReviewStatus').textContent=s.within?`Cuadre dentro del margen. Diferencia ${money(s.difference)}.`:s.difference<0?`No cuadró: falta ${money(Math.abs(s.difference))}.`:`No cuadró: sobra ${money(s.difference)}.`;$('#cuadreReviewSummary').innerHTML=`<article><span>Total bancos</span><strong>${money(s.totalBanks)}</strong></article><article><span>Efectivo</span><strong>${money(s.cash)}</strong></article><article><span>Comisión</span><strong>${money(s.txValue)}</strong></article><article><span>Total encontrado</span><strong>${money(s.found)}</strong></article><article><span>Esperado</span><strong>${money(s.expected)}</strong></article><article><span>Transacciones</span><strong>${s.txCount}</strong></article><article><span>Margen</span><strong>-${money(cfg.margen_faltante??2)} / +${money(cfg.margen_sobrante??5)}</strong></article><article><span>Diferencia</span><strong>${money(s.difference)}</strong></article>`;$('#cuadreReviewBanks').innerHTML=(p.cuentas||[]).map(c=>`<div class="cuadre-review-bank-row"><strong>${escapeHtml(c.banco||'')}<small>${escapeHtml(c.cuenta||'')}</small></strong><span>${money(c.valor_1)}</span><span>${money(c.valor_2)}</span><span>${money(c.resultado)}</span><span>${Number(c.transacciones||0)}</span><span>${money(Number(c.transacciones||0)*Number(cfg.valor_transaccion??.35))}</span></div>`).join('');$('#cuadreReviewNote').value=item.observacion_admin||'';const pending=item.estado==='pendiente';if($('#cuadreReviewNote'))$('#cuadreReviewNote').disabled=!pending;if($('#approveCuadreReview'))$('#approveCuadreReview').hidden=!pending;if($('#rejectCuadreReview'))$('#rejectCuadreReview').hidden=!pending;}
+function renderCuadreReview(item){
+  activeCuadreReviewData=item;
+  const p=item.payload||{},s=reviewSummary(p),cfg=p.config_usada||{};
+  $('#cuadreReviewTitle').textContent=`Cierre de caja · ${item.usuario_nombre||item.usuario||'Usuario'}`;
+  $('#cuadreReviewMeta').textContent=`${item.fecha_local} · enviado ${formatTime(item.enviado_en)}`;
+  $('#cuadreReviewStatus').textContent=s.within?`Cuadre correcto. Diferencia ${money(s.difference)}.`:s.difference<0?`No cuadró: falta ${money(Math.abs(s.difference))}.`:`No cuadró: sobra ${money(s.difference)}.`;
+
+  const cashBlock=cuadreReviewEditing
+    ? `<article class="cuadre-review-edit-cash"><span>Efectivo</span><input id="reviewEditCash" type="number" min="0" step="0.01" value="${Number(s.cash||0)}" /></article>`
+    : `<article><span>Efectivo</span><strong>${money(s.cash)}</strong></article>`;
+  $('#cuadreReviewSummary').innerHTML=`
+    <article><span>Total bancos</span><strong>${money(s.totalBanks)}</strong></article>
+    ${cashBlock}
+    <article><span>Comisión</span><strong>${money(s.txValue)}</strong></article>
+    <article><span>Total encontrado</span><strong>${money(s.found)}</strong></article>
+    <article><span>Esperado</span><strong>${money(s.expected)}</strong></article>
+    <article><span>Transacciones</span><strong>${s.txCount}</strong></article>
+    <article><span>Margen admin</span><strong>-${money(cfg.margen_faltante??2)} / +${money(cfg.margen_sobrante??5)}</strong></article>
+    <article><span>Diferencia</span><strong>${money(s.difference)}</strong></article>`;
+
+  $('#cuadreReviewBanks').innerHTML=(p.cuentas||[]).map((c)=>{
+    const commission=Number(c.transacciones||0)*Number(cfg.valor_transaccion??.35);
+    if(!cuadreReviewEditing){
+      return `<div class="cuadre-review-bank-row"><strong>${escapeHtml(c.banco||'')}<small>${escapeHtml(c.cuenta||'')}</small></strong><span>${money(c.valor_1)}</span><span>${money(c.valor_2)}</span><span>${money(c.resultado)}</span><span>${Number(c.transacciones||0)}</span><span>${money(commission)}</span></div>`;
+    }
+    const canEditSecond=c.clave==='pichincha'||c.clave==='produbanco';
+    return `<div class="cuadre-review-bank-row" data-review-edit-key="${escapeHtml(c.clave)}">
+      <strong>${escapeHtml(c.banco||'')}<small>${escapeHtml(c.cuenta||'')}</small></strong>
+      <span><input data-review-value1 type="number" step="0.01" value="${Number(c.valor_1||0)}" /></span>
+      <span>${canEditSecond?`<input data-review-value2 type="number" min="0" step="0.01" value="${Number(c.valor_2||0)}" />`:money(c.valor_2)}</span>
+      <span>${money(c.resultado)}</span>
+      <span><input data-review-tx type="number" min="0" step="1" value="${Number(c.transacciones||0)}" /></span>
+      <span>${money(commission)}</span>
+    </div>`;
+  }).join('');
+
+  $('#cuadreReviewNote').value=item.observacion_admin||'';
+  const pending=item.estado==='pendiente';
+  if($('#cuadreReviewNote'))$('#cuadreReviewNote').disabled=!pending;
+  if($('#approveCuadreReview'))$('#approveCuadreReview').hidden=!pending||cuadreReviewEditing;
+  if($('#rejectCuadreReview'))$('#rejectCuadreReview').hidden=!pending||cuadreReviewEditing;
+  if($('#editCuadreReview'))$('#editCuadreReview').hidden=!pending;
+  if($('#saveCuadreReviewEdit'))$('#saveCuadreReviewEdit').hidden=!pending||!cuadreReviewEditing;
+}
+async function saveCuadreReviewEdit(){
+  if(!activeCuadreReviewId||!activeCuadreReviewData)return;
+  const cuentas=(activeCuadreReviewData.payload?.cuentas||[]).map((c)=>{
+    const row=document.querySelector(`[data-review-edit-key="${CSS.escape(c.clave)}"]`);
+    if(!row)return c;
+    const value1=Number(row.querySelector('[data-review-value1]')?.value||0);
+    const value2Input=row.querySelector('[data-review-value2]');
+    const value2=value2Input?Number(value2Input.value||0):Number(c.valor_2||0);
+    const transacciones=Math.max(0,Math.round(Number(row.querySelector('[data-review-tx]')?.value||0)));
+    return {...c,valor_1:value1,valor_2:value2,transacciones};
+  });
+  const efectivo=Math.max(0,Number($('#reviewEditCash')?.value||0));
+  try{
+    const r=await apiFetch(`/api/cuadre/solicitudes/${activeCuadreReviewId}`,{method:'PUT',headers:{'Content-Type':'application/json'},body:JSON.stringify({cuentas,efectivo})});
+    showToast(r.mensaje||'Cuadre actualizado.','Edición guardada');
+    cuadreReviewEditing=false;
+    await openCuadreReview(activeCuadreReviewId);
+    await refreshMainReviews({silent:true});
+  }catch(err){showToast(err.message,'No se pudo editar el cuadre')}
+}
 function reviewStatusLabel(s){return s==='aprobado'?'Revisado':s==='rechazado'?'Rechazado':'Pendiente';}
 
 function reviewCardHtml(r,{history=false}={}){
@@ -4133,7 +4203,7 @@ async function refreshAdminReviews({silent=false}={}){
 }
 
 async function openCuadreReview(id){
-  try{const item=await apiFetch(`/api/cuadre/solicitudes/${id}`);activeCuadreReviewId=Number(id);renderCuadreReview(item);$('#cuadreReviewDialog')?.showModal();}
+  try{const item=await apiFetch(`/api/cuadre/solicitudes/${id}`);activeCuadreReviewId=Number(id);activeCuadreReviewData=item;cuadreReviewEditing=false;renderCuadreReview(item);$('#cuadreReviewDialog')?.showModal();}
   catch(err){showToast(err.message,'No se pudo abrir el cierre');}
 }
 async function resolveCuadreReview(action){
@@ -4144,20 +4214,20 @@ async function resolveCuadreReview(action){
 }
 
 async function refreshCuadre(){try{const fecha=todayLocal();if($('#cuadreDateLabel'))$('#cuadreDateLabel').textContent=formatAttendanceDate(fecha);await Promise.allSettled([refreshBanks({silent:true}),refreshCnbConfig({silent:true})]);const r=await apiFetch(`/api/cuadre/solicitud-actual?fecha=${encodeURIComponent(fecha)}&_=${Date.now()}`,{cache:'no-store'}),s=r?.solicitud||null;if(s?.payload)setCnbFormValues(s.payload);else updateCuadreTotals();updateCuadreSubmitState(s);const info=$('#cuadreSavedInfo');if(info){if(s?.estado==='pendiente')info.textContent=`En revisión · ${formatTime(s.enviado_en)}`;else if(s?.estado==='aprobado'&&Number(s.auto_aprobado||0)===1)info.textContent=`Aprobado automáticamente · ${formatTime(s.revisado_en||s.enviado_en)}`;else if(s?.estado==='aprobado')info.textContent=`Revisado por ${s.admin_nombre||'administrador'} · ${formatTime(s.revisado_en)}`;else if(s?.estado==='rechazado')info.textContent=`Rechazado${s.observacion_admin?` · ${s.observacion_admin}`:''}`;else info.textContent='Aún no hay un cierre registrado para hoy.'}}catch(err){showToast(err.message,'No se pudo cargar el Cuadre')}}
-async function saveCuadre(){const btn=$('#saveCuadre');if(btn)btn.disabled=true;try{const p=updateCuadreTotals(),m=`Margen aceptable: falta hasta ${money(cnbConfig.margen_faltante)} o sobra hasta ${money(cnbConfig.margen_sobrante)}.`;const st=p.dentro_margen?`El cuadre está dentro del margen y se aprobará automáticamente. ${m}`:p.diferencia<0?`Faltan ${money(Math.abs(p.diferencia))}. El cuadre quedará en revisión del administrador. ${m}`:`Sobran ${money(p.diferencia)}. El cuadre quedará en revisión del administrador. ${m}`;const ok=await themedConfirm({title:'Revisar cuadre del día',message:`¿Estás seguro de que llenaste los valores correctamente? ${st}`,confirmText:'Sí, revisar cuadre'});if(!ok)return;const r=await apiFetch('/api/cuadre/solicitudes',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify(p)});showToast(r.mensaje||'Cierre procesado.',r.estado==='aprobado'?'Cuadre aprobado':'Cuadre en revisión');await Promise.allSettled([refreshCuadre(),currentUser?.rol==='admin'?refreshMainReviews({silent:true}):Promise.resolve(),refreshGoalsToday({silent:true})])}catch(err){showToast(err.message,'No se pudo revisar el cuadre')}finally{if(btn&&!cuadreSubmission?.estado)btn.disabled=false}}
-
-async function refreshGoalsToday({ silent = false } = {}) {
-  if (!currentUser) return [];
-  try {
-    const rows = await apiFetch(`/api/metas/hoy?_=${Date.now()}`, { cache:'no-store' });
-    goalsToday = Array.isArray(rows) ? rows : [];
-    renderProfileGoal();
-    renderHomeGoals();
-    return goalsToday;
-  } catch (err) {
-    if (!silent) showToast(err.message, 'No se pudieron cargar las metas');
-    return [];
-  }
+async function saveCuadre(){
+  const btn=$('#saveCuadre');if(btn)btn.disabled=true;
+  try{
+    const p=updateCuadreTotals();
+    const st=p.dentro_margen
+      ? 'El cuadre está correcto y se aprobará automáticamente.'
+      : 'El cuadre no coincide. Al enviarlo quedará en revisión del administrador.';
+    const ok=await themedConfirm({title:'Revisar cuadre del día',message:`¿Estás seguro de que llenaste los valores correctamente? ${st}`,confirmText:'Sí, revisar cuadre'});
+    if(!ok)return;
+    const r=await apiFetch('/api/cuadre/solicitudes',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify(p)});
+    showToast(r.mensaje||'Cierre procesado.',r.estado==='aprobado'?'Cuadre aprobado':'Cuadre en revisión');
+    await Promise.allSettled([refreshCuadre(),currentUser?.rol==='admin'?refreshMainReviews({silent:true}):Promise.resolve(),refreshGoalsToday({silent:true})]);
+  }catch(err){showToast(err.message,'No se pudo revisar el cuadre')}
+  finally{if(btn&&!cuadreSubmission?.estado)btn.disabled=false}
 }
 
 function currentGoalConfigMonth() {
@@ -4878,6 +4948,8 @@ $('#mainReviewList')?.addEventListener('click',(e)=>{
   if(card)openCuadreReview(card.dataset.adminReviewId);
 });
 on('closeCuadreReview', 'click', () => $('#cuadreReviewDialog')?.close());
+on('editCuadreReview','click',()=>{if(!activeCuadreReviewData||activeCuadreReviewData.estado!=='pendiente')return;cuadreReviewEditing=!cuadreReviewEditing;renderCuadreReview(activeCuadreReviewData);});
+on('saveCuadreReviewEdit','click',saveCuadreReviewEdit);
 on('approveCuadreReview', 'click', () => resolveCuadreReview('aprobar'));
 on('rejectCuadreReview', 'click', () => resolveCuadreReview('rechazar'));
 $('#adminReviewList')?.addEventListener('click',(e)=>{const c=e.target.closest('[data-admin-review-id]');if(c)openCuadreReview(c.dataset.adminReviewId);});
