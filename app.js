@@ -1,4 +1,4 @@
-const APP_VERSION = '12.2';
+const APP_VERSION = '11.22';
 const API_BASE = 'https://gestor-tareas-api.detodoec.workers.dev';
 const STORAGE_KEY = 'detodoec_tasks_v1';
 const SETTINGS_KEY = 'detodoec_tasks_settings_v3';
@@ -75,11 +75,6 @@ let pendingDeleteUserId = null;
 let openAdminUserMenuId = null;
 let adminReviewActiveTab = 'pendiente';
 let adminRejectedReviewRows = [];
-let financeDashboardData = null;
-let financeUsers = [];
-let financeDayAdjustment = 0;
-let financeProfitPeriod = 6;
-let financeActiveTab = 'resumen';
 
 let adminPasswordResolver = null;
 let adminUserPhotoUrl = '';
@@ -1734,204 +1729,6 @@ function updateStats() {
   $('#statPending').textContent = active.filter((t) => t.status === 'pendiente').length;
   $('#statDone').textContent = active.filter((t) => t.status === 'terminado' || t.status === 'entregado').length;
   $('#statBalance').textContent = money(active.reduce((sum, t) => sum + balance(t), 0));
-  updateExecutiveDashboard();
-}
-
-function dashboardMonthKey(date = new Date()) {
-  const y = date.getFullYear();
-  const m = String(date.getMonth() + 1).padStart(2, '0');
-  return `${y}-${m}`;
-}
-
-function dashboardPayments() {
-  return tasks.flatMap((task) => (task.paymentHistory || []).map((payment) => ({
-    amount:Number(payment.amount || 0),
-    date:String(payment.date || payment.createdAt || '').slice(0,10)
-  }))).filter((payment) => payment.date);
-}
-
-function updateExecutiveDashboard() {
-  const active = tasks.filter((t) => !t.archived);
-  const online = homeUsers.filter((u) => u.online).length;
-  if ($('#dashOnlineUsers')) $('#dashOnlineUsers').textContent = String(online);
-  if ($('#dashOnlineNote')) $('#dashOnlineNote').textContent = `${online} de ${homeUsers.length} usuarios registrados`;
-  if ($('#dashActiveTasks')) $('#dashActiveTasks').textContent = String(active.length);
-  if ($('#dashPendingTasks')) $('#dashPendingTasks').textContent = String(active.filter((t) => t.status === 'pendiente').length);
-  if ($('#dashDoneTasks')) $('#dashDoneTasks').textContent = String(active.filter((t) => t.status === 'terminado' || t.status === 'entregado').length);
-  if ($('#dashReviews')) $('#dashReviews').textContent = String((pendingCuadreReviews || []).length + (openingReviewAlerts || []).length);
-  if (currentUser?.rol === 'admin' && financeDashboardData) renderFinanceDashboard(financeDashboardData);
-}
-
-
-function financeStatusClass(status='') {
-  const s=String(status||'').toLowerCase();
-  if (['pagado','activo','al día','aldia','correcto'].includes(s)) return 'ok';
-  if (['pendiente','atrasada','próximo','proximo'].includes(s)) return 'warn';
-  return 'bad';
-}
-function monthShortLabel(ym='') {
-  if (!/^\d{4}-\d{2}$/.test(ym)) return ym;
-  const [y,m]=ym.split('-').map(Number);
-  return new Intl.DateTimeFormat('es-EC',{month:'short'}).format(new Date(y,m-1,1)).replace('.','');
-}
-function renderCompareChart(targetId, rows=[]) {
-  const root=$('#'+targetId); if(!root) return;
-  const max=Math.max(1,...rows.flatMap(r=>[Number(r.ingresos||0),Number(r.egresos||0)]));
-  root.innerHTML=rows.map(r=>`
-    <div class="finance-compare-month" title="${escapeHtml(r.mes||'')}">
-      <div class="finance-compare-bars">
-        <span class="finance-compare-bar income" style="height:${Math.max(2,Number(r.ingresos||0)/max*100)}%"></span>
-        <span class="finance-compare-bar expense" style="height:${Math.max(2,Number(r.egresos||0)/max*100)}%"></span>
-      </div>
-      <span class="finance-compare-label">${escapeHtml(monthShortLabel(r.mes||''))}</span>
-    </div>`).join('');
-}
-function renderProfitChart(targetId, rows=[]) {
-  const root=$('#'+targetId); if(!root) return;
-  const selected=rows.slice(-Math.max(1,financeProfitPeriod));
-  if(!selected.length){root.innerHTML='<div class="finance-empty">Sin datos todavía.</div>';return;}
-  const vals=selected.map(r=>Number(r.ganancia||0));
-  const min=Math.min(0,...vals),max=Math.max(1,...vals),range=Math.max(1,max-min);
-  const W=500,H=180,p=18;
-  const pts=selected.map((r,i)=>{
-    const x=p+(selected.length===1?0:(i/(selected.length-1))*(W-p*2));
-    const y=H-p-((Number(r.ganancia||0)-min)/range)*(H-p*2);
-    return {x,y,v:Number(r.ganancia||0),label:monthShortLabel(r.mes||'')};
-  });
-  const line=pts.map((q,i)=>`${i?'L':'M'}${q.x.toFixed(1)},${q.y.toFixed(1)}`).join(' ');
-  const area=`M${pts[0].x},${H-p} ${pts.map(q=>`L${q.x},${q.y}`).join(' ')} L${pts[pts.length-1].x},${H-p} Z`;
-  root.innerHTML=`<svg viewBox="0 0 ${W} ${H}" preserveAspectRatio="none" aria-label="Gráfico de ganancias">
-    <line class="profit-grid" x1="0" y1="${H*.25}" x2="${W}" y2="${H*.25}"></line>
-    <line class="profit-grid" x1="0" y1="${H*.5}" x2="${W}" y2="${H*.5}"></line>
-    <line class="profit-grid" x1="0" y1="${H*.75}" x2="${W}" y2="${H*.75}"></line>
-    <path class="profit-area" d="${area}"></path><path class="profit-line" d="${line}"></path>
-    ${pts.map(q=>`<circle class="profit-dot" cx="${q.x}" cy="${q.y}" r="4"><title>${escapeHtml(q.label)} · ${money(q.v)}</title></circle>`).join('')}
-  </svg>`;
-}
-const FINANCE_COLORS=['#4e8cff','#ff6172','#ffbf4d','#a47cff','#35d49a','#28d2d0','#ff8f5a','#8c98a8'];
-function renderExpenseDistribution(donutId,totalId,legendId,rows=[]) {
-  const donut=$('#'+donutId),totalEl=$('#'+totalId),legend=$('#'+legendId); if(!donut||!legend)return;
-  const total=rows.reduce((s,r)=>s+Number(r.total||0),0);
-  if(totalEl) totalEl.textContent=money(total);
-  if(!total){donut.style.background='conic-gradient(#2a3442 0 100%)';legend.innerHTML='<div class="finance-empty">Sin egresos este mes.</div>';return;}
-  let cursor=0; const stops=[];
-  rows.forEach((r,i)=>{const pct=Number(r.total||0)/total*100;stops.push(`${FINANCE_COLORS[i%FINANCE_COLORS.length]} ${cursor}% ${cursor+pct}%`);cursor+=pct;});
-  donut.style.background=`conic-gradient(${stops.join(',')})`;
-  legend.innerHTML=rows.map((r,i)=>`<div class="expense-legend-row"><span class="expense-legend-dot" style="background:${FINANCE_COLORS[i%FINANCE_COLORS.length]}"></span><span>${escapeHtml(r.categoria||'Otros')}</span><strong>${money(r.total)}</strong></div>`).join('');
-}
-function renderFinanceMiniTables(data) {
-  const movement=$('#dashMovementsTable');
-  if(movement) movement.innerHTML=(data.movimientos||[]).slice(0,6).map(r=>`<div class="finance-mini-row"><div><strong>${escapeHtml(r.descripcion||r.categoria||'Movimiento')}</strong><small>${escapeHtml(r.categoria||'')}</small></div><span class="finance-status ${Number(r.cash_delta||0)>=0?'ok':'bad'}">${Number(r.cash_delta||0)>=0?'Ingreso':'Egreso'}</span><strong>${money(Math.abs(Number(r.cash_delta||0)))}</strong></div>`).join('')||'<div class="finance-empty">Sin movimientos registrados.</div>';
-  const payroll=$('#dashPayrollTable');
-  if(payroll) payroll.innerHTML=(data.nominas||[]).slice(0,6).map(r=>`<div class="finance-mini-row"><div><strong>${escapeHtml(r.usuario_nombre||'Trabajador')}</strong><small>${escapeHtml(r.periodo||'')}</small></div><span class="finance-status ${financeStatusClass(r.estado)}">${escapeHtml(r.estado||'')}</span><strong>${money(r.neto_pagar)}</strong></div>`).join('')||'<div class="finance-empty">Sin nóminas registradas.</div>';
-  const debts=$('#dashLocalDebtTable');
-  if(debts) debts.innerHTML=(data.deudas_local||[]).slice(0,6).map(r=>`<div class="finance-mini-row"><div><strong>${escapeHtml(r.acreedor||'Acreedor')}</strong><small>${escapeHtml(r.proximo_pago||'Sin fecha')}</small></div><span class="finance-status ${Number(r.saldo||0)>0?'warn':'ok'}">${Number(r.saldo||0)>0?'Pendiente':'Pagado'}</span><strong>${money(r.saldo)}</strong></div>`).join('')||'<div class="finance-empty">Sin deudas del local.</div>';
-  const reviews=$('#dashReviewsTable');
-  if(reviews) {
-    const rows=[...(pendingCuadreReviews||[])].slice(0,5);
-    reviews.innerHTML=rows.map(r=>`<div class="finance-mini-row"><div><strong>${escapeHtml(r.usuario_nombre||r.usuario||'Usuario')}</strong><small>${escapeHtml(r.fecha_local||'')}</small></div><span class="finance-status warn">En revisión</span><strong>${money(Math.abs(Number(r.diferencia||0)))}</strong></div>`).join('')||'<div class="finance-empty">No hay revisiones pendientes.</div>';
-  }
-}
-function renderFinanceDashboard(data) {
-  financeDashboardData=data||{};
-  const s=data?.resumen||{};
-  const setM=(id,v)=>{if($('#'+id))$('#'+id).textContent=money(Number(v||0));};
-  setM('dashLocalBalance',s.balance_local);setM('dashIncome',s.ingresos_mes);setM('dashExpenses',s.egresos_mes);
-  setM('dashNetProfit',s.ganancia_mes);setM('dashEmployeeDebt',s.deuda_colaboradores);setM('dashLocalDebt',s.deuda_local);
-  setM('financeBalance',s.balance_local);setM('financeIncome',s.ingresos_mes);setM('financeExpenses',s.egresos_mes);
-  setM('financeProfit',s.ganancia_mes);setM('financeEmployeeDebt',s.deuda_colaboradores);setM('financeLocalDebt',s.deuda_local);
-  renderCompareChart('financeCompareChart',(data.mensual||[]).slice(-6));
-  renderCompareChart('financePageCompareChart',(data.mensual||[]).slice(-6));
-  renderProfitChart('profitLineChart',data.mensual||[]);
-  renderProfitChart('financePageProfitChart',data.mensual||[]);
-  renderExpenseDistribution('expenseDonut','expenseDonutTotal','expenseLegend',data.egresos_categorias||[]);
-  renderExpenseDistribution('financePageDonut','financePageDonutTotal','financePageExpenseLegend',data.egresos_categorias||[]);
-  renderFinanceMiniTables(data);
-}
-async function refreshFinanceDashboard({silent=false}={}) {
-  if(currentUser?.rol!=='admin') return null;
-  try{
-    const data=await apiFetch(`/api/finanzas/dashboard?months=12&_=${Date.now()}`,{cache:'no-store'});
-    renderFinanceDashboard(data);
-    return data;
-  }catch(err){if(!silent)showToast(err.message,'No se pudo cargar Finanzas');return null;}
-}
-async function refreshFinanceUsers() {
-  if(financeUsers.length) return financeUsers;
-  const rows=await apiFetch(`/api/usuarios/activos?_=${Date.now()}`,{cache:'no-store'});
-  financeUsers=Array.isArray(rows)?rows:[];
-  const options='<option value="">Selecciona un usuario</option>'+financeUsers.map(u=>`<option value="${u.id}">${escapeHtml(u.nombre||u.usuario)}</option>`).join('');
-  if($('#employeeDebtUser'))$('#employeeDebtUser').innerHTML=options;
-  if($('#payrollUser'))$('#payrollUser').innerHTML=options;
-  return financeUsers;
-}
-function setFinanceTab(tab='resumen') {
-  financeActiveTab=tab;
-  $$('[data-finance-tab]').forEach(b=>b.classList.toggle('active',b.dataset.financeTab===tab));
-  $$('[data-finance-panel]').forEach(p=>p.classList.toggle('active',p.dataset.financePanel===tab));
-}
-async function openFinanceTab(tab='resumen') {
-  showMainView('finance'); setFinanceTab(tab); await refreshFinancePage({silent:true});
-}
-async function refreshFinanceDayAdjustment() {
-  if(!currentUser) return 0;
-  try{
-    const d=await apiFetch(`/api/finanzas/ajuste-dia?fecha=${encodeURIComponent(todayLocal())}&_=${Date.now()}`,{cache:'no-store'});
-    financeDayAdjustment=Number(d.ajuste||0); return financeDayAdjustment;
-  }catch{financeDayAdjustment=0;return 0;}
-}
-function renderFinanceRecords(data) {
-  const mov=$('#financeMovementsList');
-  if(mov) mov.innerHTML=(data.movimientos||[]).map(r=>`<div class="finance-record-row"><div><strong>${escapeHtml(r.descripcion||r.categoria||'Movimiento')}</strong><small>${escapeHtml(r.fecha_local||'')} · ${escapeHtml(r.medio||'')}</small></div><span class="finance-status ${Number(r.cash_delta||0)>=0?'ok':'bad'}">${escapeHtml(r.tipo||'')}</span><strong>${money(Math.abs(Number(r.cash_delta||0)))}</strong><div></div></div>`).join('')||'<div class="finance-empty">Sin movimientos.</div>';
-  const emp=$('#employeeDebtList');
-  if(emp) emp.innerHTML=(data.deudas_colaboradores||[]).map(r=>`<div class="finance-record-row" data-employee-debt="${r.id}"><div><strong>${escapeHtml(r.usuario_nombre||'Colaborador')}</strong><small>${escapeHtml(r.descripcion||'')} · ${escapeHtml(r.fecha_local||'')}</small></div><span class="finance-status ${Number(r.saldo||0)>0?'warn':'ok'}">${Number(r.saldo||0)>0?'Pendiente':'Pagada'}</span><strong>${money(r.saldo)}</strong><div class="finance-record-actions">${Number(r.saldo||0)>0?`<input class="finance-action-input" type="number" min="0.01" step="0.01" max="${Number(r.saldo||0)}" placeholder="Abono" data-employee-pay-amount><select class="finance-action-select" data-employee-pay-method><option value="caja">Caja</option><option value="nomina">Nómina</option></select><button data-pay-employee-debt="${r.id}">Abonar</button><button class="danger" data-delete-employee-debt="${r.id}">Eliminar</button>`:''}</div></div>`).join('')||'<div class="finance-empty">Sin deudas de colaboradores.</div>';
-  const local=$('#localDebtList');
-  if(local) local.innerHTML=(data.deudas_local||[]).map(r=>`<div class="finance-record-row" data-local-debt="${r.id}"><div><strong>${escapeHtml(r.acreedor||'Acreedor')}</strong><small>${escapeHtml(r.descripcion||'')} · próximo: ${escapeHtml(r.proximo_pago||'Sin fecha')}</small></div><span class="finance-status ${Number(r.saldo||0)>0?'warn':'ok'}">${Number(r.saldo||0)>0?'Pendiente':'Pagada'}</span><strong>${money(r.saldo)}</strong><div class="finance-record-actions">${Number(r.saldo||0)>0?`<input class="finance-action-input" type="number" min="0.01" step="0.01" max="${Number(r.saldo||0)}" placeholder="Capital" data-local-pay-amount><input class="finance-action-input" type="number" min="0" step="0.01" placeholder="Interés" data-local-pay-interest><button data-pay-local-debt="${r.id}">Pagar</button><button class="danger" data-delete-local-debt="${r.id}">Eliminar</button>`:''}</div></div>`).join('')||'<div class="finance-empty">Sin deudas del local.</div>';
-  const pay=$('#payrollList');
-  if(pay) pay.innerHTML=(data.nominas||[]).map(r=>`<div class="finance-record-row" data-payroll="${r.id}"><div><strong>${escapeHtml(r.usuario_nombre||'Trabajador')}</strong><small>${escapeHtml(r.periodo||'')} · bruto ${money(r.sueldo_bruto)} · deuda ${money(r.deuda_descuento)}</small></div><span class="finance-status ${financeStatusClass(r.estado)}">${escapeHtml(r.estado||'')}</span><strong>${money(r.neto_pagar)}</strong><div class="finance-record-actions">${r.estado!=='pagado'?`<button data-pay-payroll="${r.id}">Pagar ahora</button>`:''}</div></div>`).join('')||'<div class="finance-empty">Sin nóminas.</div>';
-}
-async function refreshFinancePage({silent=false}={}) {
-  if(currentUser?.rol!=='admin') return;
-  try{
-    await refreshFinanceUsers();
-    const data=await refreshFinanceDashboard({silent:true});
-    if(data) renderFinanceRecords(data);
-    const today=todayLocal(),month=today.slice(0,7);
-    ['financeMovementDate','employeeDebtDate','localDebtDate','payrollDate'].forEach(id=>{if($('#'+id)&&!$('#'+id).value)$('#'+id).value=today;});
-    if($('#payrollPeriod')&&!$('#payrollPeriod').value)$('#payrollPeriod').value=month;
-    updatePayrollPreview();
-  }catch(err){if(!silent)showToast(err.message,'No se pudo actualizar Finanzas');}
-}
-async function refreshPayrollSuggestion() {
-  const uid=Number($('#payrollUser')?.value||0),period=$('#payrollPeriod')?.value||'';
-  if(!uid||!period){if($('#payrollSuggestionInfo'))$('#payrollSuggestionInfo').textContent='Selecciona trabajador y período';return;}
-  try{
-    const r=await apiFetch(`/api/finanzas/nomina-sugerida?usuario_id=${uid}&periodo=${encodeURIComponent(period)}&_=${Date.now()}`,{cache:'no-store'});
-    if($('#payrollGross') && Number($('#payrollGross').value||0)===0) $('#payrollGross').value=Number(r.total_pagar||0).toFixed(2);
-    if($('#payrollSuggestionInfo')) $('#payrollSuggestionInfo').textContent=`${Number(r.horas||0).toFixed(2)} h × ${money(r.valor_hora)}/h`;
-    updatePayrollPreview();
-  }catch(err){if($('#payrollSuggestionInfo'))$('#payrollSuggestionInfo').textContent='No se pudo calcular la sugerencia';}
-}
-function updatePayrollPreview() {
-  const gross=Math.max(0,Number($('#payrollGross')?.value||0)),disc=Math.max(0,Number($('#payrollDebtDiscount')?.value||0));
-  if($('#payrollNetPreview'))$('#payrollNetPreview').textContent=money(Math.max(0,gross-disc));
-}
-async function submitFinanceMovement(e) {
-  e.preventDefault();
-  const payload={tipo:$('#financeMovementType').value,categoria:$('#financeMovementCategory').value.trim(),monto:Number($('#financeMovementAmount').value||0),medio:$('#financeMovementMethod').value,fecha:$('#financeMovementDate').value,descripcion:$('#financeMovementDescription').value.trim()};
-  try{await apiFetch('/api/finanzas/movimientos',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify(payload)});e.target.reset();$('#financeMovementDate').value=todayLocal();showToast('Movimiento registrado.','Finanzas');await refreshFinancePage({silent:true});}catch(err){showToast(err.message,'No se pudo registrar');}
-}
-async function submitEmployeeDebt(e) {
-  e.preventDefault(); const payload={usuario_id:Number($('#employeeDebtUser').value),monto:Number($('#employeeDebtAmount').value||0),fecha:$('#employeeDebtDate').value,descripcion:$('#employeeDebtDescription').value.trim()};
-  try{await apiFetch('/api/finanzas/deudas-colaboradores',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify(payload)});e.target.reset();$('#employeeDebtDate').value=todayLocal();showToast('Deuda registrada y caja ajustada.','Finanzas');await refreshFinancePage({silent:true});}catch(err){showToast(err.message,'No se pudo registrar la deuda');}
-}
-async function submitLocalDebt(e) {
-  e.preventDefault(); const payload={acreedor:$('#localDebtCreditor').value.trim(),monto:Number($('#localDebtAmount').value||0),fecha:$('#localDebtDate').value,proximo_pago:$('#localDebtNextPayment').value,descripcion:$('#localDebtDescription').value.trim()};
-  try{await apiFetch('/api/finanzas/deudas-local',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify(payload)});e.target.reset();$('#localDebtDate').value=todayLocal();showToast('Deuda del local registrada.','Finanzas');await refreshFinancePage({silent:true});}catch(err){showToast(err.message,'No se pudo registrar la deuda');}
-}
-async function submitPayroll(e) {
-  e.preventDefault(); const payload={usuario_id:Number($('#payrollUser').value),periodo:$('#payrollPeriod').value,sueldo_bruto:Number($('#payrollGross').value||0),deuda_descuento:Number($('#payrollDebtDiscount').value||0),estado:$('#payrollStatus').value,fecha:$('#payrollDate').value};
-  try{await apiFetch('/api/finanzas/nominas',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify(payload)});e.target.reset();$('#payrollPeriod').value=todayLocal().slice(0,7);$('#payrollDate').value=todayLocal();updatePayrollPreview();showToast('Nómina registrada.','Finanzas');await refreshFinancePage({silent:true});}catch(err){showToast(err.message,'No se pudo registrar la nómina');}
 }
 
 function clearForm() {
@@ -2469,7 +2266,7 @@ async function refreshMyCheckin() {
 function showMyCheckinPage() {
   hideStandalonePages();
 
-  ['home','resumen','tareas','archivados','cotizador','cuadre','revisiones','disenos','finanzas'].forEach((id) => {
+  ['home','resumen','tareas','archivados','cotizador','cuadre','revisiones','disenos'].forEach((id) => {
     const el = $('#' + id);
     if (el) el.hidden = true;
   });
@@ -2482,7 +2279,7 @@ function showMyCheckinPage() {
 
 function showSettingsPage() {
   hideStandalonePages();
-  ['home','resumen','tareas','archivados','cotizador','cuadre','revisiones','disenos','finanzas'].forEach((id) => {
+  ['home','resumen','tareas','archivados','cotizador','cuadre','disenos'].forEach((id) => {
     const el = $('#' + id);
     if (el) el.hidden = true;
   });
@@ -2499,8 +2296,7 @@ function showMainView(view) {
     quote:'quote',
     cuadre:'cuadre',
     reviews:'reviews',
-    designs:'designs',
-    finance:'finance'
+    designs:'designs'
   };
 
   if (permissionMap[view] && !userCan(permissionMap[view])) {
@@ -2514,17 +2310,15 @@ function showMainView(view) {
   const isCuadre = view === 'cuadre';
   const isReviews = view === 'reviews';
   const isDesigns = view === 'designs';
-  const isFinance = view === 'finance';
 
   $('#home').hidden = !isHome;
-  $('#resumen').hidden = !isHome;
+  $('#resumen').hidden = !isTasks;
   $('#tareas').hidden = !isTasks;
   $('#archivados').hidden = true;
   $('#cotizador').hidden = !isQuote;
   $('#cuadre').hidden = !isCuadre;
   $('#revisiones').hidden = !isReviews;
   $('#disenos').hidden = !isDesigns;
-  if ($('#finanzas')) $('#finanzas').hidden = !isFinance;
 
   $('#navHome')?.classList.toggle('active', isHome);
   $('#navTasks')?.classList.toggle('active', isTasks);
@@ -2532,7 +2326,6 @@ function showMainView(view) {
   $('#navCuadre')?.classList.toggle('active', isCuadre);
   $('#navReviews')?.classList.toggle('active', isReviews);
   $('#navDesigns')?.classList.toggle('active', isDesigns);
-  $('#navFinance')?.classList.toggle('active', isFinance);
 
   if (homeRefreshTimer) {
     clearInterval(homeRefreshTimer);
@@ -2540,19 +2333,11 @@ function showMainView(view) {
   }
 
   if (isHome) {
-    const homeDateLabel = $('#homeDateLabel');
-    if (homeDateLabel) homeDateLabel.textContent = new Intl.DateTimeFormat('es-EC', { weekday:'long', day:'2-digit', month:'long' }).format(new Date());
-    updateExecutiveDashboard();
-    Promise.allSettled([
-      refreshAttendance(),
-      refreshHomeUsers(),
-      currentUser?.rol === 'admin' ? refreshFinanceDashboard({ silent:true }) : Promise.resolve()
-    ]);
+    Promise.allSettled([refreshAttendance(), refreshHomeUsers()]);
     homeRefreshTimer = setInterval(() => {
       if (currentUser && !$('#home')?.hidden) {
         refreshHomeUsers();
         refreshAttendance();
-        if (currentUser?.rol === 'admin') refreshFinanceDashboard({ silent:true });
       }
     }, 30000);
   }
@@ -2566,7 +2351,6 @@ function showMainView(view) {
     calculateQuote();
   }
   if (isDesigns) refreshDesigns({ silent:true });
-  if (isFinance) refreshFinancePage({ silent:true });
 }
 function setArchiveView(show) {
   const archive = $('#archivados');
@@ -2633,10 +2417,6 @@ function updateNavigationPermissions() {
   if (adminMenu) adminMenu.hidden = currentUser?.rol !== 'admin';
   const reviewsNav = $('#navReviews');
   if (reviewsNav) reviewsNav.hidden = currentUser?.rol !== 'admin';
-  const financeNav = $('#navFinance');
-  if (financeNav) financeNav.hidden = currentUser?.rol !== 'admin';
-  const financeHomeArea = $('#financeHomeArea');
-  if (financeHomeArea) financeHomeArea.hidden = currentUser?.rol !== 'admin';
 }
 
 function syncProfileThemeControl() {
@@ -2841,7 +2621,6 @@ function bindCoreNavigationEarly() {
   };
 
   safeBind('navHome', () => showMainView('home'));
-  safeBind('navFinance', () => showMainView('finance'));
   safeBind('navTasks', () => showMainView('tasks'));
   safeBind('navQuote', () => showMainView('quote'));
   safeBind('navCuadre', () => showMainView('cuadre'));
@@ -3222,7 +3001,6 @@ async function refreshHomeUsers() {
       : [];
     renderHomeUsers();
     renderHomeGoals();
-    updateExecutiveDashboard();
   } catch (err) {
     console.error(err);
     showToast(err.message, 'No se pudo actualizar Home');
@@ -4245,7 +4023,7 @@ function currentCnbPayload(){
     {clave:'yaganaste',banco:cnbLabel('yaganaste','Ya Ganaste'),cuenta:getCnbBankDef('yaganaste')?.subtitle||'Saldo actual',valor_1:ya,valor_2:0,resultado:ya,transacciones:cnbTx('cnbTxYaGanaste')},
     {clave:'minegocio',banco:cnbLabel('minegocio','Mi Negocio'),cuenta:getCnbBankDef('minegocio')?.subtitle||'Saldo actual',valor_1:mi,valor_2:0,resultado:mi,transacciones:0}
   ];
-  const tb=cuentas.reduce((s,x)=>s+x.resultado,0),tt=cuentas.reduce((s,x)=>s+x.transacciones,0),vt=tt*cnbConfig.valor_transaccion,te=tb+ef+vt,ve=cnbConfig.efectivo_inicial+Number(financeDayAdjustment||0),d=te-ve,ok=d>=-cnbConfig.margen_faltante-.0001&&d<=cnbConfig.margen_sobrante+.0001;
+  const tb=cuentas.reduce((s,x)=>s+x.resultado,0),tt=cuentas.reduce((s,x)=>s+x.transacciones,0),vt=tt*cnbConfig.valor_transaccion,te=tb+ef+vt,ve=cnbConfig.efectivo_inicial,d=te-ve,ok=d>=-cnbConfig.margen_faltante-.0001&&d<=cnbConfig.margen_sobrante+.0001;
   return{fecha:todayLocal(),tipo_cuadre:'cnb_v2',config_usada:{...cnbConfig},cuentas,efectivo:ef,total_bancos:tb,total_transacciones:tt,valor_transacciones:vt,total_encontrado:te,valor_esperado:ve,diferencia:d,dentro_margen:ok};
 }
 function updateCuadreTotals(){
@@ -4581,7 +4359,7 @@ async function refreshCuadre(){
   try{
     const fecha=todayLocal();
     if($('#cuadreDateLabel'))$('#cuadreDateLabel').textContent=formatAttendanceDate(fecha);
-    await Promise.allSettled([refreshBanks({silent:true}),refreshCnbConfig({silent:true}),refreshFinanceDayAdjustment()]);
+    await Promise.allSettled([refreshBanks({silent:true}),refreshCnbConfig({silent:true})]);
     const [r,opening]=await Promise.all([
       apiFetch(`/api/cuadre/solicitud-actual?fecha=${encodeURIComponent(fecha)}&_=${Date.now()}`,{cache:'no-store'}),
       refreshCuadreOpening({silent:true})
@@ -5165,7 +4943,7 @@ function requestAdminPanel(section = 'hub') {
 }
 function openAdminPanel(section = pendingAdminSection || 'hub') {
   // Primero abre la página; después carga los módulos.
-  ['home','resumen','tareas','archivados','cotizador','cuadre','revisiones','disenos','finanzas'].forEach((id) => {
+  ['home','resumen','tareas','archivados','cotizador','cuadre','disenos'].forEach((id) => {
     const el = $('#' + id);
     if (el) el.hidden = true;
   });
@@ -5989,46 +5767,6 @@ $('#adminDesignList')?.addEventListener('click', (e) => {
   if (deleteId) deleteDesign(deleteId);
 });
 
-
-$('#financeMovementForm')?.addEventListener('submit', submitFinanceMovement);
-$('#employeeDebtForm')?.addEventListener('submit', submitEmployeeDebt);
-$('#localDebtForm')?.addEventListener('submit', submitLocalDebt);
-$('#payrollForm')?.addEventListener('submit', submitPayroll);
-$('#payrollGross')?.addEventListener('input', updatePayrollPreview);
-$('#payrollDebtDiscount')?.addEventListener('input', updatePayrollPreview);
-$('#payrollUser')?.addEventListener('change', refreshPayrollSuggestion);
-$('#payrollPeriod')?.addEventListener('change', refreshPayrollSuggestion);
-on('refreshFinance','click',()=>refreshFinancePage({silent:false}));
-$$('[data-finance-tab]').forEach(btn=>btn.addEventListener('click',()=>setFinanceTab(btn.dataset.financeTab)));
-$$('[data-open-finance]').forEach(btn=>btn.addEventListener('click',()=>openFinanceTab(btn.dataset.openFinance)));
-on('dashOpenReviews','click',()=>showMainView('reviews'));
-$$('[data-profit-period]').forEach(btn=>btn.addEventListener('click',()=>{
-  financeProfitPeriod=Number(btn.dataset.profitPeriod||6);
-  $$('[data-profit-period]').forEach(x=>x.classList.toggle('active',x===btn));
-  if($('#profitChartSubtitle'))$('#profitChartSubtitle').textContent=financeProfitPeriod===1?'Este mes':financeProfitPeriod===12?'Último año':'Últimos 6 meses';
-  if(financeDashboardData)renderProfitChart('profitLineChart',financeDashboardData.mensual||[]);
-}));
-
-$('#employeeDebtList')?.addEventListener('click',async(e)=>{
-  const pay=e.target.closest('[data-pay-employee-debt]'),del=e.target.closest('[data-delete-employee-debt]');
-  try{
-    if(pay){const row=pay.closest('[data-employee-debt]'),amount=Number(row.querySelector('[data-employee-pay-amount]')?.value||0),method=row.querySelector('[data-employee-pay-method]')?.value||'caja';if(amount<=0)throw new Error('Ingresa el valor del abono.');await apiFetch(`/api/finanzas/deudas-colaboradores/${pay.dataset.payEmployeeDebt}/abono`,{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({monto:amount,medio:method,fecha:todayLocal()})});showToast('Abono registrado.','Finanzas');await refreshFinancePage({silent:true});}
-    if(del){const ok=await themedConfirm({title:'Eliminar deuda',message:'Solo se puede eliminar una deuda sin abonos. El sistema revertirá el movimiento de caja para no descuadrarla.',confirmText:'Eliminar deuda'});if(!ok)return;await apiFetch(`/api/finanzas/deudas-colaboradores/${del.dataset.deleteEmployeeDebt}`,{method:'DELETE'});showToast('Deuda eliminada y caja revertida.','Finanzas');await refreshFinancePage({silent:true});}
-  }catch(err){showToast(err.message,'Finanzas');}
-});
-$('#localDebtList')?.addEventListener('click',async(e)=>{
-  const pay=e.target.closest('[data-pay-local-debt]'),del=e.target.closest('[data-delete-local-debt]');
-  try{
-    if(pay){const row=pay.closest('[data-local-debt]'),amount=Number(row.querySelector('[data-local-pay-amount]')?.value||0),interest=Number(row.querySelector('[data-local-pay-interest]')?.value||0);if(amount<=0)throw new Error('Ingresa el capital a pagar.');await apiFetch(`/api/finanzas/deudas-local/${pay.dataset.payLocalDebt}/pago`,{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({monto:amount,interes:interest,fecha:todayLocal()})});showToast('Pago registrado.','Finanzas');await refreshFinancePage({silent:true});}
-    if(del){const ok=await themedConfirm({title:'Eliminar deuda del local',message:'Solo se puede eliminar si no tiene pagos. La entrada original de caja será revertida.',confirmText:'Eliminar deuda'});if(!ok)return;await apiFetch(`/api/finanzas/deudas-local/${del.dataset.deleteLocalDebt}`,{method:'DELETE'});showToast('Deuda eliminada y caja revertida.','Finanzas');await refreshFinancePage({silent:true});}
-  }catch(err){showToast(err.message,'Finanzas');}
-});
-$('#payrollList')?.addEventListener('click',async(e)=>{
-  const btn=e.target.closest('[data-pay-payroll]');if(!btn)return;
-  try{const ok=await themedConfirm({title:'Pagar nómina',message:'Se registrará la salida de caja por el valor neto a pagar y se aplicará el descuento de deuda configurado.',confirmText:'Registrar pago'});if(!ok)return;await apiFetch(`/api/finanzas/nominas/${btn.dataset.payPayroll}/pagar`,{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({fecha:todayLocal()})});showToast('Nómina pagada y caja actualizada.','Finanzas');await refreshFinancePage({silent:true});}catch(err){showToast(err.message,'Finanzas');}
-});
-
-
 window.addEventListener('error', (event) => {
   console.error(`[DeTodoEc V${APP_VERSION}]`, event.error || event.message);
   const msg = event?.error?.message || event?.message || '';
@@ -6079,13 +5817,3 @@ function escapeHtml(value) {
 }
 
 document.addEventListener('click', (e) => { if (!e.target.closest('.admin-user-card-v2')) closeAdminUserMenus(); });
-
-
-// V12.1: menús desplegables compactos; se cierran al elegir una sección o al pulsar fuera.
-document.addEventListener('click', (event) => {
-  const selected = event.target.closest('.nav-dropdown-menu .main-nav-btn');
-  if (selected) selected.closest('details')?.removeAttribute('open');
-  if (!event.target.closest('.nav-dropdown')) {
-    document.querySelectorAll('.nav-dropdown[open]').forEach((item) => item.removeAttribute('open'));
-  }
-});
