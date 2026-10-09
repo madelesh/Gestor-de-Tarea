@@ -9,7 +9,7 @@
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700;800&display=swap" rel="stylesheet">
   <link id="dynamicFavicon" rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 64 64'%3E%3Crect width='64' height='64' rx='16' fill='%23b9ff39'/%3E%3Cpath d='M18 33l9 9 19-22' fill='none' stroke='%23111' stroke-width='7' stroke-linecap='round' stroke-linejoin='round'/%3E%3C/svg%3E" />
-  <link rel="stylesheet" href="styles.css?v=12.1" />
+  <link rel="stylesheet" href="styles.css?v=12.2" />
 </head>
 <body>
   <svg xmlns="http://www.w3.org/2000/svg" style="display:none" aria-hidden="true" focusable="false">
@@ -109,6 +109,7 @@
 
       <nav class="main-nav dashboard-dropdown-nav" aria-label="Navegación principal">
         <button type="button" class="main-nav-btn active" id="navHome"><svg class="icon"><use href="#icon-home"></use></svg><span>Dashboard</span></button>
+        <button type="button" class="main-nav-btn finance-nav-btn" id="navFinance" hidden><svg class="icon"><use href="#icon-dollar"></use></svg><span>Finanzas</span></button>
         <details class="nav-dropdown">
           <summary><svg class="icon"><use href="#icon-briefcase"></use></svg><span>Operación</span><span class="nav-caret">⌄</span></summary>
           <div class="nav-dropdown-menu">
@@ -169,20 +170,18 @@
     </header>
 
     <main class="page-content">
-      <section class="section home-section" id="home">
-        <div class="home-hero">
+      <section class="section home-section finance-home" id="home">
+        <div class="finance-home-head">
           <div>
             <span class="dashboard-overline">Panel general</span>
-            <h1>Hola, <span id="homeGreetingName">Usuario</span> 👋</h1>
-            <p>Resumen operativo de DeTodoEc: equipo, tareas, metas y actividad del día.</p>
-            <div class="dashboard-date-row"><span id="homeDateLabel">Hoy</span><span class="dashboard-live-dot"></span><span>Información en tiempo real</span></div>
+            <h1>Bienvenido, <span id="homeGreetingName">Usuario</span></h1>
+            <p>Resumen completo de la operación, personal y finanzas de DeTodoEc.</p>
           </div>
-          <div class="home-hero-actions">
+          <div class="finance-home-head-actions">
+            <div class="dashboard-date-chip"><svg class="icon"><use href="#icon-calendar"></use></svg><span id="homeDateLabel">Hoy</span></div>
             <div class="home-attendance-widget">
               <button type="button" class="home-attendance-btn attendance-entry" id="homeAttendanceBtn">
-                <span class="home-attendance-icon">
-                  <svg class="icon"><use id="homeAttendanceIconUse" href="#icon-checkin-entry"></use></svg>
-                </span>
+                <span class="home-attendance-icon"><svg class="icon"><use id="homeAttendanceIconUse" href="#icon-checkin-entry"></use></svg></span>
                 <strong id="homeAttendanceText">Entrada</strong>
               </button>
               <span class="home-attendance-subtext" id="homeAttendanceSubtext">Pulsa para marcar tu entrada</span>
@@ -190,57 +189,93 @@
           </div>
         </div>
 
-        <section class="executive-dashboard" aria-label="Resumen financiero">
-          <div class="executive-kpis">
-            <article class="executive-kpi kpi-balance"><span>Balance del local</span><strong id="dashLocalBalance">$0.00</strong><small>Ingresos menos egresos registrados</small></article>
-            <article class="executive-kpi"><span>Ingresos del mes</span><strong id="dashIncome">$0.00</strong><small id="dashIncomeNote">Abonos registrados</small></article>
-            <article class="executive-kpi"><span>Egresos del mes</span><strong id="dashExpenses">$0.00</strong><small id="dashExpenseNote">Sin egresos registrados</small></article>
-            <article class="executive-kpi"><span>Por cobrar</span><strong id="dashReceivable">$0.00</strong><small>Saldo pendiente de tareas activas</small></article>
-            <article class="executive-kpi"><span>Usuarios conectados</span><strong id="dashOnlineUsers">0</strong><small id="dashOnlineNote">0 usuarios registrados</small></article>
-          </div>
-          <div class="executive-grid">
-            <article class="finance-chart-card">
-              <div class="dashboard-card-head"><div><span class="eyebrow">Finanzas</span><h2>Ingresos últimos 7 días</h2></div><strong id="dash7DayTotal">$0.00</strong></div>
-              <div class="finance-bars" id="dashIncomeChart" aria-label="Gráfico de ingresos de los últimos 7 días"></div>
-            </article>
-            <article class="business-snapshot-card">
-              <div class="dashboard-card-head"><div><span class="eyebrow">Operación</span><h2>Estado del negocio</h2></div></div>
-              <div class="snapshot-list">
-                <div><span>Tareas activas</span><strong id="dashActiveTasks">0</strong></div>
-                <div><span>Pendientes</span><strong id="dashPendingTasks">0</strong></div>
-                <div><span>Terminadas</span><strong id="dashDoneTasks">0</strong></div>
-                <div><span>Revisiones en curso</span><strong id="dashReviews">0</strong></div>
-              </div>
-            </article>
-          </div>
-        </section>
-
-        <section class="home-team-panel">
-          <div class="home-panel-head">
+        <section class="online-first-card">
+          <div class="dashboard-card-head">
             <div>
-              <h2>Equipo</h2>
-              <p>Estado actual según el registro de entrada del día.</p>
+              <span class="eyebrow">Personal</span>
+              <h2>Usuarios online</h2>
+              <p><strong id="dashOnlineUsers">0</strong> conectados · <span id="dashOnlineNote">0 usuarios registrados</span></p>
             </div>
-            <button type="button" class="btn btn-outline small" id="refreshHomeUsers">
-              <svg class="icon"><use href="#icon-refresh"></use></svg><span>Actualizar</span>
-            </button>
+            <button type="button" class="btn btn-outline small" id="refreshHomeUsers"><svg class="icon"><use href="#icon-refresh"></use></svg><span>Actualizar</span></button>
           </div>
-          <div class="home-workers-grid" id="homeWorkersGrid"></div>
+          <div class="home-workers-grid finance-online-grid" id="homeWorkersGrid"></div>
           <div class="home-workers-empty" id="homeWorkersEmpty" hidden>No hay usuarios registrados.</div>
         </section>
 
-        <section class="home-goals-panel">
-          <div class="home-panel-head">
-            <div>
-              <span class="eyebrow">Metas</span>
-              <h2>Metas del mes</h2>
-              <p>Avance mensual de Ventas y Transacciones de cada usuario.</p>
-            </div>
-            <div class="home-goals-month" id="homeGoalsMonth">Mes actual</div>
+        <section class="finance-dashboard-area" id="financeHomeArea">
+          <div class="finance-kpis-v2">
+            <article class="finance-kpi-card kpi-green">
+              <div class="finance-kpi-top"><span class="finance-kpi-icon"><svg class="icon"><use href="#icon-wallet"></use></svg></span><small>Balance general del local</small></div>
+              <strong id="dashLocalBalance">$0.00</strong><span id="dashBalanceTrend">Liquidez registrada</span>
+            </article>
+            <article class="finance-kpi-card kpi-blue">
+              <div class="finance-kpi-top"><span class="finance-kpi-icon"><svg class="icon"><use href="#icon-dollar"></use></svg></span><small>Ingresos del mes</small></div>
+              <strong id="dashIncome">$0.00</strong><span id="dashIncomeNote">Ingresos registrados</span>
+            </article>
+            <article class="finance-kpi-card kpi-red">
+              <div class="finance-kpi-top"><span class="finance-kpi-icon"><svg class="icon"><use href="#icon-back"></use></svg></span><small>Egresos del mes</small></div>
+              <strong id="dashExpenses">$0.00</strong><span id="dashExpenseNote">Egresos registrados</span>
+            </article>
+            <article class="finance-kpi-card kpi-purple">
+              <div class="finance-kpi-top"><span class="finance-kpi-icon"><svg class="icon"><use href="#icon-target"></use></svg></span><small>Ganancia neta</small></div>
+              <strong id="dashNetProfit">$0.00</strong><span>Ingresos menos gastos del período</span>
+            </article>
+            <article class="finance-kpi-card kpi-amber">
+              <div class="finance-kpi-top"><span class="finance-kpi-icon"><svg class="icon"><use href="#icon-users"></use></svg></span><small>Deudas de colaboradores</small></div>
+              <strong id="dashEmployeeDebt">$0.00</strong><span>Saldo pendiente por cobrar</span>
+            </article>
+            <article class="finance-kpi-card kpi-cyan">
+              <div class="finance-kpi-top"><span class="finance-kpi-icon"><svg class="icon"><use href="#icon-briefcase"></use></svg></span><small>Deudas del local</small></div>
+              <strong id="dashLocalDebt">$0.00</strong><span>Obligaciones pendientes</span>
+            </article>
           </div>
 
-          <div class="home-goals-grid" id="homeGoalsGrid"></div>
-          <div class="home-workers-empty" id="homeGoalsEmpty" hidden>No hay metas configuradas.</div>
+          <div class="finance-chart-grid">
+            <article class="finance-panel-card">
+              <div class="dashboard-card-head"><div><h2>Ingresos vs egresos</h2><p>Últimos 6 meses</p></div><button type="button" class="panel-link" data-open-finance="movimientos">Ver movimientos</button></div>
+              <div class="finance-compare-chart" id="financeCompareChart"></div>
+            </article>
+            <article class="finance-panel-card">
+              <div class="dashboard-card-head">
+                <div><h2>Ganancias</h2><p id="profitChartSubtitle">Últimos 6 meses</p></div>
+                <div class="profit-period-switch"><button type="button" data-profit-period="1">1 mes</button><button type="button" data-profit-period="6" class="active">6 meses</button><button type="button" data-profit-period="12">1 año</button></div>
+              </div>
+              <div class="profit-line-chart" id="profitLineChart"></div>
+            </article>
+            <article class="finance-panel-card">
+              <div class="dashboard-card-head"><div><h2>Distribución de egresos</h2><p>Este mes</p></div></div>
+              <div class="expense-distribution"><div class="expense-donut" id="expenseDonut"><strong id="expenseDonutTotal">$0</strong><span>Total</span></div><div class="expense-legend" id="expenseLegend"></div></div>
+            </article>
+          </div>
+
+          <div class="finance-data-grid">
+            <article class="finance-panel-card">
+              <div class="dashboard-card-head"><div><h2>Movimientos de caja</h2><p>Entradas y salidas registradas</p></div><button type="button" class="panel-link" data-open-finance="movimientos">Ver todos</button></div>
+              <div class="finance-mini-table" id="dashMovementsTable"></div>
+            </article>
+            <article class="finance-panel-card">
+              <div class="dashboard-card-head"><div><h2>Nóminas de trabajadores</h2><p>Pagadas, pendientes y atrasadas</p></div><button type="button" class="panel-link" data-open-finance="nominas">Ver todas</button></div>
+              <div class="finance-mini-table" id="dashPayrollTable"></div>
+            </article>
+            <article class="finance-panel-card">
+              <div class="dashboard-card-head"><div><h2>Deudas con bancos</h2><p>Obligaciones del local</p></div><button type="button" class="panel-link" data-open-finance="deudas-local">Ver todas</button></div>
+              <div class="finance-mini-table" id="dashLocalDebtTable"></div>
+            </article>
+          </div>
+
+          <div class="finance-bottom-grid">
+            <article class="finance-panel-card">
+              <div class="dashboard-card-head"><div><h2>Revisiones y cuadres</h2><p>Actividad reciente de caja</p></div><button type="button" class="panel-link" id="dashOpenReviews">Ver todas</button></div>
+              <div class="finance-mini-table" id="dashReviewsTable"></div>
+            </article>
+            <article class="finance-panel-card home-goals-panel compact-goals-panel">
+              <div class="home-panel-head">
+                <div><span class="eyebrow">Metas</span><h2>Metas del mes</h2><p id="homeGoalsMonth">Mes actual</p></div>
+              </div>
+              <div class="home-goals-grid" id="homeGoalsGrid"></div>
+              <div class="home-workers-empty" id="homeGoalsEmpty" hidden>No hay metas configuradas.</div>
+            </article>
+          </div>
         </section>
       </section>
 
@@ -249,6 +284,106 @@
         <article><div class="stat-label"><span class="stat-icon"><svg class="icon"><use href="#icon-calendar"></use></svg></span><span>Pendientes</span></div><strong id="statPending">0</strong></article>
         <article><div class="stat-label"><span class="stat-icon"><svg class="icon"><use href="#icon-check"></use></svg></span><span>Terminadas</span></div><strong id="statDone">0</strong></article>
         <article><div class="stat-label"><span class="stat-icon"><svg class="icon"><use href="#icon-wallet"></use></svg></span><span>Saldo por cobrar</span></div><strong id="statBalance">$0.00</strong></article>
+      </section>
+
+
+      <section class="section finance-section" id="finanzas" hidden>
+        <div class="finance-section-head">
+          <div><span class="eyebrow">Control financiero</span><h1>Finanzas del local</h1><p>Registra y controla movimientos, deudas, nómina e inversiones sin perder la trazabilidad de caja.</p></div>
+          <button type="button" class="btn btn-outline" id="refreshFinance"><svg class="icon"><use href="#icon-refresh"></use></svg><span>Actualizar</span></button>
+        </div>
+
+        <div class="finance-section-tabs" role="tablist">
+          <button type="button" class="active" data-finance-tab="resumen">Resumen</button>
+          <button type="button" data-finance-tab="movimientos">Movimientos</button>
+          <button type="button" data-finance-tab="deudas-colaboradores">Deudas colaboradores</button>
+          <button type="button" data-finance-tab="deudas-local">Deudas del local</button>
+          <button type="button" data-finance-tab="nominas">Nóminas</button>
+        </div>
+
+        <div class="finance-tab-panel active" data-finance-panel="resumen">
+          <div class="finance-kpis-v2 finance-page-kpis">
+            <article class="finance-kpi-card kpi-green"><small>Balance del local</small><strong id="financeBalance">$0.00</strong></article>
+            <article class="finance-kpi-card kpi-blue"><small>Ingresos del mes</small><strong id="financeIncome">$0.00</strong></article>
+            <article class="finance-kpi-card kpi-red"><small>Egresos del mes</small><strong id="financeExpenses">$0.00</strong></article>
+            <article class="finance-kpi-card kpi-purple"><small>Ganancia neta</small><strong id="financeProfit">$0.00</strong></article>
+            <article class="finance-kpi-card kpi-amber"><small>Deuda colaboradores</small><strong id="financeEmployeeDebt">$0.00</strong></article>
+            <article class="finance-kpi-card kpi-cyan"><small>Deuda local</small><strong id="financeLocalDebt">$0.00</strong></article>
+          </div>
+          <div class="finance-chart-grid finance-page-charts">
+            <article class="finance-panel-card"><div class="dashboard-card-head"><div><h2>Ingresos vs egresos</h2><p>Últimos 6 meses</p></div></div><div id="financePageCompareChart" class="finance-compare-chart"></div></article>
+            <article class="finance-panel-card"><div class="dashboard-card-head"><div><h2>Ganancias</h2><p>Histórico</p></div></div><div id="financePageProfitChart" class="profit-line-chart"></div></article>
+            <article class="finance-panel-card"><div class="dashboard-card-head"><div><h2>Egresos por categoría</h2><p>Mes actual</p></div></div><div class="expense-distribution"><div class="expense-donut" id="financePageDonut"><strong id="financePageDonutTotal">$0</strong><span>Total</span></div><div id="financePageExpenseLegend" class="expense-legend"></div></div></article>
+          </div>
+        </div>
+
+        <div class="finance-tab-panel" data-finance-panel="movimientos">
+          <div class="finance-form-card">
+            <div><h2>Registrar movimiento</h2><p>Todo movimiento que afecte la liquidez debe quedar registrado aquí.</p></div>
+            <form id="financeMovementForm" class="finance-form-grid">
+              <label>Tipo<select id="financeMovementType" required>
+                <option value="ingreso">Ingreso del negocio</option>
+                <option value="egreso">Egreso operativo</option>
+                <option value="servicio">Servicio básico</option>
+                <option value="capital">Inyección de capital externo</option>
+                <option value="inversion">Inversión del local</option>
+              </select></label>
+              <label>Categoría<input id="financeMovementCategory" required placeholder="Ej. Servicios básicos" /></label>
+              <label>Monto<input id="financeMovementAmount" type="number" min="0.01" step="0.01" required /></label>
+              <label>Medio<select id="financeMovementMethod"><option value="caja">Caja</option><option value="banco">Banco</option><option value="otro">Otro</option></select></label>
+              <label>Fecha<input id="financeMovementDate" type="date" required /></label>
+              <label class="finance-form-span-2">Descripción<input id="financeMovementDescription" required placeholder="Detalle del movimiento" /></label>
+              <button type="submit" class="btn btn-accent"><svg class="icon"><use href="#icon-plus"></use></svg><span>Registrar movimiento</span></button>
+            </form>
+          </div>
+          <div class="finance-table-card"><div class="dashboard-card-head"><div><h2>Movimientos registrados</h2><p>Historial financiero</p></div></div><div id="financeMovementsList" class="finance-record-list"></div></div>
+        </div>
+
+        <div class="finance-tab-panel" data-finance-panel="deudas-colaboradores">
+          <div class="finance-form-card">
+            <div><h2>Nueva deuda de colaborador</h2><p>Cuando entregas dinero a un colaborador, el sistema reduce la caja y crea la cuenta por cobrar.</p></div>
+            <form id="employeeDebtForm" class="finance-form-grid">
+              <label>Colaborador<select id="employeeDebtUser" required></select></label>
+              <label>Monto<input id="employeeDebtAmount" type="number" min="0.01" step="0.01" required /></label>
+              <label>Fecha<input id="employeeDebtDate" type="date" required /></label>
+              <label class="finance-form-span-2">Motivo<input id="employeeDebtDescription" required placeholder="Motivo de la deuda" /></label>
+              <button type="submit" class="btn btn-accent"><svg class="icon"><use href="#icon-plus"></use></svg><span>Agregar deuda</span></button>
+            </form>
+          </div>
+          <div class="finance-table-card"><div class="dashboard-card-head"><div><h2>Deudas de colaboradores</h2><p>Saldo pendiente y abonos</p></div></div><div id="employeeDebtList" class="finance-record-list"></div></div>
+        </div>
+
+        <div class="finance-tab-panel" data-finance-panel="deudas-local">
+          <div class="finance-form-card">
+            <div><h2>Nueva deuda del local</h2><p>Registra préstamos bancarios o dinero recibido para invertir. El desembolso aumenta la caja pero no se considera ganancia.</p></div>
+            <form id="localDebtForm" class="finance-form-grid">
+              <label>Acreedor / banco<input id="localDebtCreditor" required placeholder="Ej. Banco Pichincha" /></label>
+              <label>Monto recibido<input id="localDebtAmount" type="number" min="0.01" step="0.01" required /></label>
+              <label>Fecha<input id="localDebtDate" type="date" required /></label>
+              <label>Próximo pago<input id="localDebtNextPayment" type="date" /></label>
+              <label class="finance-form-span-2">Motivo<input id="localDebtDescription" required placeholder="Ej. Capital para inversión" /></label>
+              <button type="submit" class="btn btn-accent"><svg class="icon"><use href="#icon-plus"></use></svg><span>Registrar deuda</span></button>
+            </form>
+          </div>
+          <div class="finance-table-card"><div class="dashboard-card-head"><div><h2>Deudas del local</h2><p>Obligaciones y pagos realizados</p></div></div><div id="localDebtList" class="finance-record-list"></div></div>
+        </div>
+
+        <div class="finance-tab-panel" data-finance-panel="nominas">
+          <div class="finance-form-card">
+            <div><h2>Registrar nómina</h2><p>Las nóminas pendientes o atrasadas generan la obligación. Al pagarlas se registra la salida real de caja.</p></div>
+            <form id="payrollForm" class="finance-form-grid">
+              <label>Trabajador<select id="payrollUser" required></select></label>
+              <label>Período<input id="payrollPeriod" type="month" required /></label>
+              <label>Sueldo bruto<input id="payrollGross" type="number" min="0" step="0.01" required /></label>
+              <label>Descuento deuda<input id="payrollDebtDiscount" type="number" min="0" step="0.01" value="0" /></label>
+              <label>Estado<select id="payrollStatus"><option value="pendiente">Pendiente</option><option value="atrasada">Atrasada</option><option value="pagado">Pagar ahora</option></select></label>
+              <label>Fecha<input id="payrollDate" type="date" required /></label>
+              <div class="finance-payroll-preview"><span id="payrollSuggestionInfo">Selecciona trabajador y período</span><strong id="payrollNetPreview">$0.00</strong></div>
+              <button type="submit" class="btn btn-accent"><svg class="icon"><use href="#icon-check"></use></svg><span>Guardar nómina</span></button>
+            </form>
+          </div>
+          <div class="finance-table-card"><div class="dashboard-card-head"><div><h2>Nóminas</h2><p>Pagadas, pendientes y atrasadas</p></div></div><div id="payrollList" class="finance-record-list"></div></div>
+        </div>
       </section>
 
       <section class="section" id="tareas">
@@ -604,7 +739,7 @@
     <footer class="app-version-footer" aria-label="Versión de la aplicación">
       <span>DeTodoEc</span>
       <span class="version-separator">•</span>
-      <strong>Versión 12.0</strong>
+      <strong>Versión 12.2</strong>
     </footer>
   </div>
 
@@ -1671,6 +1806,6 @@
     </article>
   </template>
 
-  <script src="app.js?v=12.1"></script>
+  <script src="app.js?v=12.2"></script>
 </body>
 </html>
