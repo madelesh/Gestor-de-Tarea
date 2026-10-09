@@ -1,4 +1,4 @@
-const APP_VERSION = '12.0';
+const APP_VERSION = '12.1';
 const API_BASE = 'https://gestor-tareas-api.detodoec.workers.dev';
 const STORAGE_KEY = 'detodoec_tasks_v1';
 const SETTINGS_KEY = 'detodoec_tasks_settings_v3';
@@ -1729,6 +1729,61 @@ function updateStats() {
   $('#statPending').textContent = active.filter((t) => t.status === 'pendiente').length;
   $('#statDone').textContent = active.filter((t) => t.status === 'terminado' || t.status === 'entregado').length;
   $('#statBalance').textContent = money(active.reduce((sum, t) => sum + balance(t), 0));
+  updateExecutiveDashboard();
+}
+
+function dashboardMonthKey(date = new Date()) {
+  const y = date.getFullYear();
+  const m = String(date.getMonth() + 1).padStart(2, '0');
+  return `${y}-${m}`;
+}
+
+function dashboardPayments() {
+  return tasks.flatMap((task) => (task.paymentHistory || []).map((payment) => ({
+    amount:Number(payment.amount || 0),
+    date:String(payment.date || payment.createdAt || '').slice(0,10)
+  }))).filter((payment) => payment.date);
+}
+
+function updateExecutiveDashboard() {
+  const active = tasks.filter((t) => !t.archived);
+  const month = dashboardMonthKey();
+  const payments = dashboardPayments();
+  const income = payments.filter((p) => p.date.startsWith(month)).reduce((sum,p) => sum + p.amount, 0);
+  const expenses = 0; // No existe todavía un módulo independiente de egresos en la base actual.
+  const receivable = active.reduce((sum,t) => sum + balance(t), 0);
+  const online = homeUsers.filter((u) => u.online).length;
+
+  if ($('#dashIncome')) $('#dashIncome').textContent = money(income);
+  if ($('#dashExpenses')) $('#dashExpenses').textContent = money(expenses);
+  if ($('#dashLocalBalance')) $('#dashLocalBalance').textContent = money(income - expenses);
+  if ($('#dashReceivable')) $('#dashReceivable').textContent = money(receivable);
+  if ($('#dashOnlineUsers')) $('#dashOnlineUsers').textContent = String(online);
+  if ($('#dashOnlineNote')) $('#dashOnlineNote').textContent = `${online} de ${homeUsers.length} usuarios en línea`;
+  if ($('#dashActiveTasks')) $('#dashActiveTasks').textContent = String(active.length);
+  if ($('#dashPendingTasks')) $('#dashPendingTasks').textContent = String(active.filter((t) => t.status === 'pendiente').length);
+  if ($('#dashDoneTasks')) $('#dashDoneTasks').textContent = String(active.filter((t) => t.status === 'terminado' || t.status === 'entregado').length);
+  if ($('#dashReviews')) $('#dashReviews').textContent = String((pendingCuadreReviews || []).length + (openingReviewAlerts || []).length);
+
+  const chart = $('#dashIncomeChart');
+  if (!chart) return;
+  const days = [];
+  const now = new Date();
+  for (let offset = 6; offset >= 0; offset--) {
+    const d = new Date(now.getFullYear(), now.getMonth(), now.getDate() - offset);
+    const key = `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}-${String(d.getDate()).padStart(2,'0')}`;
+    const total = payments.filter((p) => p.date === key).reduce((sum,p) => sum + p.amount, 0);
+    days.push({ key, total, label:new Intl.DateTimeFormat('es-EC',{weekday:'short'}).format(d).replace('.','') });
+  }
+  const max = Math.max(1, ...days.map((d) => d.total));
+  const total7 = days.reduce((sum,d) => sum + d.total, 0);
+  if ($('#dash7DayTotal')) $('#dash7DayTotal').textContent = money(total7);
+  chart.innerHTML = days.map((d) => `
+    <div class="finance-bar-col" title="${escapeHtml(d.key)} · ${money(d.total)}">
+      <span class="finance-bar-value">${money(d.total)}</span>
+      <span class="finance-bar-track"><span class="finance-bar-fill" style="height:${Math.max(2,(d.total/max)*100)}%"></span></span>
+      <span class="finance-bar-label">${escapeHtml(d.label)}</span>
+    </div>`).join('');
 }
 
 function clearForm() {
@@ -2335,6 +2390,7 @@ function showMainView(view) {
   if (isHome) {
     const homeDateLabel = $('#homeDateLabel');
     if (homeDateLabel) homeDateLabel.textContent = new Intl.DateTimeFormat('es-EC', { weekday:'long', day:'2-digit', month:'long' }).format(new Date());
+    updateExecutiveDashboard();
     Promise.allSettled([refreshAttendance(), refreshHomeUsers()]);
     homeRefreshTimer = setInterval(() => {
       if (currentUser && !$('#home')?.hidden) {
@@ -3003,6 +3059,7 @@ async function refreshHomeUsers() {
       : [];
     renderHomeUsers();
     renderHomeGoals();
+    updateExecutiveDashboard();
   } catch (err) {
     console.error(err);
     showToast(err.message, 'No se pudo actualizar Home');
@@ -5819,3 +5876,13 @@ function escapeHtml(value) {
 }
 
 document.addEventListener('click', (e) => { if (!e.target.closest('.admin-user-card-v2')) closeAdminUserMenus(); });
+
+
+// V12.1: menús desplegables compactos; se cierran al elegir una sección o al pulsar fuera.
+document.addEventListener('click', (event) => {
+  const selected = event.target.closest('.nav-dropdown-menu .main-nav-btn');
+  if (selected) selected.closest('details')?.removeAttribute('open');
+  if (!event.target.closest('.nav-dropdown')) {
+    document.querySelectorAll('.nav-dropdown[open]').forEach((item) => item.removeAttribute('open'));
+  }
+});

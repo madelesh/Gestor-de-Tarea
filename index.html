@@ -9,7 +9,7 @@
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700;800&display=swap" rel="stylesheet">
   <link id="dynamicFavicon" rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 64 64'%3E%3Crect width='64' height='64' rx='16' fill='%23b9ff39'/%3E%3Cpath d='M18 33l9 9 19-22' fill='none' stroke='%23111' stroke-width='7' stroke-linecap='round' stroke-linejoin='round'/%3E%3C/svg%3E" />
-  <link rel="stylesheet" href="styles.css?v=12.0" />
+  <link rel="stylesheet" href="styles.css?v=12.1" />
 </head>
 <body>
   <svg xmlns="http://www.w3.org/2000/svg" style="display:none" aria-hidden="true" focusable="false">
@@ -107,13 +107,23 @@
         <span class="brand-text">DeTodoEc</span>
       </a>
 
-      <nav class="main-nav" aria-label="Navegación principal">
+      <nav class="main-nav dashboard-dropdown-nav" aria-label="Navegación principal">
         <button type="button" class="main-nav-btn active" id="navHome"><svg class="icon"><use href="#icon-home"></use></svg><span>Dashboard</span></button>
-        <button type="button" class="main-nav-btn" id="navTasks"><svg class="icon"><use href="#icon-task"></use></svg><span>Tareas</span></button>
-        <button type="button" class="main-nav-btn" id="navQuote"><svg class="icon"><use href="#icon-calculator"></use></svg><span>Cotizador</span></button>
-        <button type="button" class="main-nav-btn" id="navCuadre"><svg class="icon"><use href="#icon-wallet"></use></svg><span>Cuadre</span></button>
-        <button type="button" class="main-nav-btn" id="navReviews" hidden><svg class="icon"><use href="#icon-bell"></use></svg><span>Revisiones</span><span class="main-review-count" id="mainReviewCount" hidden>0</span></button>
-        <button type="button" class="main-nav-btn" id="navDesigns"><svg class="icon"><use href="#icon-library"></use></svg><span>Diseños</span></button>
+        <details class="nav-dropdown">
+          <summary><svg class="icon"><use href="#icon-briefcase"></use></svg><span>Operación</span><span class="nav-caret">⌄</span></summary>
+          <div class="nav-dropdown-menu">
+            <button type="button" class="main-nav-btn" id="navTasks"><svg class="icon"><use href="#icon-task"></use></svg><span>Tareas</span></button>
+            <button type="button" class="main-nav-btn" id="navQuote"><svg class="icon"><use href="#icon-calculator"></use></svg><span>Cotizador</span></button>
+            <button type="button" class="main-nav-btn" id="navDesigns"><svg class="icon"><use href="#icon-library"></use></svg><span>Diseños</span></button>
+          </div>
+        </details>
+        <details class="nav-dropdown">
+          <summary><svg class="icon"><use href="#icon-wallet"></use></svg><span>Control</span><span class="nav-caret">⌄</span></summary>
+          <div class="nav-dropdown-menu">
+            <button type="button" class="main-nav-btn" id="navCuadre"><svg class="icon"><use href="#icon-wallet"></use></svg><span>Cuadre</span></button>
+            <button type="button" class="main-nav-btn" id="navReviews" hidden><svg class="icon"><use href="#icon-bell"></use></svg><span>Revisiones</span><span class="main-review-count" id="mainReviewCount" hidden>0</span></button>
+          </div>
+        </details>
       </nav>
 
       <div class="topbar-actions">
@@ -179,6 +189,31 @@
             </div>
           </div>
         </div>
+
+        <section class="executive-dashboard" aria-label="Resumen financiero">
+          <div class="executive-kpis">
+            <article class="executive-kpi kpi-balance"><span>Balance del local</span><strong id="dashLocalBalance">$0.00</strong><small>Ingresos menos egresos registrados</small></article>
+            <article class="executive-kpi"><span>Ingresos del mes</span><strong id="dashIncome">$0.00</strong><small id="dashIncomeNote">Abonos registrados</small></article>
+            <article class="executive-kpi"><span>Egresos del mes</span><strong id="dashExpenses">$0.00</strong><small id="dashExpenseNote">Sin egresos registrados</small></article>
+            <article class="executive-kpi"><span>Por cobrar</span><strong id="dashReceivable">$0.00</strong><small>Saldo pendiente de tareas activas</small></article>
+            <article class="executive-kpi"><span>Usuarios conectados</span><strong id="dashOnlineUsers">0</strong><small id="dashOnlineNote">0 usuarios registrados</small></article>
+          </div>
+          <div class="executive-grid">
+            <article class="finance-chart-card">
+              <div class="dashboard-card-head"><div><span class="eyebrow">Finanzas</span><h2>Ingresos últimos 7 días</h2></div><strong id="dash7DayTotal">$0.00</strong></div>
+              <div class="finance-bars" id="dashIncomeChart" aria-label="Gráfico de ingresos de los últimos 7 días"></div>
+            </article>
+            <article class="business-snapshot-card">
+              <div class="dashboard-card-head"><div><span class="eyebrow">Operación</span><h2>Estado del negocio</h2></div></div>
+              <div class="snapshot-list">
+                <div><span>Tareas activas</span><strong id="dashActiveTasks">0</strong></div>
+                <div><span>Pendientes</span><strong id="dashPendingTasks">0</strong></div>
+                <div><span>Terminadas</span><strong id="dashDoneTasks">0</strong></div>
+                <div><span>Revisiones en curso</span><strong id="dashReviews">0</strong></div>
+              </div>
+            </article>
+          </div>
+        </section>
 
         <section class="home-team-panel">
           <div class="home-panel-head">
@@ -1636,6 +1671,6 @@
     </article>
   </template>
 
-  <script src="app.js?v=12.0"></script>
+  <script src="app.js?v=12.1"></script>
 </body>
 </html>
