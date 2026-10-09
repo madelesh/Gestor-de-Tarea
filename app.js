@@ -1,4 +1,4 @@
-const APP_VERSION = '11.21.1';
+const APP_VERSION = '11.22';
 const API_BASE = 'https://gestor-tareas-api.detodoec.workers.dev';
 const STORAGE_KEY = 'detodoec_tasks_v1';
 const SETTINGS_KEY = 'detodoec_tasks_settings_v3';
@@ -43,6 +43,7 @@ let cuadreSubmission = null;
 let cuadreNotifications = [];
 let activeCuadreReviewId = null;
 let activeCuadreReviewData = null;
+let cuadreOpeningState = null;
 let cuadreReviewEditing = false;
 let notificationPollTimer = null;
 let adminReviewRows = [];
@@ -3205,6 +3206,7 @@ async function refreshAttendance() {
       const rows = await apiFetch(`/api/asistencia?${params.toString()}`, { cache:'no-store' });
       populateCheckinUserFilter(Array.isArray(rows) ? rows : []);
       renderAttendanceRows(Array.isArray(rows) ? rows : []);
+      refreshMonthlyPayroll({ silent:true });
 
       if ($('#attendanceDateLabel')) {
         const ini = startInput?.value || '';
@@ -4013,7 +4015,7 @@ function currentCnbPayload(){
     {clave:'pacifico',banco:cnbLabel('pacifico','Banco Pacífico'),cuenta:getCnbBankDef('pacifico')?.subtitle||'Saldo actual',valor_1:pa,valor_2:0,resultado:pa,transacciones:cnbTx('cnbTxPacifico')},
     {clave:'produbanco',banco:cnbLabel('produbanco','Banco Produbanco'),cuenta:getCnbBankDef('produbanco')?.subtitle||'Disponible - Sobregiro',valor_1:pr,valor_2:so,resultado:pr-so,transacciones:cnbTx('cnbTxProdubanco')},
     {clave:'yaganaste',banco:cnbLabel('yaganaste','Ya Ganaste'),cuenta:getCnbBankDef('yaganaste')?.subtitle||'Saldo actual',valor_1:ya,valor_2:0,resultado:ya,transacciones:cnbTx('cnbTxYaGanaste')},
-    {clave:'minegocio',banco:cnbLabel('minegocio','Mi Negocio'),cuenta:getCnbBankDef('minegocio')?.subtitle||'Saldo actual',valor_1:mi,valor_2:0,resultado:mi,transacciones:cnbTx('cnbTxMiNegocio')}
+    {clave:'minegocio',banco:cnbLabel('minegocio','Mi Negocio'),cuenta:getCnbBankDef('minegocio')?.subtitle||'Saldo actual',valor_1:mi,valor_2:0,resultado:mi,transacciones:0}
   ];
   const tb=cuentas.reduce((s,x)=>s+x.resultado,0),tt=cuentas.reduce((s,x)=>s+x.transacciones,0),vt=tt*cnbConfig.valor_transaccion,te=tb+ef+vt,ve=cnbConfig.efectivo_inicial,d=te-ve,ok=d>=-cnbConfig.margen_faltante-.0001&&d<=cnbConfig.margen_sobrante+.0001;
   return{fecha:todayLocal(),tipo_cuadre:'cnb_v2',config_usada:{...cnbConfig},cuentas,efectivo:ef,total_bancos:tb,total_transacciones:tt,valor_transacciones:vt,total_encontrado:te,valor_esperado:ve,diferencia:d,dentro_margen:ok};
@@ -4037,8 +4039,83 @@ function updateCuadreTotals(){
   }
   return p;
 }
+
+function clearCnbForm(){
+  ['cnbGuayaquilOrlando','cnbGuayaquilKevin','cnbPichincha1','cnbPichincha2','cnbPacifico','cnbProdubancoAvailable','cnbProdubancoOverdraft','cnbYaGanaste','cnbMiNegocio','cnbCash'].forEach((id)=>{const el=$('#'+id);if(el)el.value='';});
+  ['cnbTxGuayaquilOrlando','cnbTxGuayaquilKevin','cnbTxPichincha','cnbTxPacifico','cnbTxProdubanco','cnbTxYaGanaste'].forEach((id)=>{const el=$('#'+id);if(el)el.value='0';});
+  updateCuadreTotals();
+}
+function renderCuadreOpening(state){
+  cuadreOpeningState=state||null;
+  const box=$('#cuadreOpeningCheck'),layout=document.querySelector('.cnb-layout');
+  if(!box)return;
+  const requires=Boolean(state?.requiere_confirmacion);
+  box.hidden=!requires;
+  if(layout)layout.classList.toggle('cuadre-opening-locked',requires);
+  if(!requires)return;
+  const p=state?.cierre_anterior?.payload||{},s=reviewSummary(p);
+  if($('#openingPreviousDate'))$('#openingPreviousDate').textContent=formatAttendanceDate(state?.cierre_anterior?.fecha_local||'');
+  if($('#openingPreviousSummary'))$('#openingPreviousSummary').innerHTML=`
+    <article><span>Total bancos</span><strong>${money(s.totalBanks)}</strong></article>
+    <article><span>Efectivo final</span><strong>${money(s.cash)}</strong></article>
+    <article><span>Comisión</span><strong>${money(s.txValue)}</strong></article>
+    <article><span>Total encontrado</span><strong>${money(s.found)}</strong></article>`;
+  if($('#openingPreviousAccounts'))$('#openingPreviousAccounts').innerHTML=(p.cuentas||[]).map((c)=>`<div class="opening-account-row"><span>${escapeHtml(c.banco||'')} · ${escapeHtml(c.cuenta||'')}</span><strong>${money(c.resultado)}</strong></div>`).join('');
+}
+async function refreshCuadreOpening({silent=false}={}){
+  try{
+    const fecha=todayLocal();
+    const state=await apiFetch(`/api/cuadre/apertura?fecha=${encodeURIComponent(fecha)}&_=${Date.now()}`,{cache:'no-store'});
+    renderCuadreOpening(state);
+    return state;
+  }catch(err){if(!silent)showToast(err.message,'No se pudo verificar la apertura');return null;}
+}
+async function confirmCuadreOpening(){
+  const state=cuadreOpeningState;
+  if(!state?.requiere_confirmacion)return;
+  const ok=await themedConfirm({title:'Confirmar apertura de caja',message:'¿Verificaste que los valores del cierre anterior son correctos y deseas iniciar el cuadre de hoy?',confirmText:'Sí, abrir caja'});
+  if(!ok)return;
+  try{
+    await apiFetch('/api/cuadre/apertura',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({fecha:todayLocal()})});
+    showToast('Apertura confirmada. Ya puedes llenar el cuadre de hoy.','Caja abierta');
+    await refreshCuadreOpening({silent:true});
+    setCuadreFormLocked(false);
+  }catch(err){showToast(err.message,'No se pudo confirmar la apertura');}
+}
+function monthDateRange(month){
+  const m=/^\d{4}-\d{2}$/.test(month||'')?month:todayLocal().slice(0,7);
+  const [y,mo]=m.split('-').map(Number);
+  const last=new Date(Date.UTC(y,mo,0)).getUTCDate();
+  return {month:m,start:`${m}-01`,end:`${m}-${String(last).padStart(2,'0')}`};
+}
+function renderMonthlyPayroll(rows=[]){
+  const body=$('#monthlyPayrollBody');if(!body)return;
+  const grouped=new Map();
+  let allMinutes=0,allPay=0;
+  rows.forEach((row)=>{
+    const id=String(row.usuario_id),minutes=Number(row.minutos||0),pay=Number(row.valor_pagado??attendancePay(minutes,Number(row.valor_hora_efectivo??row.valor_hora??0)));
+    if(!grouped.has(id))grouped.set(id,{id,nombre:row.nombre||row.usuario,usuario:row.usuario||'',foto_url:row.foto_url||'',minutes:0,pay:0,days:new Set()});
+    const g=grouped.get(id);g.minutes+=minutes;g.pay+=pay;g.days.add(row.fecha_local);allMinutes+=minutes;allPay+=pay;
+  });
+  const list=[...grouped.values()].sort((a,b)=>String(a.nombre).localeCompare(String(b.nombre),'es'));
+  body.innerHTML=list.map((g)=>`<tr><td><div class="attendance-table-user"><span class="attendance-table-avatar">${g.foto_url?`<img src="${escapeHtml(g.foto_url)}" alt="" />`:iconUse('icon-user')}</span><span><strong>${escapeHtml(g.nombre)}</strong><small>@${escapeHtml(g.usuario)}</small></span></div></td><td>${g.days.size}</td><td><strong>${formatWorkedTime(g.minutes)}</strong></td><td><strong>${money(g.pay)}</strong></td></tr>`).join('');
+  if($('#monthlyPayrollHours'))$('#monthlyPayrollHours').textContent=formatWorkedTime(allMinutes);
+  if($('#monthlyPayrollPay'))$('#monthlyPayrollPay').textContent=money(allPay);
+  if($('#monthlyPayrollEmpty'))$('#monthlyPayrollEmpty').hidden=list.length>0;
+}
+async function refreshMonthlyPayroll({silent=false}={}){
+  if(!currentUser||currentUser.rol!=='admin')return[];
+  const input=$('#checkinPayrollMonth');if(input&&!input.value)input.value=todayLocal().slice(0,7);
+  const r=monthDateRange(input?.value||todayLocal().slice(0,7));
+  try{
+    const params=new URLSearchParams({inicio:r.start,fin:r.end,_:String(Date.now())});
+    const rows=await apiFetch(`/api/asistencia?${params.toString()}`,{cache:'no-store'});
+    renderMonthlyPayroll(Array.isArray(rows)?rows:[]);return rows;
+  }catch(err){if(!silent)showToast(err.message,'No se pudo cargar el acumulado mensual');return[];}
+}
+
 function setCnbFormValues(p={}){const m=Object.fromEntries((p.cuentas||[]).map(x=>[x.clave,x])),set=(id,v)=>{if($('#'+id))$('#'+id).value=v===undefined||v===null?'':Number(v)};set('cnbGuayaquilOrlando',m.guayaquil_orlando?.valor_1);set('cnbGuayaquilKevin',m.guayaquil_kevin?.valor_1);set('cnbPichincha1',m.pichincha?.valor_1);set('cnbPichincha2',m.pichincha?.valor_2);set('cnbPacifico',m.pacifico?.valor_1);set('cnbProdubancoAvailable',m.produbanco?.valor_1);set('cnbProdubancoOverdraft',m.produbanco?.valor_2);set('cnbYaGanaste',m.yaganaste?.valor_1);set('cnbMiNegocio',m.minegocio?.valor_1);set('cnbCash',p.efectivo);set('cnbTxGuayaquilOrlando',m.guayaquil_orlando?.transacciones??0);set('cnbTxGuayaquilKevin',m.guayaquil_kevin?.transacciones??0);set('cnbTxPichincha',m.pichincha?.transacciones??0);set('cnbTxPacifico',m.pacifico?.transacciones??0);set('cnbTxProdubanco',m.produbanco?.transacciones??0);set('cnbTxYaGanaste',m.yaganaste?.transacciones??0);set('cnbTxMiNegocio',m.minegocio?.transacciones??0);if(p.config_usada)applyCnbConfig(p.config_usada);updateCuadreTotals();}
-function setCuadreFormLocked(locked){['cnbGuayaquilOrlando','cnbGuayaquilKevin','cnbPichincha1','cnbPichincha2','cnbPacifico','cnbProdubancoAvailable','cnbProdubancoOverdraft','cnbYaGanaste','cnbMiNegocio','cnbCash','cnbTxGuayaquilOrlando','cnbTxGuayaquilKevin','cnbTxPichincha','cnbTxPacifico','cnbTxProdubanco','cnbTxYaGanaste','cnbTxMiNegocio'].forEach(id=>{const e=$('#'+id);if(e)e.disabled=locked})}
+function setCuadreFormLocked(locked){['cnbGuayaquilOrlando','cnbGuayaquilKevin','cnbPichincha1','cnbPichincha2','cnbPacifico','cnbProdubancoAvailable','cnbProdubancoOverdraft','cnbYaGanaste','cnbMiNegocio','cnbCash','cnbTxGuayaquilOrlando','cnbTxGuayaquilKevin','cnbTxPichincha','cnbTxPacifico','cnbTxProdubanco','cnbTxYaGanaste'].forEach(id=>{const e=$('#'+id);if(e)e.disabled=locked})}
 function updateCuadreSubmitState(submission=null) {
   cuadreSubmission=submission;
   const btn=$('#saveCuadre'); if(!btn) return;
@@ -4213,7 +4290,35 @@ async function resolveCuadreReview(action){
   catch(err){showToast(err.message,'No se pudo procesar el cierre');}
 }
 
-async function refreshCuadre(){try{const fecha=todayLocal();if($('#cuadreDateLabel'))$('#cuadreDateLabel').textContent=formatAttendanceDate(fecha);await Promise.allSettled([refreshBanks({silent:true}),refreshCnbConfig({silent:true})]);const r=await apiFetch(`/api/cuadre/solicitud-actual?fecha=${encodeURIComponent(fecha)}&_=${Date.now()}`,{cache:'no-store'}),s=r?.solicitud||null;if(s?.payload)setCnbFormValues(s.payload);else updateCuadreTotals();updateCuadreSubmitState(s);const info=$('#cuadreSavedInfo');if(info){if(s?.estado==='pendiente')info.textContent=`En revisión · ${formatTime(s.enviado_en)}`;else if(s?.estado==='aprobado'&&Number(s.auto_aprobado||0)===1)info.textContent=`Aprobado automáticamente · ${formatTime(s.revisado_en||s.enviado_en)}`;else if(s?.estado==='aprobado')info.textContent=`Revisado por ${s.admin_nombre||'administrador'} · ${formatTime(s.revisado_en)}`;else if(s?.estado==='rechazado')info.textContent=`Rechazado${s.observacion_admin?` · ${s.observacion_admin}`:''}`;else info.textContent='Aún no hay un cierre registrado para hoy.'}}catch(err){showToast(err.message,'No se pudo cargar el Cuadre')}}
+async function refreshCuadre(){
+  try{
+    const fecha=todayLocal();
+    if($('#cuadreDateLabel'))$('#cuadreDateLabel').textContent=formatAttendanceDate(fecha);
+    await Promise.allSettled([refreshBanks({silent:true}),refreshCnbConfig({silent:true})]);
+    const [r,opening]=await Promise.all([
+      apiFetch(`/api/cuadre/solicitud-actual?fecha=${encodeURIComponent(fecha)}&_=${Date.now()}`,{cache:'no-store'}),
+      refreshCuadreOpening({silent:true})
+    ]);
+    const s=r?.solicitud||null;
+    if(s){
+      clearCnbForm();
+      renderCuadreOpening({requiere_confirmacion:false});
+    }else{
+      clearCnbForm();
+      renderCuadreOpening(opening);
+    }
+    updateCuadreSubmitState(s);
+    if(!s && opening?.requiere_confirmacion)setCuadreFormLocked(true);
+    const info=$('#cuadreSavedInfo');
+    if(info){
+      if(s?.estado==='pendiente')info.textContent=`Cierre enviado · En revisión del administrador`;
+      else if(s?.estado==='aprobado'&&Number(s.auto_aprobado||0)===1)info.textContent=`Cierre enviado · Aprobado automáticamente`;
+      else if(s?.estado==='aprobado')info.textContent=`Cierre enviado · Revisado por ${s.admin_nombre||'administrador'}`;
+      else if(s?.estado==='rechazado')info.textContent=`Rechazado${s.observacion_admin?` · ${s.observacion_admin}`:''}`;
+      else info.textContent=opening?.requiere_confirmacion?'Verifica el cierre anterior para abrir la caja de hoy.':'Caja lista para el cuadre de hoy.';
+    }
+  }catch(err){showToast(err.message,'No se pudo cargar el Cuadre')}
+}
 async function saveCuadre(){
   const btn=$('#saveCuadre');if(btn)btn.disabled=true;
   try{
@@ -4225,6 +4330,7 @@ async function saveCuadre(){
     if(!ok)return;
     const r=await apiFetch('/api/cuadre/solicitudes',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify(p)});
     showToast(r.mensaje||'Cierre procesado.',r.estado==='aprobado'?'Cuadre aprobado':'Cuadre en revisión');
+    clearCnbForm();
     await Promise.allSettled([refreshCuadre(),currentUser?.rol==='admin'?refreshMainReviews({silent:true}):Promise.resolve(),refreshGoalsToday({silent:true})]);
   }catch(err){showToast(err.message,'No se pudo revisar el cuadre')}
   finally{if(btn&&!cuadreSubmission?.estado)btn.disabled=false}
@@ -4926,6 +5032,8 @@ $('#goalsConfigList')?.addEventListener('change', (e) => {
 
 on('refreshCuadre', 'click', refreshCuadre);
 on('saveCuadre', 'click', saveCuadre);
+on('confirmCuadreOpening','click',confirmCuadreOpening);
+$('#checkinPayrollMonth')?.addEventListener('change',()=>refreshMonthlyPayroll());
 $('#cnbAdminConfigForm')?.addEventListener('submit', saveCnbAdminConfig);
 on('saveCnbBanksBtn', 'click', saveCnbBanks);
 $('#cnbAdminBanksList')?.addEventListener('input',(e)=>{
@@ -4938,7 +5046,7 @@ $('#cnbAdminBanksList')?.addEventListener('change',(e)=>{
   const input=e.target.closest('[data-bank-logo]'); const file=input?.files?.[0]; if(!file)return;
   const swatch=row.querySelector('.cnb-admin-bank-preview .swatch'); if(swatch)swatch.innerHTML=`<img src="${URL.createObjectURL(file)}" alt="" />`;
 });
-['cnbGuayaquilOrlando','cnbGuayaquilKevin','cnbPichincha1','cnbPichincha2','cnbPacifico','cnbProdubancoAvailable','cnbProdubancoOverdraft','cnbYaGanaste','cnbMiNegocio','cnbCash','cnbTxGuayaquilOrlando','cnbTxGuayaquilKevin','cnbTxPichincha','cnbTxPacifico','cnbTxProdubanco','cnbTxYaGanaste','cnbTxMiNegocio'].forEach(id=>$('#'+id)?.addEventListener('input',updateCuadreTotals));
+['cnbGuayaquilOrlando','cnbGuayaquilKevin','cnbPichincha1','cnbPichincha2','cnbPacifico','cnbProdubancoAvailable','cnbProdubancoOverdraft','cnbYaGanaste','cnbMiNegocio','cnbCash','cnbTxGuayaquilOrlando','cnbTxGuayaquilKevin','cnbTxPichincha','cnbTxPacifico','cnbTxProdubanco','cnbTxYaGanaste'].forEach(id=>$('#'+id)?.addEventListener('input',updateCuadreTotals));
 on('refreshAdminReviews', 'click', () => refreshAdminReviews());
 on('refreshMainReviews', 'click', () => refreshMainReviews());
 on('clearApprovedReviewFilters', 'click', () => {

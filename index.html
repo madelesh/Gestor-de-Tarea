@@ -9,7 +9,7 @@
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700;800&display=swap" rel="stylesheet">
   <link id="dynamicFavicon" rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 64 64'%3E%3Crect width='64' height='64' rx='16' fill='%23b9ff39'/%3E%3Cpath d='M18 33l9 9 19-22' fill='none' stroke='%23111' stroke-width='7' stroke-linecap='round' stroke-linejoin='round'/%3E%3C/svg%3E" />
-  <link rel="stylesheet" href="styles.css?v=11.21" />
+  <link rel="stylesheet" href="styles.css?v=11.22" />
 </head>
 <body>
   <svg xmlns="http://www.w3.org/2000/svg" style="display:none" aria-hidden="true" focusable="false">
@@ -383,6 +383,22 @@
           <div><span>Margen sobrante</span><strong id="cnbOverMarginLabel">Hasta $5,00</strong></div>
         </div>
 
+        <section id="cuadreOpeningCheck" class="cuadre-opening-check" hidden>
+          <div class="cuadre-opening-head">
+            <div>
+              <span class="eyebrow">Apertura del día</span>
+              <h2>Verifica el cierre anterior</h2>
+              <p>Antes de comenzar el nuevo cuadre, confirma que los valores con los que se cerró la caja anterior son correctos.</p>
+            </div>
+            <div class="cuadre-opening-date"><span>Cierre anterior</span><strong id="openingPreviousDate">—</strong></div>
+          </div>
+          <div id="openingPreviousSummary" class="opening-previous-summary"></div>
+          <div id="openingPreviousAccounts" class="opening-previous-accounts"></div>
+          <div class="cuadre-opening-actions">
+            <button type="button" class="btn btn-accent" id="confirmCuadreOpening"><svg class="icon"><use href="#icon-check"></use></svg><span>Confirmar y abrir caja</span></button>
+          </div>
+        </section>
+
         <div class="cnb-layout">
           <section class="cnb-entry-panel">
             <div class="cuadre-panel-head">
@@ -395,7 +411,7 @@
                 <div class="cnb-bank-title"><div class="cnb-bank-icon" data-cnb-logo="guayaquil_orlando"><svg class="icon"><use href="#icon-wallet"></use></svg></div><div><strong class="cnb-bank-name">Banco de Guayaquil</strong><span class="cnb-bank-subtitle">Cuenta Orlando Vera Silvia</span></div></div>
                 <div class="cnb-fields">
                   <label>Saldo actual CNB<div class="money-field"><span>$</span><input id="cnbGuayaquilOrlando" type="number" step="0.01" inputmode="decimal" placeholder="0.00" /></div></label>
-                  <div class="cnb-formula-box"><span>Base a restar</span><strong id="cnbGuayaquilOrlandoBase">$3.000,00</strong></div>
+                  
                   <label>Transacciones<input id="cnbTxGuayaquilOrlando" type="number" min="0" step="1" value="0" /></label>
                   <div class="cnb-result-box"><span>Resultado</span><strong id="cnbGuayaquilOrlandoResult">$0,00</strong></div>
                 </div>
@@ -405,7 +421,7 @@
                 <div class="cnb-bank-title"><div class="cnb-bank-icon" data-cnb-logo="guayaquil_kevin"><svg class="icon"><use href="#icon-wallet"></use></svg></div><div><strong class="cnb-bank-name">Banco de Guayaquil</strong><span class="cnb-bank-subtitle">Cuenta Kevin Lascano</span></div></div>
                 <div class="cnb-fields">
                   <label>Saldo actual CNB<div class="money-field"><span>$</span><input id="cnbGuayaquilKevin" type="number" step="0.01" inputmode="decimal" placeholder="0.00" /></div></label>
-                  <div class="cnb-formula-box"><span>Base a restar</span><strong id="cnbGuayaquilKevinBase">$2.500,00</strong></div>
+                  
                   <label>Transacciones<input id="cnbTxGuayaquilKevin" type="number" min="0" step="1" value="0" /></label>
                   <div class="cnb-result-box"><span>Resultado</span><strong id="cnbGuayaquilKevinResult">$0,00</strong></div>
                 </div>
@@ -453,7 +469,7 @@
                 <div class="cnb-bank-title"><div class="cnb-bank-icon" data-cnb-logo="minegocio"><svg class="icon"><use href="#icon-wallet"></use></svg></div><div><strong class="cnb-bank-name">Mi Negocio</strong><span class="cnb-bank-subtitle">Saldo actual</span></div></div>
                 <div class="cnb-fields simple">
                   <label>Saldo actual<div class="money-field"><span>$</span><input id="cnbMiNegocio" type="number" step="0.01" placeholder="0.00" /></div></label>
-                  <label>Transacciones<input id="cnbTxMiNegocio" type="number" min="0" step="1" value="0" /></label>
+                  
                   <div class="cnb-result-box"><span>Resultado</span><strong id="cnbMiNegocioResult">$0,00</strong></div>
                 </div>
               </article>
@@ -543,7 +559,7 @@
     <footer class="app-version-footer" aria-label="Versión de la aplicación">
       <span>DeTodoEc</span>
       <span class="version-separator">•</span>
-      <strong>Versión 11.21.1</strong>
+      <strong>Versión 11.22</strong>
     </footer>
   </div>
 
@@ -1294,6 +1310,30 @@
           </div>
         </div>
 
+        <section class="monthly-payroll-card">
+          <div class="monthly-payroll-head">
+            <div>
+              <span class="eyebrow">Acumulado mensual</span>
+              <h2>Horas y valor a pagar</h2>
+              <p>Las horas se guardan por día y se acumulan automáticamente durante el mes.</p>
+            </div>
+            <label>Mes
+              <input type="month" id="checkinPayrollMonth" />
+            </label>
+          </div>
+          <div class="monthly-payroll-totals">
+            <article><span>Horas del mes</span><strong id="monthlyPayrollHours">0 h</strong></article>
+            <article><span>Total a pagar</span><strong id="monthlyPayrollPay">$0,00</strong></article>
+          </div>
+          <div class="attendance-table-wrap">
+            <table class="attendance-table monthly-payroll-table">
+              <thead><tr><th>Usuario</th><th>Días trabajados</th><th>Horas acumuladas</th><th>Valor a pagar</th></tr></thead>
+              <tbody id="monthlyPayrollBody"></tbody>
+            </table>
+          </div>
+          <div id="monthlyPayrollEmpty" class="attendance-empty" hidden>No hay horas registradas en este mes.</div>
+        </section>
+
         <div class="checkin-summary-grid">
           <article><span>Usuarios registrados</span><strong id="checkinUsersCount">0</strong></article>
           <article><span>Trabajando ahora</span><strong id="checkinOpenCount">0</strong></article>
@@ -1546,6 +1586,6 @@
     </article>
   </template>
 
-  <script src="app.js?v=11.21.1"></script>
+  <script src="app.js?v=11.22"></script>
 </body>
 </html>
