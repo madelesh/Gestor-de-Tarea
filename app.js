@@ -1,4 +1,4 @@
-const APP_VERSION = '11.22';
+const APP_VERSION = '12.0';
 const API_BASE = 'https://gestor-tareas-api.detodoec.workers.dev';
 const STORAGE_KEY = 'detodoec_tasks_v1';
 const SETTINGS_KEY = 'detodoec_tasks_settings_v3';
@@ -2312,7 +2312,7 @@ function showMainView(view) {
   const isDesigns = view === 'designs';
 
   $('#home').hidden = !isHome;
-  $('#resumen').hidden = !isTasks;
+  $('#resumen').hidden = !isHome;
   $('#tareas').hidden = !isTasks;
   $('#archivados').hidden = true;
   $('#cotizador').hidden = !isQuote;
@@ -2333,6 +2333,8 @@ function showMainView(view) {
   }
 
   if (isHome) {
+    const homeDateLabel = $('#homeDateLabel');
+    if (homeDateLabel) homeDateLabel.textContent = new Intl.DateTimeFormat('es-EC', { weekday:'long', day:'2-digit', month:'long' }).format(new Date());
     Promise.allSettled([refreshAttendance(), refreshHomeUsers()]);
     homeRefreshTimer = setInterval(() => {
       if (currentUser && !$('#home')?.hidden) {
