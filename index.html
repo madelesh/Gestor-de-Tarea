@@ -1006,43 +1006,63 @@
           <span class="eyebrow">Administrador</span>
           <h2>Panel de administración</h2>
         </div>
-        <button type="button" class="btn btn-outline small" id="closeAdmin"><svg class="icon"><use href="#icon-back"></use></svg><span>Volver</span></button>
+        <div class="admin-topbar-actions">
+          <button type="button" class="btn btn-outline small" id="adminHubBtn" hidden><svg class="icon"><use href="#icon-home"></use></svg><span>Inicio admin</span></button>
+          <button type="button" class="btn btn-outline small" id="closeAdmin"><svg class="icon"><use href="#icon-back"></use></svg><span>Volver</span></button>
+        </div>
       </header>
 
       <div class="admin-workspace">
-        <aside class="admin-sidebar" aria-label="Secciones del administrador">
-          <button type="button" class="admin-nav-btn active" data-admin-target="apariencia"><svg class="icon"><use href="#icon-image"></use></svg><span>Apariencia</span></button>
-          <button type="button" class="admin-nav-btn" data-admin-target="acceso"><svg class="icon"><use href="#icon-users"></use></svg><span>Usuarios</span></button>
-          <button type="button" class="admin-nav-btn" data-admin-target="roles"><svg class="icon"><use href="#icon-shield"></use></svg><span>Roles</span></button>
-          <button type="button" class="admin-nav-btn" data-admin-target="checkin"><svg class="icon"><use href="#icon-clock"></use></svg><span>Check-in</span></button>
-          <div class="admin-nav-group goals-nav-group">
-            <button type="button" class="admin-nav-btn admin-nav-parent" id="adminGoalsNav">
-              <svg class="icon"><use href="#icon-target"></use></svg>
-              <span>Metas</span>
-              <span class="admin-nav-caret" aria-hidden="true">⌄</span>
-            </button>
-            <div class="admin-subnav" id="goalsSubnav" hidden>
-              <button type="button" class="admin-subnav-btn active" data-goals-subtarget="editor">
-                <span class="subnav-dot"></span><span>Editor de metas</span>
-              </button>
-              <button type="button" class="admin-subnav-btn" data-goals-subtarget="history">
-                <span class="subnav-dot"></span><span>Historial de metas</span>
-              </button>
-              <button type="button" class="admin-subnav-btn" data-goals-subtarget="banks">
-                <span class="subnav-dot"></span><span>Transacciones por banco</span>
-              </button>
-            </div>
+        <section class="admin-launchpad" id="adminLaunchpad" aria-label="Módulos del administrador">
+          <div class="admin-launchpad-head">
+            <span class="eyebrow">Centro de control</span>
+            <h3>¿Qué quieres administrar?</h3>
+            <p>Todo está organizado por áreas para que encuentres cada herramienta más rápido.</p>
           </div>
-          <button type="button" class="admin-nav-btn admin-review-nav" data-admin-target="revisiones">
-            <svg class="icon"><use href="#icon-bell"></use></svg><span>Revisiones</span><span class="admin-review-count" id="adminReviewCount" hidden>0</span>
-          </button>
-          <button type="button" class="admin-nav-btn" data-admin-target="bancos"><svg class="icon"><use href="#icon-wallet"></use></svg><span>Bancos</span></button>
-          <button type="button" class="admin-nav-btn" data-admin-target="cuadre"><svg class="icon"><use href="#icon-calculator"></use></svg><span>Cuadre</span></button>
-          <button type="button" class="admin-nav-btn" data-admin-target="cotizador"><svg class="icon"><use href="#icon-calculator"></use></svg><span>Cotizador</span></button>
-          <button type="button" class="admin-nav-btn" data-admin-target="disenos"><svg class="icon"><use href="#icon-library"></use></svg><span>Diseños</span></button>
-          <button type="button" class="admin-nav-btn" data-admin-target="datos"><svg class="icon"><use href="#icon-cloud"></use></svg><span>Datos en la nube</span></button>
-          <button type="button" class="btn btn-outline admin-close-side" id="closeAdminFooter"><span>Volver al inicio</span></button>
-        </aside>
+          <div class="admin-module-grid">
+            <article class="admin-module-card">
+              <div class="admin-module-title"><span class="admin-module-icon"><svg class="icon"><use href="#icon-users"></use></svg></span><div><strong>General</strong><small>Personal, acceso y metas</small></div></div>
+              <div class="admin-module-actions">
+                <button type="button" class="admin-nav-btn" data-admin-target="apariencia"><svg class="icon"><use href="#icon-image"></use></svg><span>Apariencia</span></button>
+                <button type="button" class="admin-nav-btn" data-admin-target="acceso"><svg class="icon"><use href="#icon-users"></use></svg><span>Usuarios</span></button>
+                <button type="button" class="admin-nav-btn" data-admin-target="roles"><svg class="icon"><use href="#icon-shield"></use></svg><span>Roles</span></button>
+                <button type="button" class="admin-nav-btn" data-admin-target="checkin"><svg class="icon"><use href="#icon-clock"></use></svg><span>Check-in</span></button>
+              </div>
+              <div class="admin-module-subgroup">
+                <button type="button" class="admin-nav-btn admin-module-wide" data-admin-target="metas"><svg class="icon"><use href="#icon-target"></use></svg><span>Metas</span></button>
+                <div class="admin-module-mini-actions">
+                  <button type="button" data-goals-subtarget="editor">Editor</button>
+                  <button type="button" data-goals-subtarget="history">Historial</button>
+                  <button type="button" data-goals-subtarget="banks">Bancos</button>
+                </div>
+              </div>
+            </article>
+
+            <article class="admin-module-card admin-module-card-cash">
+              <div class="admin-module-title"><span class="admin-module-icon"><svg class="icon"><use href="#icon-wallet"></use></svg></span><div><strong>Caja</strong><small>Cuadre, bancos y revisiones</small></div></div>
+              <div class="admin-module-actions">
+                <button type="button" class="admin-nav-btn admin-review-nav" data-admin-target="revisiones"><svg class="icon"><use href="#icon-bell"></use></svg><span>Revisiones</span><span class="admin-review-count" id="adminReviewCount" hidden>0</span></button>
+                <button type="button" class="admin-nav-btn" data-admin-target="bancos"><svg class="icon"><use href="#icon-wallet"></use></svg><span>Bancos</span></button>
+                <button type="button" class="admin-nav-btn" data-admin-target="cuadre"><svg class="icon"><use href="#icon-calculator"></use></svg><span>Cuadre</span></button>
+              </div>
+            </article>
+
+            <article class="admin-module-card">
+              <div class="admin-module-title"><span class="admin-module-icon"><svg class="icon"><use href="#icon-task"></use></svg></span><div><strong>Operación</strong><small>Herramientas del trabajo diario</small></div></div>
+              <div class="admin-module-actions">
+                <button type="button" class="admin-nav-btn" data-admin-target="cotizador"><svg class="icon"><use href="#icon-calculator"></use></svg><span>Cotizador</span></button>
+                <button type="button" class="admin-nav-btn" data-admin-target="disenos"><svg class="icon"><use href="#icon-library"></use></svg><span>Diseños</span></button>
+              </div>
+            </article>
+
+            <article class="admin-module-card">
+              <div class="admin-module-title"><span class="admin-module-icon"><svg class="icon"><use href="#icon-cloud"></use></svg></span><div><strong>Configuración</strong><small>Datos y herramientas del sistema</small></div></div>
+              <div class="admin-module-actions">
+                <button type="button" class="admin-nav-btn" data-admin-target="datos"><svg class="icon"><use href="#icon-cloud"></use></svg><span>Datos en la nube</span></button>
+              </div>
+            </article>
+          </div>
+        </section>
         <main class="admin-content">
           <section class="admin-section admin-view active" data-admin-view="apariencia">
             <div class="admin-section-head"><h3>Apariencia</h3><p>Logo e imagen del sistema.</p></div>
@@ -1378,14 +1398,20 @@
           <section class="admin-section admin-view reviews-admin" data-admin-view="revisiones" hidden>
             <div class="admin-users-heading reviews-heading">
               <div>
-                <span class="eyebrow">Historial</span>
-                <h3>Revisiones aprobadas</h3>
-                <p>Aquí se guardan únicamente los cierres que el administrador confirmó como correctos.</p>
+                <span class="eyebrow">Control de cierres</span>
+                <h3>Revisiones de caja</h3>
+                <p>Consulta lo que está pendiente y el historial de decisiones sin mezclar los estados.</p>
               </div>
               <button type="button" class="btn btn-outline small" id="refreshAdminReviews"><svg class="icon"><use href="#icon-refresh"></use></svg><span>Actualizar</span></button>
             </div>
 
-            <div class="approved-review-filters">
+            <div class="admin-review-tabs" role="tablist" aria-label="Estados de revisión">
+              <button type="button" class="admin-review-tab active" data-admin-review-tab="pendiente"><span>En curso</span><strong id="reviewPendingCount">0</strong></button>
+              <button type="button" class="admin-review-tab" data-admin-review-tab="aprobado"><span>Aprobadas</span><strong id="reviewApprovedCount">0</strong></button>
+              <button type="button" class="admin-review-tab" data-admin-review-tab="rechazado"><span>No aprobadas</span><strong id="reviewRejectedCount">0</strong></button>
+            </div>
+
+            <div class="approved-review-filters" id="adminReviewFilters">
               <label>Buscar usuario
                 <input id="approvedReviewSearch" placeholder="Nombre o usuario..." />
               </label>
@@ -1399,7 +1425,7 @@
             </div>
 
             <div class="approved-review-summary">
-              <span>Revisiones encontradas</span>
+              <span id="adminReviewSummaryLabel">Revisiones en curso</span>
               <strong id="approvedReviewCount">0</strong>
             </div>
 

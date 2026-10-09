@@ -73,6 +73,9 @@ let profilePhotoFile = null;
 let adminUserPhotoFile = null;
 let pendingDeleteUserId = null;
 let openAdminUserMenuId = null;
+let adminReviewActiveTab = 'pendiente';
+let adminRejectedReviewRows = [];
+
 let adminPasswordResolver = null;
 let adminUserPhotoUrl = '';
 
@@ -98,7 +101,7 @@ let designEditingPreviewUrls = [];
 let designEditingSourceUrl = '';
 let designEditingPreviewFiles = [];
 let designEditingSourceFile = null;
-let pendingAdminSection = 'apariencia';
+let pendingAdminSection = 'hub';
 
 const QUOTE_DEFAULTS = [
   { clave:'lona', nombre:'Lona', precio:7.25, precio_publico:7.25, precio_privado:7.25, activo:1, orden:1 },
@@ -2661,7 +2664,7 @@ function bindCoreNavigationEarly() {
   safeBind('profileAdminMenu', () => {
     const menu = $('#profileDropdown');
     if (menu) menu.hidden = true;
-    requestAdminPanel('apariencia');
+    requestAdminPanel('hub');
   });
 
   safeBind('homeAttendanceBtn', () => toggleAttendance());
@@ -4235,23 +4238,26 @@ async function saveCuadreReviewEdit(){
 }
 function reviewStatusLabel(s){return s==='aprobado'?'Revisado':s==='rechazado'?'Rechazado':'Pendiente';}
 
-function reviewCardHtml(r,{history=false}={}){
+function reviewCardHtml(r,{history=false,status=null}={}){
+  const state=status||r.estado||(history?'aprobado':'pendiente');
   const d=Number(r.diferencia||0);
   const dt=Math.abs(d)<.01?'Sin diferencia':d<0?`Falta ${money(Math.abs(d))}`:`Sobra ${money(d)}`;
+  const label=state==='aprobado'?'Aprobado':state==='rechazado'?'No aprobado':'En curso';
+  const meta=state==='pendiente'?'Pendiente':(r.revisado_en?formatTime(r.revisado_en):'—');
   return `<article class="review-card" data-admin-review-id="${r.id}">
     <div class="review-card-user">
       <span class="review-card-avatar">${r.foto_url?`<img src="${escapeHtml(r.foto_url)}" alt="" />`:iconUse('icon-user')}</span>
       <span class="review-card-user-copy"><strong>${escapeHtml(r.usuario_nombre||r.usuario||'Usuario')}</strong><small>${escapeHtml(r.fecha_local)} · ${formatTime(r.enviado_en)}</small></span>
     </div>
     <div class="review-card-metric"><small>Diferencia</small><strong>${dt}</strong></div>
-    <div class="review-card-metric"><small>${history?'Aprobado':'Estado'}</small><strong>${history?(r.revisado_en?formatTime(r.revisado_en):'—'):'Pendiente'}</strong></div>
-    <span class="review-status-pill ${history?'aprobado':'pendiente'}">${history?'Revisado':'Pendiente'}</span>
+    <div class="review-card-metric"><small>${state==='pendiente'?'Estado':'Procesado'}</small><strong>${meta}</strong></div>
+    <span class="review-status-pill ${state}">${label}</span>
   </article>`;
 }
 
 function renderMainReviews(){
   const list=$('#mainReviewList');if(!list)return;
-  const closureCards=pendingCuadreReviews.map(r=>reviewCardHtml(r)).join('');
+  const closureCards=pendingCuadreReviews.map(r=>reviewCardHtml(r,{status:'pendiente'})).join('');
   const openingCards=openingReviewAlerts.map(a=>`<article class="review-card opening-alert" data-opening-alert-id="${a.id}">
     <div class="review-card-user"><span class="review-card-avatar">${iconUse('icon-alert')}</span><span class="review-card-user-copy"><strong>${escapeHtml(a.usuario_nombre||a.usuario||'Usuario')}</strong><small>Apertura ${escapeHtml(a.fecha_local||'')} · cierre de ${escapeHtml(a.cierre_usuario_nombre||'usuario anterior')}</small></span></div>
     <div class="review-card-metric"><small>Diferencia</small><strong>${Number(a.diferencia||0)<0?`Falta ${money(Math.abs(a.diferencia||0))}`:`Sobra ${money(a.diferencia||0)}`}</strong></div>
@@ -4264,7 +4270,8 @@ function approvedReviewFilteredRows(){
   const q=($('#approvedReviewSearch')?.value||'').trim().toLowerCase();
   const start=$('#approvedReviewStart')?.value||'';
   const end=$('#approvedReviewEnd')?.value||'';
-  return adminReviewRows.filter((r)=>{
+  const source=adminReviewActiveTab==='pendiente'?pendingCuadreReviews:adminReviewActiveTab==='rechazado'?adminRejectedReviewRows:adminReviewRows;
+  return source.filter((r)=>{
     const name=`${r.usuario_nombre||''} ${r.usuario||''}`.toLowerCase();
     if(q && !name.includes(q)) return false;
     if(start && String(r.fecha_local||'')<start) return false;
@@ -4276,8 +4283,19 @@ function approvedReviewFilteredRows(){
 function renderAdminReviews(){
   const list=$('#adminReviewList');if(!list)return;
   const rows=approvedReviewFilteredRows();
-  if($('#approvedReviewCount'))$('#approvedReviewCount').textContent=String(rows.length);
-  list.innerHTML=rows.length?rows.map(r=>reviewCardHtml(r,{history:true})).join(''):'<div class="review-empty">No hay revisiones aprobadas que coincidan con los filtros.</div>';
+  const labels={pendiente:'Revisiones en curso',aprobado:'Revisiones aprobadas',rechazado:'Revisiones no aprobadas'};
+  if($('#adminReviewSummaryLabel'))$('#adminReviewSummaryLabel').textContent=labels[adminReviewActiveTab]||'Revisiones';
+  if($('#approvedReviewCount'))$('#approvedReviewCount').textContent=String(rows.length+(adminReviewActiveTab==='pendiente'?openingReviewAlerts.length:0));
+  if($('#reviewPendingCount'))$('#reviewPendingCount').textContent=String(pendingCuadreReviews.length+openingReviewAlerts.length);
+  if($('#reviewApprovedCount'))$('#reviewApprovedCount').textContent=String(adminReviewRows.length);
+  if($('#reviewRejectedCount'))$('#reviewRejectedCount').textContent=String(adminRejectedReviewRows.length);
+  $$('.admin-review-tab').forEach(btn=>btn.classList.toggle('active',btn.dataset.adminReviewTab===adminReviewActiveTab));
+  let cards=rows.map(r=>reviewCardHtml(r,{status:adminReviewActiveTab})).join('');
+  if(adminReviewActiveTab==='pendiente'){
+    cards+=openingReviewAlerts.map(a=>`<article class="review-card opening-alert" data-opening-alert-id="${a.id}"><div class="review-card-user"><span class="review-card-avatar">${iconUse('icon-alert')}</span><span class="review-card-user-copy"><strong>${escapeHtml(a.usuario_nombre||a.usuario||'Usuario')}</strong><small>Apertura ${escapeHtml(a.fecha_local||'')} · cierre de ${escapeHtml(a.cierre_usuario_nombre||'usuario anterior')}</small></span></div><div class="review-card-metric"><small>Diferencia</small><strong>${Number(a.diferencia||0)<0?`Falta ${money(Math.abs(a.diferencia||0))}`:`Sobra ${money(a.diferencia||0)}`}</strong></div><div class="review-card-metric"><small>Estado</small><strong>En curso</strong></div><span class="review-status-pill apertura">Apertura</span></article>`).join('');
+  }
+  const empty={pendiente:'No hay revisiones en curso.',aprobado:'No hay revisiones aprobadas que coincidan con los filtros.',rechazado:'No hay revisiones no aprobadas que coincidan con los filtros.'};
+  list.innerHTML=cards||`<div class="review-empty">${empty[adminReviewActiveTab]}</div>`;
 }
 
 async function refreshMainReviews({silent=false}={}){
@@ -4314,10 +4332,15 @@ async function resolveOpeningAlert(){if(!activeOpeningAlert)return;const ok=awai
 async function refreshAdminReviews({silent=false}={}){
   if(!currentUser||currentUser.rol!=='admin')return[];
   try{
-    const rows=await apiFetch(`/api/cuadre/solicitudes?estado=aprobado&_=${Date.now()}`,{cache:'no-store'});
-    adminReviewRows=Array.isArray(rows)?rows:[];
+    const [approved,rejected]=await Promise.all([
+      apiFetch(`/api/cuadre/solicitudes?estado=aprobado&_=${Date.now()}`,{cache:'no-store'}),
+      apiFetch(`/api/cuadre/solicitudes?estado=rechazado&_=${Date.now()}`,{cache:'no-store'})
+    ]);
+    adminReviewRows=Array.isArray(approved)?approved:[];
+    adminRejectedReviewRows=Array.isArray(rejected)?rejected:[];
+    await refreshMainReviews({silent:true});
     renderAdminReviews();
-    return adminReviewRows;
+    return adminReviewActiveTab==='rechazado'?adminRejectedReviewRows:adminReviewActiveTab==='pendiente'?pendingCuadreReviews:adminReviewRows;
   }catch(err){if(!silent)showToast(err.message,'No se pudo cargar el historial de revisiones');return[];}
 }
 
@@ -4881,50 +4904,44 @@ function applySiteIcon(dataUrl) {
   }
 }
 
-function showAdminSection(section = 'apariencia') {
-  const target = section || 'apariencia';
+function showAdminHub(){
+  $$('.admin-view').forEach(view=>view.hidden=true);
+  $$('.admin-nav-btn').forEach(btn=>btn.classList.remove('active'));
+  if($('#adminLaunchpad'))$('#adminLaunchpad').hidden=false;
+  if($('#adminHubBtn'))$('#adminHubBtn').hidden=true;
+  pendingAdminSection='hub';
+  window.scrollTo({top:0,behavior:'instant'});
+}
 
-  $$('.admin-view').forEach((view) => {
-    view.hidden = view.dataset.adminView !== target;
-  });
-
-  $$('.admin-nav-btn').forEach((btn) => {
-    btn.classList.toggle('active', btn.dataset.adminTarget === target);
-  });
-
+function showAdminSection(section = 'hub') {
+  const target = section || 'hub';
+  if(target==='hub'){showAdminHub();return;}
+  if($('#adminLaunchpad'))$('#adminLaunchpad').hidden=true;
+  if($('#adminHubBtn'))$('#adminHubBtn').hidden=false;
+  $$('.admin-view').forEach((view) => { view.hidden = view.dataset.adminView !== target; });
+  $$('.admin-nav-btn').forEach((btn) => { btn.classList.toggle('active', btn.dataset.adminTarget === target); });
   pendingAdminSection = target;
-
   if (target === 'acceso') refreshAdminUsers();
   if (target === 'roles') refreshRoles();
   if (target === 'checkin') refreshAttendance();
-  if (target === 'metas') {
-    // La fila Metas solo controla el desplegable.
-    // Las subvistas se abren únicamente al pulsar una subpestaña.
-    const subnav = $('#goalsSubnav');
-    if (subnav) subnav.hidden = false;
-    $('#adminGoalsNav')?.classList.add('expanded');
-  }
+  if (target === 'metas') setGoalsSubview(goalsActiveSubview||'editor',{force:false});
   if (target === 'revisiones') refreshAdminReviews({ silent:true });
-  if (target === 'bancos') { refreshBanks({ silent:true }); }
-  if (target === 'cuadre') { refreshCnbConfig({ silent:true }); }
-  if (target === 'cotizador') {
-    renderQuotePriceAdmin();
-    renderQuoteClientAdmin();
-  }
-  if (target === 'disenos') {
-    renderAdminDesigns();
-  }
+  if (target === 'bancos') refreshBanks({ silent:true });
+  if (target === 'cuadre') refreshCnbConfig({ silent:true });
+  if (target === 'cotizador') { renderQuotePriceAdmin(); renderQuoteClientAdmin(); }
+  if (target === 'disenos') renderAdminDesigns();
+  window.scrollTo({top:0,behavior:'instant'});
 }
 
-function requestAdminPanel(section = 'apariencia') {
+function requestAdminPanel(section = 'hub') {
   if (!currentUser || currentUser.rol !== 'admin') {
     showToast('Solo un administrador puede abrir este panel.', 'Acceso restringido');
     return;
   }
-  pendingAdminSection = section || 'apariencia';
+  pendingAdminSection = section || 'hub';
   openAdminPanel(section);
 }
-function openAdminPanel(section = pendingAdminSection || 'apariencia') {
+function openAdminPanel(section = pendingAdminSection || 'hub') {
   // Primero abre la página; después carga los módulos.
   ['home','resumen','tareas','archivados','cotizador','cuadre','disenos'].forEach((id) => {
     const el = $('#' + id);
@@ -5006,6 +5023,7 @@ on('detailImageNext', 'click', () => {
 on('refreshAttendance', 'click', refreshAttendance);
 on('refreshGoalsHistory', 'click', () => setGoalsSubview('history', { force:true }));
 on('refreshGoalsBanks', 'click', () => setGoalsSubview('banks', { force:true }));
+$$('.admin-launchpad [data-goals-subtarget]').forEach(btn=>btn.addEventListener('click',async(e)=>{e.stopPropagation();showAdminSection('metas');await setGoalsSubview(btn.dataset.goalsSubtarget,{force:true});}));
 on('goalsBankStartDate', 'change', () => setGoalsSubview('banks', { force:true }));
 on('goalsBankEndDate', 'change', () => setGoalsSubview('banks', { force:true }));
 on('goalsBankUserFilter', 'change', () => setGoalsSubview('banks', { force:true }));
@@ -5090,6 +5108,8 @@ $('#cnbAdminBanksList')?.addEventListener('change',(e)=>{
 });
 ['cnbGuayaquilOrlando','cnbGuayaquilKevin','cnbPichincha1','cnbPichincha2','cnbPacifico','cnbProdubancoAvailable','cnbProdubancoOverdraft','cnbYaGanaste','cnbMiNegocio','cnbCash','cnbTxGuayaquilOrlando','cnbTxGuayaquilKevin','cnbTxPichincha','cnbTxPacifico','cnbTxProdubanco','cnbTxYaGanaste'].forEach(id=>$('#'+id)?.addEventListener('input',updateCuadreTotals));
 on('refreshAdminReviews', 'click', () => refreshAdminReviews());
+on('adminHubBtn','click',showAdminHub);
+$$('.admin-review-tab').forEach(btn=>btn.addEventListener('click',()=>{adminReviewActiveTab=btn.dataset.adminReviewTab||'pendiente';renderAdminReviews();}));
 on('refreshMainReviews', 'click', () => refreshMainReviews());
 on('clearApprovedReviewFilters', 'click', () => {
   if($('#approvedReviewSearch')) $('#approvedReviewSearch').value='';
@@ -5121,7 +5141,7 @@ on('editCuadreReview','click',()=>{if(!activeCuadreReviewData||activeCuadreRevie
 on('saveCuadreReviewEdit','click',saveCuadreReviewEdit);
 on('approveCuadreReview', 'click', () => resolveCuadreReview('aprobar'));
 on('rejectCuadreReview', 'click', () => resolveCuadreReview('rechazar'));
-$('#adminReviewList')?.addEventListener('click',(e)=>{const c=e.target.closest('[data-admin-review-id]');if(c)openCuadreReview(c.dataset.adminReviewId);});
+$('#adminReviewList')?.addEventListener('click',(e)=>{const opening=e.target.closest('[data-opening-alert-id]');if(opening){openOpeningAlert(opening.dataset.openingAlertId);return;}const c=e.target.closest('[data-admin-review-id]');if(c)openCuadreReview(c.dataset.adminReviewId);});
 
 
 on('checkinStartDate', 'change', refreshAttendance);
