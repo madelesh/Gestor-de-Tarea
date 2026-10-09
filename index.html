@@ -376,11 +376,8 @@
           <div class="cuadre-date-box"><span>Fecha</span><strong id="cuadreDateLabel">—</strong></div>
         </div>
 
-        <div class="cnb-config-strip">
+        <div class="cnb-config-strip cnb-config-strip-user">
           <div><span>Efectivo inicial</span><strong id="cnbInitialCashLabel">$5.000,00</strong></div>
-          <div><span>Valor por transacción</span><strong id="cnbTxRateLabel">$0,35</strong></div>
-          <div><span>Margen faltante</span><strong id="cnbShortMarginLabel">Hasta $2,00</strong></div>
-          <div><span>Margen sobrante</span><strong id="cnbOverMarginLabel">Hasta $5,00</strong></div>
         </div>
 
         <section id="cuadreOpeningCheck" class="cuadre-opening-check" hidden>
@@ -395,7 +392,19 @@
           <div id="openingPreviousSummary" class="opening-previous-summary"></div>
           <div id="openingPreviousAccounts" class="opening-previous-accounts"></div>
           <div class="cuadre-opening-actions">
-            <button type="button" class="btn btn-accent" id="confirmCuadreOpening"><svg class="icon"><use href="#icon-check"></use></svg><span>Confirmar y abrir caja</span></button>
+            <button type="button" class="btn btn-accent" id="confirmCuadreOpening"><svg class="icon"><use href="#icon-check"></use></svg><span>Los valores coinciden</span></button>
+            <button type="button" class="btn btn-outline danger-soft" id="reportOpeningDifference"><svg class="icon"><use href="#icon-alert"></use></svg><span>Hay una diferencia</span></button>
+          </div>
+          <div class="opening-difference-panel" id="openingDifferencePanel" hidden>
+            <div class="opening-difference-grid">
+              <label><span>Tipo de diferencia</span><select id="openingDifferenceType"><option value="faltante">Falta dinero</option><option value="sobrante">Sobra dinero</option></select></label>
+              <label><span>Valor de la diferencia</span><div class="money-input"><span>$</span><input id="openingDifferenceAmount" type="number" min="0.01" step="0.01" placeholder="0.00" /></div></label>
+              <label class="opening-difference-note"><span>Observación</span><textarea id="openingDifferenceNote" rows="3" maxlength="500" placeholder="Describe lo que encontraste al recibir la caja…"></textarea></label>
+            </div>
+            <div class="cuadre-opening-actions">
+              <button type="button" class="btn btn-outline" id="cancelOpeningDifference">Cancelar</button>
+              <button type="button" class="btn btn-danger" id="sendOpeningDifference">Reportar y abrir caja</button>
+            </div>
           </div>
         </section>
 
@@ -1537,6 +1546,20 @@
     </div>
   </section>
 
+  <dialog id="openingAlertDialog" class="cuadre-review-dialog">
+    <form method="dialog" class="cuadre-review-shell">
+      <div class="cuadre-review-head">
+        <div><span class="eyebrow">Incidencia de apertura</span><h2 id="openingAlertTitle">Diferencia al recibir caja</h2><p id="openingAlertMeta">—</p></div>
+        <button type="button" class="icon-btn square" id="closeOpeningAlert" aria-label="Cerrar">×</button>
+      </div>
+      <div class="cuadre-review-status" id="openingAlertStatus"></div>
+      <div class="cuadre-review-summary" id="openingAlertSummary"></div>
+      <div class="cuadre-review-bank-table"><div id="openingAlertAccounts"></div></div>
+      <label class="cuadre-review-note"><span>Observación del usuario que abrió</span><textarea id="openingAlertNote" rows="3" readonly></textarea></label>
+      <div class="cuadre-review-actions"><button type="button" class="btn btn-accent" id="resolveOpeningAlert"><svg class="icon"><use href="#icon-check"></use></svg><span>Marcar como revisado</span></button></div>
+    </form>
+  </dialog>
+
   <dialog id="deleteDialog" class="confirm-dialog">
     <div class="confirm-box">
       <div class="confirm-icon">!</div>
@@ -1586,6 +1609,6 @@
     </article>
   </template>
 
-  <script src="app.js?v=11.22"></script>
+  <script src="app.js?v=11.23"></script>
 </body>
 </html>

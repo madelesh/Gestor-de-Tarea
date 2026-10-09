@@ -41,6 +41,9 @@ const DEFAULT_CNB_BANKS = [
 let cuadreCurrent = null;
 let cuadreSubmission = null;
 let cuadreNotifications = [];
+let pendingCuadreReviews = [];
+let openingReviewAlerts = [];
+let activeOpeningAlert = null;
 let activeCuadreReviewId = null;
 let activeCuadreReviewData = null;
 let cuadreOpeningState = null;
@@ -4073,14 +4076,33 @@ async function refreshCuadreOpening({silent=false}={}){
 async function confirmCuadreOpening(){
   const state=cuadreOpeningState;
   if(!state?.requiere_confirmacion)return;
-  const ok=await themedConfirm({title:'Confirmar apertura de caja',message:'¿Verificaste que los valores del cierre anterior son correctos y deseas iniciar el cuadre de hoy?',confirmText:'Sí, abrir caja'});
+  const ok=await themedConfirm({title:'Confirmar apertura de caja',message:'¿Verificaste físicamente la caja y confirmas que coincide con el cierre anterior?',confirmText:'Sí, los valores coinciden'});
   if(!ok)return;
   try{
-    await apiFetch('/api/cuadre/apertura',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({fecha:todayLocal()})});
-    showToast('Apertura confirmada. Ya puedes llenar el cuadre de hoy.','Caja abierta');
+    await apiFetch('/api/cuadre/apertura',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({fecha:todayLocal(),estado_validacion:'correcto',diferencia:0,observacion:''})});
+    showToast('Apertura confirmada. Desde ahora quedas registrado como responsable de la caja de hoy.','Caja abierta');
+    const panel=$('#openingDifferencePanel');if(panel)panel.hidden=true;
     await refreshCuadreOpening({silent:true});
     setCuadreFormLocked(false);
   }catch(err){showToast(err.message,'No se pudo confirmar la apertura');}
+}
+function toggleOpeningDifference(show){const panel=$('#openingDifferencePanel');if(panel)panel.hidden=!show;}
+async function sendOpeningDifference(){
+  const state=cuadreOpeningState;if(!state?.requiere_confirmacion)return;
+  const tipo=$('#openingDifferenceType')?.value==='sobrante'?'sobrante':'faltante';
+  const monto=Math.max(0,Number($('#openingDifferenceAmount')?.value||0));
+  const nota=($('#openingDifferenceNote')?.value||'').trim();
+  if(monto<=0){showToast('Ingresa el valor de la diferencia encontrada.','Falta el valor');return;}
+  const signed=tipo==='faltante'?-monto:monto;
+  const ok=await themedConfirm({title:'Reportar diferencia de apertura',message:`Vas a registrar que al recibir la caja ${tipo==='faltante'?'faltan':'sobran'} ${money(monto)} respecto al cierre anterior. Esta incidencia será notificada al administrador y quedará vinculada al usuario que cerró la caja.`,confirmText:'Reportar diferencia',danger:true});
+  if(!ok)return;
+  try{
+    const r=await apiFetch('/api/cuadre/apertura',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({fecha:todayLocal(),estado_validacion:'diferencia',diferencia:signed,observacion:nota})});
+    showToast(r.mensaje||'Diferencia registrada y enviada al administrador.','Apertura con diferencia');
+    toggleOpeningDifference(false);
+    await refreshCuadreOpening({silent:true});
+    setCuadreFormLocked(false);
+  }catch(err){showToast(err.message,'No se pudo reportar la diferencia');}
 }
 function monthDateRange(month){
   const m=/^\d{4}-\d{2}$/.test(month||'')?month:todayLocal().slice(0,7);
@@ -4133,20 +4155,17 @@ function renderCuadreNotifications(){
   const count=cuadreNotifications.length;
   const badge=$('#notificationBadge'),side=$('#adminReviewCount'),main=$('#mainReviewCount'),list=$('#notificationList');
   if(badge){badge.textContent=String(count);badge.hidden=count===0;}
-  if(side){side.textContent=String(count);side.hidden=count===0;}
-  if(main){main.textContent=String(count);main.hidden=count===0;}
-  if($('#mainReviewsPending')) $('#mainReviewsPending').textContent=String(count);
-
+  const pendingCount=pendingCuadreReviews.length+openingReviewAlerts.length;
+  if(side){side.textContent=String(pendingCount);side.hidden=pendingCount===0;}
+  if(main){main.textContent=String(pendingCount);main.hidden=pendingCount===0;}
+  if($('#mainReviewsPending')) $('#mainReviewsPending').textContent=String(pendingCount);
   if(!list)return;
-  if(!count){list.innerHTML='<div class="notification-empty">No hay cierres de caja pendientes.</div>';return;}
+  if(!count){list.innerHTML='<div class="notification-empty">No hay notificaciones nuevas de caja.</div>';return;}
   list.innerHTML=cuadreNotifications.map((i)=>`
-    <button type="button" class="notification-item" data-notification-review-id="${i.id}">
-      <span class="notification-item-icon">${iconUse('icon-wallet')}</span>
-      <span class="notification-item-copy">
-        <strong>${escapeHtml(i.usuario_nombre||i.usuario||'Usuario')}</strong>
-        <span>${escapeHtml(i.fecha_local)} · ${i.diferencia_tipo==='faltante'?`Falta ${money(Math.abs(i.diferencia||0))}`:i.diferencia_tipo==='sobrante'?`Sobra ${money(i.diferencia||0)}`:'Cuadre correcto'}</span>
-      </span>
-      <span class="notification-item-time">${formatTime(i.enviado_en)}</span>
+    <button type="button" class="notification-item" data-notification-id="${i.id}" data-notification-ref-type="${escapeHtml(i.referencia_tipo||'')}" data-notification-ref-id="${i.referencia_id||''}" data-notification-kind="${escapeHtml(i.tipo||'')}">
+      <span class="notification-item-icon">${iconUse(i.tipo==='apertura_diferencia'?'icon-alert':'icon-wallet')}</span>
+      <span class="notification-item-copy"><strong>${escapeHtml(i.titulo||'Caja')}</strong><span>${escapeHtml(i.mensaje||'')}</span></span>
+      <span class="notification-item-time">${formatTime(i.creado_en)}</span>
     </button>`).join('');
 }
 function reviewSummary(p){return{totalBanks:Number(p?.total_bancos||0),cash:Number(p?.efectivo||0),txCount:Number(p?.total_transacciones||0),txValue:Number(p?.valor_transacciones||0),found:Number(p?.total_encontrado||0),expected:Number(p?.valor_esperado||0),difference:Number(p?.diferencia||0),within:Boolean(p?.dentro_margen)}}
@@ -4231,11 +4250,14 @@ function reviewCardHtml(r,{history=false}={}){
 }
 
 function renderMainReviews(){
-  const list=$('#mainReviewList');
-  if(!list)return;
-  const rows=cuadreNotifications;
-  if($('#mainReviewsPending'))$('#mainReviewsPending').textContent=String(rows.length);
-  list.innerHTML=rows.length?rows.map(r=>reviewCardHtml(r)).join(''):'<div class="review-empty">No hay cierres pendientes de revisión.</div>';
+  const list=$('#mainReviewList');if(!list)return;
+  const closureCards=pendingCuadreReviews.map(r=>reviewCardHtml(r)).join('');
+  const openingCards=openingReviewAlerts.map(a=>`<article class="review-card opening-alert" data-opening-alert-id="${a.id}">
+    <div class="review-card-user"><span class="review-card-avatar">${iconUse('icon-alert')}</span><span class="review-card-user-copy"><strong>${escapeHtml(a.usuario_nombre||a.usuario||'Usuario')}</strong><small>Apertura ${escapeHtml(a.fecha_local||'')} · cierre de ${escapeHtml(a.cierre_usuario_nombre||'usuario anterior')}</small></span></div>
+    <div class="review-card-metric"><small>Diferencia</small><strong>${Number(a.diferencia||0)<0?`Falta ${money(Math.abs(a.diferencia||0))}`:`Sobra ${money(a.diferencia||0)}`}</strong></div>
+    <div class="review-card-metric"><small>Estado</small><strong>Pendiente</strong></div><span class="review-status-pill apertura">Apertura</span></article>`).join('');
+  const total=pendingCuadreReviews.length+openingReviewAlerts.length;if($('#mainReviewsPending'))$('#mainReviewsPending').textContent=String(total);
+  list.innerHTML=(closureCards+openingCards)||'<div class="review-empty">No hay cierres ni aperturas pendientes de revisión.</div>';
 }
 
 function approvedReviewFilteredRows(){
@@ -4261,13 +4283,33 @@ function renderAdminReviews(){
 async function refreshMainReviews({silent=false}={}){
   if(!currentUser||currentUser.rol!=='admin')return[];
   try{
-    const rows=await apiFetch(`/api/cuadre/solicitudes?estado=pendiente&_=${Date.now()}`,{cache:'no-store'});
-    cuadreNotifications=Array.isArray(rows)?rows:[];
-    renderCuadreNotifications();
-    renderMainReviews();
-    return cuadreNotifications;
+    const [rows,alerts,notifications]=await Promise.all([
+      apiFetch(`/api/cuadre/solicitudes?estado=pendiente&_=${Date.now()}`,{cache:'no-store'}),
+      apiFetch(`/api/cuadre/aperturas-alertas?_=${Date.now()}`,{cache:'no-store'}),
+      apiFetch(`/api/cuadre/notificaciones?_=${Date.now()}`,{cache:'no-store'})
+    ]);
+    pendingCuadreReviews=Array.isArray(rows)?rows:[];
+    openingReviewAlerts=Array.isArray(alerts)?alerts:[];
+    cuadreNotifications=Array.isArray(notifications)?notifications:[];
+    renderCuadreNotifications();renderMainReviews();
+    return pendingCuadreReviews;
   }catch(err){if(!silent)showToast(err.message,'No se pudieron cargar las revisiones');return[];}
 }
+
+async function markCuadreNotificationRead(id){try{await apiFetch(`/api/cuadre/notificaciones/${id}/leer`,{method:'POST'});}catch{}}
+async function openOpeningAlert(id){
+  try{
+    const item=await apiFetch(`/api/cuadre/aperturas-alertas/${id}`);activeOpeningAlert=item;
+    $('#openingAlertTitle').textContent=`Diferencia al recibir caja · ${item.usuario_nombre||item.usuario||'Usuario'}`;
+    $('#openingAlertMeta').textContent=`Apertura ${item.fecha_local||''} · cierre anterior ${item.cierre_fecha||''} · cerrado por ${item.cierre_usuario_nombre||'—'}`;
+    const d=Number(item.diferencia||0);$('#openingAlertStatus').textContent=d<0?`Al recibir la caja faltaban ${money(Math.abs(d))}.`:`Al recibir la caja sobraban ${money(d)}.`;
+    const p=item.cierre_payload||{},sm=reviewSummary(p);
+    $('#openingAlertSummary').innerHTML=`<article><span>Cierre anterior</span><strong>${money(sm.found)}</strong></article><article><span>Diferencia recibida</span><strong>${money(d)}</strong></article><article><span>Responsable cierre</span><strong>${escapeHtml(item.cierre_usuario_nombre||'—')}</strong></article><article><span>Responsable apertura</span><strong>${escapeHtml(item.usuario_nombre||'—')}</strong></article>`;
+    $('#openingAlertAccounts').innerHTML=(p.cuentas||[]).map(c=>`<div class="cuadre-review-bank-row"><strong>${escapeHtml(c.banco||'')}<small>${escapeHtml(c.cuenta||'')}</small></strong><span></span><span></span><span>${money(c.resultado)}</span><span>${Number(c.transacciones||0)}</span><span></span></div>`).join('');
+    $('#openingAlertNote').value=item.observacion||'';$('#openingAlertDialog')?.showModal();
+  }catch(err){showToast(err.message,'No se pudo abrir la incidencia');}
+}
+async function resolveOpeningAlert(){if(!activeOpeningAlert)return;const ok=await themedConfirm({title:'Marcar incidencia como revisada',message:'¿Confirmas que ya verificaste esta diferencia entre el cierre anterior y la apertura?',confirmText:'Sí, marcar revisada'});if(!ok)return;try{await apiFetch(`/api/cuadre/aperturas-alertas/${activeOpeningAlert.id}/resolver`,{method:'POST'});$('#openingAlertDialog')?.close();showToast('La incidencia de apertura quedó revisada.','Revisión completada');activeOpeningAlert=null;await refreshMainReviews({silent:true});}catch(err){showToast(err.message,'No se pudo cerrar la incidencia');}}
 
 async function refreshAdminReviews({silent=false}={}){
   if(!currentUser||currentUser.rol!=='admin')return[];
@@ -5058,17 +5100,22 @@ on('clearApprovedReviewFilters', 'click', () => {
 ['approvedReviewSearch','approvedReviewStart','approvedReviewEnd'].forEach((id)=>{
   $('#'+id)?.addEventListener(id==='approvedReviewSearch'?'input':'change',renderAdminReviews);
 });
-$('#notificationList')?.addEventListener('click',(e)=>{
-  const item=e.target.closest('[data-notification-review-id]');
-  if(!item)return;
-  $('#notificationPanel').hidden=true;
-  showMainView('reviews');
-  openCuadreReview(item.dataset.notificationReviewId);
+$('#notificationList')?.addEventListener('click',async(e)=>{
+  const item=e.target.closest('[data-notification-id]');if(!item)return;
+  $('#notificationPanel').hidden=true;await markCuadreNotificationRead(item.dataset.notificationId);showMainView('reviews');
+  if(item.dataset.notificationRefType==='apertura')openOpeningAlert(item.dataset.notificationRefId);
+  else openCuadreReview(item.dataset.notificationRefId);
+  refreshMainReviews({silent:true});
 });
 $('#mainReviewList')?.addEventListener('click',(e)=>{
-  const card=e.target.closest('[data-admin-review-id]');
-  if(card)openCuadreReview(card.dataset.adminReviewId);
+  const opening=e.target.closest('[data-opening-alert-id]');if(opening){openOpeningAlert(opening.dataset.openingAlertId);return;}
+  const card=e.target.closest('[data-admin-review-id]');if(card)openCuadreReview(card.dataset.adminReviewId);
 });
+on('reportOpeningDifference','click',()=>toggleOpeningDifference(true));
+on('cancelOpeningDifference','click',()=>toggleOpeningDifference(false));
+on('sendOpeningDifference','click',sendOpeningDifference);
+on('closeOpeningAlert','click',()=>$('#openingAlertDialog')?.close());
+on('resolveOpeningAlert','click',resolveOpeningAlert);
 on('closeCuadreReview', 'click', () => $('#cuadreReviewDialog')?.close());
 on('editCuadreReview','click',()=>{if(!activeCuadreReviewData||activeCuadreReviewData.estado!=='pendiente')return;cuadreReviewEditing=!cuadreReviewEditing;renderCuadreReview(activeCuadreReviewData);});
 on('saveCuadreReviewEdit','click',saveCuadreReviewEdit);
