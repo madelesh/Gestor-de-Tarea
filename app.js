@@ -1,4 +1,4 @@
-const APP_VERSION = '11.25.5';
+const APP_VERSION = '11.25.6';
 const API_BASE = 'https://gestor-tareas-api.detodoec.workers.dev';
 const STORAGE_KEY = 'detodoec_tasks_v1';
 const SETTINGS_KEY = 'detodoec_tasks_settings_v3';
@@ -76,6 +76,9 @@ let openAdminUserMenuId = null;
 let adminReviewActiveTab = 'pendiente';
 let adminRejectedReviewRows = [];
 let paymentCalendarItems=[];
+let calendarMonthlyExpenses=[];
+let calendarSelectedDate=null;
+let pendingCalendarPaymentId=null;
 let paymentCalendarMonth=todayLocal().slice(0,7);
 
 let adminPasswordResolver = null;
@@ -2909,78 +2912,15 @@ function renderHomeUsers() {
 }
 
 function renderHomeGoals() {
-  const grid = $('#homeGoalsGrid');
-  const empty = $('#homeGoalsEmpty');
-  const monthLabel = $('#homeGoalsMonth');
-  if (!grid || !empty) return;
-
-  grid.innerHTML = '';
-  const currentMonth = goalsToday[0]?.mes || todayLocal().slice(0,7);
-  if (monthLabel) monthLabel.textContent = formatGoalMonth(currentMonth);
-  const usersById = new Map(homeUsers.map((user) => [String(user.id), user]));
-
-  if (!goalsToday.length) {
-    empty.hidden = false;
-    return;
-  }
-
-  const totalSales = goalsToday.reduce((sum, goal) => sum + Number(goal.ventas_mes || 0), 0);
-  const totalSalesTarget = goalsToday.reduce((sum, goal) => sum + (Number(goal.ventas_activa ?? 1) === 1 ? Number(goal.objetivo_ventas || 0) : 0), 0);
-  const totalTx = goalsToday.reduce((sum, goal) => sum + Number(goal.transacciones_mes || 0), 0);
-  const totalTxTarget = goalsToday.reduce((sum, goal) => sum + (Number(goal.transacciones_activa ?? 1) === 1 ? Number(goal.objetivo_transacciones || 0) : 0), 0);
-  const salesGlobalPct = monthlyGoalPercent(totalSales, totalSalesTarget);
-  const txGlobalPct = monthlyGoalPercent(totalTx, totalTxTarget);
-
-  const chart = document.createElement('section');
-  chart.className = 'goals-compact-widget';
-  chart.innerHTML = `
-    <div class="goals-compact-summary">
-      <div class="goals-summary-copy">
-        <span class="goals-summary-label">Avance general</span>
-        <strong>${Math.round(salesGlobalPct)}%</strong>
-        <small>${money(totalSales)} de ${money(totalSalesTarget)} en ventas</small>
-      </div>
-      <div class="goals-summary-pills">
-        <span><i class="goals-dot sales"></i>Ventas <b>${Math.round(salesGlobalPct)}%</b></span>
-        <span><i class="goals-dot tx"></i>Transacciones <b>${Math.round(txGlobalPct)}%</b></span>
-      </div>
-    </div>
-    <div class="goals-compact-chart" role="group" aria-label="Metas por usuario">
-      ${goalsToday.map((goal) => {
-        const user = usersById.get(String(goal.usuario_id)) || goal;
-        const salesActive = Number(goal.ventas_activa ?? 1) === 1;
-        const txActive = Number(goal.transacciones_activa ?? 1) === 1;
-        const salesPercent = monthlyGoalPercent(goal.ventas_mes, goal.objetivo_ventas);
-        const txPercent = monthlyGoalPercent(goal.transacciones_mes, goal.objetivo_transacciones);
-        const salesHeight = salesActive ? Math.max(4, Math.min(100, salesPercent)) : 0;
-        const txHeight = txActive ? Math.max(4, Math.min(100, txPercent)) : 0;
-        const avatar = user.foto_url
-          ? `<img src="${escapeHtml(user.foto_url)}" alt="" />`
-          : `<span>${escapeHtml(String(user.nombre || user.usuario || 'U').slice(0,1).toUpperCase())}</span>`;
-        return `<article class="goal-person-column">
-          <div class="goal-person-bars">
-            <div class="goal-bar-wrap ${salesActive ? '' : 'inactive'}">
-              <span class="goal-bar-value">${salesActive ? `${Math.round(salesPercent)}%` : '—'}</span>
-              <div class="goal-bar-shell sales"><span style="height:${salesHeight}%"></span></div>
-              <small>Ventas</small>
-            </div>
-            <div class="goal-bar-wrap ${txActive ? '' : 'inactive'}">
-              <span class="goal-bar-value">${txActive ? `${Math.round(txPercent)}%` : '—'}</span>
-              <div class="goal-bar-shell tx"><span style="height:${txHeight}%"></span></div>
-              <small>Trans.</small>
-            </div>
-          </div>
-          <div class="goal-person-user">
-            <span class="goal-person-avatar">${avatar}</span>
-            <strong>${escapeHtml(user.nombre || user.usuario || 'Usuario')}</strong>
-            <small>${salesActive ? `${money(Number(goal.ventas_mes || 0))} / ${money(Number(goal.objetivo_ventas || 0))}` : 'Ventas desactivadas'}</small>
-            <small>${txActive ? `${Math.round(Number(goal.transacciones_mes || 0))} / ${Math.round(Number(goal.objetivo_transacciones || 0))} trans.` : 'Trans. desactivadas'}</small>
-          </div>
-        </article>`;
-      }).join('')}
-    </div>`;
-  grid.appendChild(chart);
-  empty.hidden = true;
+  const grid=$('#homeGoalsGrid'),empty=$('#homeGoalsEmpty'),monthLabel=$('#homeGoalsMonth');if(!grid||!empty)return;grid.innerHTML='';
+  const currentMonth=goalsToday[0]?.mes||todayLocal().slice(0,7);if(monthLabel)monthLabel.textContent=formatGoalMonth(currentMonth);if(!goalsToday.length){empty.hidden=false;return;}
+  const usersById=new Map(homeUsers.map(u=>[String(u.id),u]));
+  const totalSales=goalsToday.reduce((s,g)=>s+Number(g.ventas_mes||0),0),totalSalesTarget=goalsToday.reduce((s,g)=>s+(Number(g.ventas_activa??1)===1?Number(g.objetivo_ventas||0):0),0);
+  const totalTx=goalsToday.reduce((s,g)=>s+Number(g.transacciones_mes||0),0),totalTxTarget=goalsToday.reduce((s,g)=>s+(Number(g.transacciones_activa??1)===1?Number(g.objetivo_transacciones||0):0),0);
+  const salesGlobalPct=monthlyGoalPercent(totalSales,totalSalesTarget),txGlobalPct=monthlyGoalPercent(totalTx,totalTxTarget);
+  const chart=document.createElement('section');chart.className='goals-readable-widget';
+  chart.innerHTML=`<div class="goals-readable-summary"><div><span>Avance general</span><strong>${Math.round(salesGlobalPct)}%</strong><small>${money(totalSales)} de ${money(totalSalesTarget)} en ventas</small></div><div class="goals-readable-legend"><span><i class="goals-dot sales"></i> Ventas <b>${Math.round(salesGlobalPct)}%</b></span><span><i class="goals-dot tx"></i> Transacciones <b>${Math.round(txGlobalPct)}%</b></span></div></div><div class="goals-readable-scroll"><div class="goals-readable-chart">${goalsToday.map(goal=>{const user=usersById.get(String(goal.usuario_id))||goal,salesActive=Number(goal.ventas_activa??1)===1,txActive=Number(goal.transacciones_activa??1)===1,sp=monthlyGoalPercent(goal.ventas_mes,goal.objetivo_ventas),tp=monthlyGoalPercent(goal.transacciones_mes,goal.objetivo_transacciones),sh=salesActive?(sp<=0?2:Math.max(8,Math.min(100,sp))):0,th=txActive?(tp<=0?2:Math.max(8,Math.min(100,tp))):0,avatar=user.foto_url?`<img src="${escapeHtml(user.foto_url)}" alt="" />`:`<span>${escapeHtml(String(user.nombre||user.usuario||'U').slice(0,1).toUpperCase())}</span>`;return `<article class="goal-readable-person"><div class="goal-readable-bars"><div class="goal-readable-bar"><b>${salesActive?`${Math.round(sp)}%`:'—'}</b><div class="goal-readable-track sales"><span style="height:${sh}%"></span></div><small>Ventas</small></div><div class="goal-readable-bar"><b>${txActive?`${Math.round(tp)}%`:'—'}</b><div class="goal-readable-track tx"><span style="height:${th}%"></span></div><small>Trans.</small></div></div><div class="goal-readable-user"><span class="goal-readable-avatar">${avatar}</span><div><strong>${escapeHtml(user.nombre||user.usuario||'Usuario')}</strong><small>${salesActive?`${money(Number(goal.ventas_mes||0))} / ${money(Number(goal.objetivo_ventas||0))}`:'Ventas desactivadas'}</small><small>${txActive?`${Math.round(Number(goal.transacciones_mes||0))} / ${Math.round(Number(goal.objetivo_transacciones||0))} trans.`:'Trans. desactivadas'}</small></div></div></article>`}).join('')}</div></div>`;
+  grid.appendChild(chart);empty.hidden=true;
 }
 const PAYMENT_CATEGORY_META={agua:{label:'Agua',color:'#28a9ff'},luz:{label:'Luz',color:'#f2c94c'},internet:{label:'Internet',color:'#a47cff'},deuda:{label:'Deuda',color:'#ff6172'},alquiler:{label:'Alquiler',color:'#ff9f43'},nomina:{label:'Nómina',color:'#54e38e'},otro:{label:'Otro',color:'#8e9bad'}};
 function calendarMeta(category){return PAYMENT_CATEGORY_META[category]||PAYMENT_CATEGORY_META.otro}
@@ -2988,33 +2928,16 @@ function monthStartParts(ym){const [y,m]=String(ym).split('-').map(Number);retur
 function calendarMonthLabel(ym){const {y,m}=monthStartParts(ym);return new Intl.DateTimeFormat('es-EC',{month:'long',year:'numeric'}).format(new Date(y,m-1,1))}
 function shiftCalendarMonth(delta){const {y,m}=monthStartParts(paymentCalendarMonth);const d=new Date(y,m-1+delta,1);paymentCalendarMonth=`${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}`;refreshPaymentCalendar({silent:true})}
 function formatCalendarDayMonth(dateStr){const [y,m,d]=String(dateStr).split('-').map(Number);return {day:d,month:new Intl.DateTimeFormat('es-EC',{month:'short'}).format(new Date(y,m-1,d)).replace('.','')}}
-function renderPaymentCalendar(){
-  const cal=$('#businessCalendar'),list=$('#calendarUpcomingList'),empty=$('#calendarUpcomingEmpty');if(!cal||!list)return;
-  if($('#calendarMonthLabel'))$('#calendarMonthLabel').textContent=calendarMonthLabel(paymentCalendarMonth);
-  const {y,m}=monthStartParts(paymentCalendarMonth),first=new Date(y,m-1,1),days=new Date(y,m,0).getDate(),start=(first.getDay()+6)%7,previousDays=new Date(y,m-1,0).getDate(),today=todayLocal();
-  const byDate=new Map();paymentCalendarItems.forEach(item=>{if(!byDate.has(item.fecha_pago))byDate.set(item.fecha_pago,[]);byDate.get(item.fecha_pago).push(item)});
-  const weekdays=['Lun','Mar','Mié','Jue','Vie','Sáb','Dom'];let html=weekdays.map(d=>`<div class="calendar-weekday">${d}</div>`).join('');const cells=Math.ceil((start+days)/7)*7;
-  for(let i=0;i<cells;i++){const num=i-start+1;let cy=y,cm=m,cd=num,outside=false;if(num<1){outside=true;cm=m-1;cy=y;if(cm<1){cm=12;cy--}cd=previousDays+num}else if(num>days){outside=true;cm=m+1;cy=y;if(cm>12){cm=1;cy++}cd=num-days}const date=`${cy}-${String(cm).padStart(2,'0')}-${String(cd).padStart(2,'0')}`,events=byDate.get(date)||[];html+=`<div class="calendar-day ${outside?'is-outside':''} ${date===today?'is-today':''}"><span class="calendar-day-number">${cd}</span><div class="calendar-day-events">${events.slice(0,3).map(e=>`<div class="calendar-event-chip" style="--event-color:${calendarMeta(e.categoria).color}" title="${escapeHtml(e.titulo)}"><span>${escapeHtml(e.titulo)}</span></div>`).join('')}${events.length>3?`<small>+${events.length-3} más</small>`:''}</div></div>`}
-  cal.innerHTML=html;const sorted=[...paymentCalendarItems].sort((a,b)=>String(a.fecha_pago).localeCompare(String(b.fecha_pago)));if($('#calendarPaymentCount'))$('#calendarPaymentCount').textContent=String(sorted.length);
-  list.innerHTML=sorted.map(item=>{const dm=formatCalendarDayMonth(item.fecha_pago),meta=calendarMeta(item.categoria);return`<div class="calendar-upcoming-item ${item.estado==='pagado'?'is-paid':''}"><div class="calendar-date-badge" style="--cat-color:${meta.color}"><strong>${dm.day}</strong><span>${escapeHtml(dm.month)}</span></div><div class="calendar-upcoming-copy"><strong>${escapeHtml(item.titulo)}</strong><small>${escapeHtml(meta.label)}${item.notas?` · ${escapeHtml(item.notas)}`:''}${item.estado==='pagado'?' · Pagado':''}</small></div><span class="calendar-upcoming-amount">${Number(item.monto||0)>0?money(item.monto):'—'}</span></div>`}).join('');empty.hidden=sorted.length>0;
-}
-async function refreshPaymentCalendar({silent=false,month=paymentCalendarMonth}={}){if(!currentUser)return;try{const rows=await apiFetch(`/api/calendario-pagos?month=${encodeURIComponent(month)}&_=${Date.now()}`,{cache:'no-store'});paymentCalendarItems=Array.isArray(rows)?rows:[];renderPaymentCalendar();renderAdminPaymentCalendar();return paymentCalendarItems}catch(err){if(!silent)showToast(err.message,'No se pudo cargar el calendario');return[]}}
-function renderAdminPaymentCalendar(){
-  const root=$('#calendarAdminList'),empty=$('#calendarAdminEmpty');if(!root)return;
-  const total=paymentCalendarItems.length;
-  const paid=paymentCalendarItems.filter((item)=>item.estado==='pagado').length;
-  const pending=total-paid;
-  if($('#calendarAdminMonthLabel'))$('#calendarAdminMonthLabel').textContent=calendarMonthLabel(paymentCalendarMonth);
-  if($('#calendarAdminTotal'))$('#calendarAdminTotal').textContent=String(total);
-  if($('#calendarAdminPending'))$('#calendarAdminPending').textContent=String(pending);
-  if($('#calendarAdminPaid'))$('#calendarAdminPaid').textContent=String(paid);
-  root.innerHTML=paymentCalendarItems.map(item=>{
-    const meta=calendarMeta(item.categoria),creatorName=item.creado_por_nombre||'Usuario';
-    const creatorAvatar=item.creado_por_foto?`<img src="${escapeHtml(item.creado_por_foto)}" alt="" />`:`<span>${escapeHtml(String(creatorName).slice(0,1).toUpperCase())}</span>`;
-    return `<div class="calendar-admin-row" data-calendar-id="${item.id}"><div class="calendar-admin-icon" style="--cat-color:${meta.color}">${String(meta.label).slice(0,1)}</div><div class="calendar-admin-main"><strong>${escapeHtml(item.titulo)}</strong><small>${escapeHtml(item.fecha_pago)} · ${escapeHtml(meta.label)}${item.notas?` · ${escapeHtml(item.notas)}`:''}</small><div class="calendar-created-by"><span class="calendar-created-avatar">${creatorAvatar}</span><span>Anotado por <b>${escapeHtml(creatorName)}</b></span></div></div><strong>${Number(item.monto||0)>0?money(item.monto):'—'}</strong><span class="calendar-admin-status ${item.estado==='pagado'?'paid':'pending'}">${item.estado==='pagado'?'Pagado':'Pendiente'}</span><div class="calendar-admin-actions"><button type="button" data-calendar-toggle="${item.id}">${item.estado==='pagado'?'Reabrir':'Marcar pagado'}</button><button type="button" class="danger" data-calendar-delete="${item.id}">Eliminar</button></div></div>`;
-  }).join('');
-  if(empty)empty.hidden=paymentCalendarItems.length>0;
-}
+function daysUntilCalendarDate(dateStr){const [y,m,d]=String(dateStr).split('-').map(Number),now=todayLocal().split('-').map(Number);return Math.round((Date.UTC(y,m-1,d)-Date.UTC(now[0],now[1]-1,now[2]))/86400000)}
+function calendarDueLabel(item){if(item.estado==='pagado')return{text:'Pagado',cls:'paid'};const left=daysUntilCalendarDate(item.fecha_pago);if(left<0)return{text:`Vencido ${Math.abs(left)}d`,cls:'overdue'};if(left===0)return{text:'Vence hoy',cls:'due'};if(left<=3)return{text:`Faltan ${left} día${left===1?'':'s'}`,cls:'soon'};return{text:'Pendiente',cls:'pending'}}
+function renderCalendarSelectedDay(date){calendarSelectedDate=date;const list=$('#calendarSelectedList'),empty=$('#calendarSelectedEmpty'),count=$('#calendarSelectedCount'),label=$('#calendarSelectedDate');if(!list||!empty)return;const rows=paymentCalendarItems.filter(x=>x.fecha_pago===date);if(label){const [y,m,d]=date.split('-').map(Number);label.textContent=new Intl.DateTimeFormat('es-EC',{weekday:'long',day:'numeric',month:'long'}).format(new Date(y,m-1,d))}if(count)count.textContent=String(rows.length);list.innerHTML=rows.map(item=>{const meta=calendarMeta(item.categoria),due=calendarDueLabel(item);return `<div class="calendar-selected-item"><span class="calendar-selected-dot" style="--event-color:${meta.color}"></span><div><strong>${escapeHtml(item.titulo)}</strong><small>${escapeHtml(meta.label)}${item.notas?` · ${escapeHtml(item.notas)}`:''}</small></div><span class="calendar-due-badge ${due.cls}">${due.text}</span><b>${Number(item.monto||0)>0?money(item.monto):'—'}</b></div>`}).join('');empty.hidden=rows.length>0}
+function renderPaymentCalendar(){const cal=$('#businessCalendar');if(!cal)return;if($('#calendarMonthLabel'))$('#calendarMonthLabel').textContent=calendarMonthLabel(paymentCalendarMonth);const {y,m}=monthStartParts(paymentCalendarMonth),first=new Date(y,m-1,1),days=new Date(y,m,0).getDate(),start=(first.getDay()+6)%7,previousDays=new Date(y,m-1,0).getDate(),today=todayLocal(),byDate=new Map();paymentCalendarItems.forEach(item=>{if(!byDate.has(item.fecha_pago))byDate.set(item.fecha_pago,[]);byDate.get(item.fecha_pago).push(item)});const weekdays=['Lun','Mar','Mié','Jue','Vie','Sáb','Dom'];let html=weekdays.map(d=>`<div class="calendar-weekday">${d}</div>`).join(''),cells=Math.ceil((start+days)/7)*7;for(let i=0;i<cells;i++){const num=i-start+1;let cy=y,cm=m,cd=num,outside=false;if(num<1){outside=true;cm=m-1;cy=y;if(cm<1){cm=12;cy--}cd=previousDays+num}else if(num>days){outside=true;cm=m+1;cy=y;if(cm>12){cm=1;cy++}cd=num-days}const date=`${cy}-${String(cm).padStart(2,'0')}-${String(cd).padStart(2,'0')}`,events=byDate.get(date)||[],urgent=events.some(e=>e.estado!=='pagado'&&daysUntilCalendarDate(e.fecha_pago)<=3&&daysUntilCalendarDate(e.fecha_pago)>=0),paid=events.length>0&&events.every(e=>e.estado==='pagado');html+=`<button type="button" class="calendar-day ${outside?'is-outside':''} ${date===today?'is-today':''} ${calendarSelectedDate===date?'is-selected':''} ${urgent?'has-urgent':''} ${paid?'all-paid':''}" data-calendar-date="${date}"><span class="calendar-day-number">${cd}</span><div class="calendar-day-events">${events.slice(0,3).map(e=>`<span class="calendar-event-dot ${e.estado==='pagado'?'paid':''}" style="--event-color:${calendarMeta(e.categoria).color}" title="${escapeHtml(e.titulo)}"></span>`).join('')}${events.length>3?`<small>+${events.length-3}</small>`:''}</div></button>`}cal.innerHTML=html;if(calendarSelectedDate&&calendarSelectedDate.startsWith(paymentCalendarMonth))renderCalendarSelectedDay(calendarSelectedDate);else{calendarSelectedDate=null;if($('#calendarSelectedDate'))$('#calendarSelectedDate').textContent='Selecciona una fecha';if($('#calendarSelectedCount'))$('#calendarSelectedCount').textContent='0';if($('#calendarSelectedList'))$('#calendarSelectedList').innerHTML='';if($('#calendarSelectedEmpty')){$('#calendarSelectedEmpty').hidden=false;$('#calendarSelectedEmpty').textContent='Haz clic en una fecha para ver los pagos registrados.'}}}
+async function refreshCalendarMonthlyExpenses({silent=false,month=paymentCalendarMonth}={}){if(!currentUser)return[];try{const rows=await apiFetch(`/api/calendario-gastos?month=${encodeURIComponent(month)}&_=${Date.now()}`,{cache:'no-store'});calendarMonthlyExpenses=Array.isArray(rows)?rows:[];renderHomeMonthlyExpenses();return calendarMonthlyExpenses}catch(err){if(!silent)showToast(err.message,'No se pudieron cargar los gastos');return[]}}
+function renderHomeMonthlyExpenses(){const body=$('#homeExpensesBody'),empty=$('#homeExpensesEmpty'),totalEl=$('#homeExpensesTotal');if(!body)return;const total=calendarMonthlyExpenses.reduce((s,r)=>s+Number(r.monto_pagado||r.monto||0),0);if(totalEl)totalEl.textContent=money(total);body.innerHTML=calendarMonthlyExpenses.map(r=>{const name=r.pagado_por_nombre||r.creado_por_nombre||'Usuario',avatar=r.pagado_por_foto||r.creado_por_foto||'',date=r.fecha_pagado||r.fecha_pago;return `<tr><td><div class="expense-service-cell"><span class="expense-service-dot" style="--event-color:${calendarMeta(r.categoria).color}"></span><div><strong>${escapeHtml(r.titulo)}</strong><small>${escapeHtml(calendarMeta(r.categoria).label)}</small></div></div></td><td><div class="expense-user-cell">${avatar?`<img src="${escapeHtml(avatar)}" alt="" />`:`<span>${escapeHtml(String(name).slice(0,1).toUpperCase())}</span>`}<strong>${escapeHtml(name)}</strong></div></td><td>${escapeHtml(r.plataforma_pago||'—')}</td><td>${escapeHtml(date||'—')}</td><td><span class="expense-paid-pill">Pagado</span></td><td><strong>${money(Number(r.monto_pagado||r.monto||0))}</strong></td></tr>`}).join('');if(empty)empty.hidden=calendarMonthlyExpenses.length>0}
+async function refreshPaymentCalendar({silent=false,month=paymentCalendarMonth}={}){if(!currentUser)return;try{const rows=await apiFetch(`/api/calendario-pagos?month=${encodeURIComponent(month)}&_=${Date.now()}`,{cache:'no-store'});paymentCalendarItems=Array.isArray(rows)?rows:[];renderPaymentCalendar();renderAdminPaymentCalendar();await refreshCalendarMonthlyExpenses({silent:true,month});return paymentCalendarItems}catch(err){if(!silent)showToast(err.message,'No se pudo cargar el calendario');return[]}}
+function renderAdminPaymentCalendar(){const root=$('#calendarAdminList'),empty=$('#calendarAdminEmpty');if(!root)return;const total=paymentCalendarItems.length,paid=paymentCalendarItems.filter(i=>i.estado==='pagado').length,pending=total-paid;if($('#calendarAdminMonthLabel'))$('#calendarAdminMonthLabel').textContent=calendarMonthLabel(paymentCalendarMonth);if($('#calendarAdminTotal'))$('#calendarAdminTotal').textContent=String(total);if($('#calendarAdminPending'))$('#calendarAdminPending').textContent=String(pending);if($('#calendarAdminPaid'))$('#calendarAdminPaid').textContent=String(paid);root.innerHTML=paymentCalendarItems.map(item=>{const meta=calendarMeta(item.categoria),creatorName=item.creado_por_nombre||'Usuario',creatorAvatar=item.creado_por_foto?`<img src="${escapeHtml(item.creado_por_foto)}" alt="" />`:`<span>${escapeHtml(String(creatorName).slice(0,1).toUpperCase())}</span>`,due=calendarDueLabel(item);return `<div class="calendar-admin-row" data-calendar-id="${item.id}"><div class="calendar-admin-icon" style="--cat-color:${meta.color}">${String(meta.label).slice(0,1)}</div><div class="calendar-admin-main"><strong>${escapeHtml(item.titulo)}</strong><small>${escapeHtml(item.fecha_pago)} · ${escapeHtml(meta.label)}${item.notas?` · ${escapeHtml(item.notas)}`:''}</small><div class="calendar-created-by"><span class="calendar-created-avatar">${creatorAvatar}</span><span>Anotado por <b>${escapeHtml(creatorName)}</b></span></div></div><strong>${Number(item.monto||0)>0?money(item.monto):'—'}</strong><span class="calendar-admin-status ${item.estado==='pagado'?'paid':due.cls}">${due.text}</span><div class="calendar-admin-actions">${item.estado==='pagado'?`<button type="button" data-calendar-toggle="${item.id}">Reabrir</button>`:`<button type="button" data-calendar-pay="${item.id}">Registrar pago</button>`}<button type="button" class="danger" data-calendar-delete="${item.id}">Eliminar</button></div></div>`}).join('');if(empty)empty.hidden=paymentCalendarItems.length>0}
+function openCalendarPaymentDialog(id){const item=paymentCalendarItems.find(x=>String(x.id)===String(id));if(!item)return;pendingCalendarPaymentId=Number(id);if($('#calendarPaymentDialogTitle'))$('#calendarPaymentDialogTitle').textContent=`Pagar · ${item.titulo}`;if($('#calendarPaymentActualAmount'))$('#calendarPaymentActualAmount').value=Number(item.monto||0).toFixed(2);if($('#calendarPaymentPaidDate'))$('#calendarPaymentPaidDate').value=todayLocal();if($('#calendarPaymentPlatform'))$('#calendarPaymentPlatform').value='Efectivo';if($('#calendarPaymentNote'))$('#calendarPaymentNote').value='';$('#calendarPaymentDialog')?.showModal()}
+async function submitCalendarPayment(e){e.preventDefault();if(!pendingCalendarPaymentId)return;const payload={estado:'pagado',plataforma_pago:$('#calendarPaymentPlatform').value,monto_pagado:Number($('#calendarPaymentActualAmount').value||0),fecha_pagado:$('#calendarPaymentPaidDate').value,nota_pago:$('#calendarPaymentNote').value.trim()};try{await apiFetch(`/api/calendario-pagos/${pendingCalendarPaymentId}`,{method:'PUT',headers:{'Content-Type':'application/json'},body:JSON.stringify(payload)});$('#calendarPaymentDialog')?.close();pendingCalendarPaymentId=null;showToast('Pago registrado y guardado en Gastos del mes.','Calendario');await refreshPaymentCalendar({silent:true});await refreshCuadreNotifications({silent:true})}catch(err){showToast(err.message,'No se pudo registrar el pago')}}
 async function submitPaymentCalendar(e){e.preventDefault();const payload={titulo:$('#paymentCalendarTitle').value.trim(),categoria:$('#paymentCalendarCategory').value,fecha_pago:$('#paymentCalendarDate').value,monto:Number($('#paymentCalendarAmount').value||0),notas:$('#paymentCalendarNotes').value.trim()};try{await apiFetch('/api/calendario-pagos',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify(payload)});e.target.reset();$('#paymentCalendarDate').value=todayLocal();showToast('Pago agregado al calendario.','Calendario');const month=payload.fecha_pago.slice(0,7);if($('#calendarAdminMonth'))$('#calendarAdminMonth').value=month;paymentCalendarMonth=month;await refreshPaymentCalendar({silent:true,month})}catch(err){showToast(err.message,'No se pudo agregar')}}
 
 async function refreshHomeUsers() {
@@ -4196,7 +4119,7 @@ function renderCuadreNotifications(){
   if(!count){list.innerHTML='<div class="notification-empty">No hay notificaciones nuevas de caja.</div>';return;}
   list.innerHTML=cuadreNotifications.map((i)=>`
     <button type="button" class="notification-item" data-notification-id="${i.id}" data-notification-ref-type="${escapeHtml(i.referencia_tipo||'')}" data-notification-ref-id="${i.referencia_id||''}" data-notification-kind="${escapeHtml(i.tipo||'')}">
-      <span class="notification-item-icon">${iconUse(i.tipo==='apertura_diferencia'?'icon-alert':'icon-wallet')}</span>
+      <span class="notification-item-icon">${iconUse(i.tipo?.startsWith('calendario_')?'icon-calendar':i.tipo==='apertura_diferencia'?'icon-alert':'icon-wallet')}</span>
       <span class="notification-item-copy"><strong>${escapeHtml(i.titulo||'Caja')}</strong><span>${escapeHtml(i.mensaje||'')}</span></span>
       <span class="notification-item-time">${formatTime(i.creado_en)}</span>
     </button>`).join('');
@@ -5153,7 +5076,9 @@ on('clearApprovedReviewFilters', 'click', () => {
 });
 $('#notificationList')?.addEventListener('click',async(e)=>{
   const item=e.target.closest('[data-notification-id]');if(!item)return;
-  $('#notificationPanel').hidden=true;await markCuadreNotificationRead(item.dataset.notificationId);showMainView('reviews');
+  $('#notificationPanel').hidden=true;await markCuadreNotificationRead(item.dataset.notificationId);
+  if(item.dataset.notificationRefType==='calendario_pago'){requestAdminPanel('calendario');refreshCuadreNotifications({silent:true});return;}
+  showMainView('reviews');
   if(item.dataset.notificationRefType==='apertura')openOpeningAlert(item.dataset.notificationRefId);
   else openCuadreReview(item.dataset.notificationRefId);
   refreshMainReviews({silent:true});
@@ -5345,7 +5270,10 @@ on('calendarPrevMonth','click',()=>shiftCalendarMonth(-1));
 on('calendarNextMonth','click',()=>shiftCalendarMonth(1));
 $('#paymentCalendarForm')?.addEventListener('submit',submitPaymentCalendar);
 $('#calendarAdminMonth')?.addEventListener('change',(e)=>{if(e.target.value){paymentCalendarMonth=e.target.value;refreshPaymentCalendar({silent:true})}});
-$('#calendarAdminList')?.addEventListener('click',async(e)=>{const toggle=e.target.closest('[data-calendar-toggle]'),del=e.target.closest('[data-calendar-delete]');try{if(toggle){const item=paymentCalendarItems.find(x=>String(x.id)===String(toggle.dataset.calendarToggle));if(!item)return;const estado=item.estado==='pagado'?'pendiente':'pagado';await apiFetch(`/api/calendario-pagos/${item.id}`,{method:'PUT',headers:{'Content-Type':'application/json'},body:JSON.stringify({estado})});showToast(estado==='pagado'?'Pago marcado como pagado.':'Pago reabierto.','Calendario');await refreshPaymentCalendar({silent:true})}if(del){const ok=await themedConfirm({title:'Eliminar pago del calendario',message:'¿Eliminar este recordatorio de pago?',confirmText:'Eliminar'});if(!ok)return;await apiFetch(`/api/calendario-pagos/${del.dataset.calendarDelete}`,{method:'DELETE'});showToast('Pago eliminado.','Calendario');await refreshPaymentCalendar({silent:true})}}catch(err){showToast(err.message,'Calendario')}});
+$('#businessCalendar')?.addEventListener('click',(e)=>{const day=e.target.closest('[data-calendar-date]');if(!day)return;renderCalendarSelectedDay(day.dataset.calendarDate);renderPaymentCalendar();});
+$('#calendarPaymentDialogForm')?.addEventListener('submit',submitCalendarPayment);
+on('calendarPaymentCancel','click',()=>{$('#calendarPaymentDialog')?.close();pendingCalendarPaymentId=null;});
+$('#calendarAdminList')?.addEventListener('click',async(e)=>{const pay=e.target.closest('[data-calendar-pay]'),toggle=e.target.closest('[data-calendar-toggle]'),del=e.target.closest('[data-calendar-delete]');try{if(pay){openCalendarPaymentDialog(pay.dataset.calendarPay);return;}if(toggle){const item=paymentCalendarItems.find(x=>String(x.id)===String(toggle.dataset.calendarToggle));if(!item)return;await apiFetch(`/api/calendario-pagos/${item.id}`,{method:'PUT',headers:{'Content-Type':'application/json'},body:JSON.stringify({estado:'pendiente'})});showToast('Pago reabierto.','Calendario');await refreshPaymentCalendar({silent:true})}if(del){const ok=await themedConfirm({title:'Eliminar pago del calendario',message:'¿Eliminar este recordatorio de pago?',confirmText:'Eliminar'});if(!ok)return;await apiFetch(`/api/calendario-pagos/${del.dataset.calendarDelete}`,{method:'DELETE'});showToast('Pago eliminado.','Calendario');await refreshPaymentCalendar({silent:true})}}catch(err){showToast(err.message,'Calendario')}});
 
 $$('.admin-nav-btn').forEach((btn) => btn.addEventListener('click', () => showAdminSection(btn.dataset.adminTarget)));
 

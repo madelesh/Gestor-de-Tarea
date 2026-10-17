@@ -199,9 +199,13 @@
             <div><span class="eyebrow">Calendario</span><h2>Próximos pagos</h2><p>Vencimientos y compromisos del local.</p></div>
             <div class="calendar-head-actions"><button type="button" class="btn btn-outline small" id="calendarPrevMonth">‹</button><strong id="calendarMonthLabel">Mes actual</strong><button type="button" class="btn btn-outline small" id="calendarNextMonth">›</button></div>
           </div>
-          <div class="home-calendar-layout">
+          <div class="home-calendar-layout home-calendar-widget-layout">
             <div class="business-calendar" id="businessCalendar"></div>
-            <aside class="calendar-upcoming"><div class="calendar-upcoming-head"><strong>Pagos del mes</strong><span id="calendarPaymentCount">0</span></div><div id="calendarUpcomingList" class="calendar-upcoming-list"></div><div id="calendarUpcomingEmpty" class="home-workers-empty" hidden>No hay pagos registrados para este mes.</div></aside>
+            <div class="calendar-selected-day" id="calendarSelectedDay">
+              <div class="calendar-selected-head"><div><span>Detalle del día</span><strong id="calendarSelectedDate">Selecciona una fecha</strong></div><span id="calendarSelectedCount">0</span></div>
+              <div id="calendarSelectedList" class="calendar-selected-list"></div>
+              <div id="calendarSelectedEmpty" class="home-workers-empty">Haz clic en una fecha para ver los pagos registrados.</div>
+            </div>
           </div>
         </section>
 
@@ -219,6 +223,20 @@
           <div class="home-workers-empty" id="homeGoalsEmpty" hidden>No hay metas configuradas.</div>
         </section>
         </div>
+
+        <section class="home-expenses-panel">
+          <div class="home-panel-head expenses-panel-head">
+            <div><span class="eyebrow">Gastos</span><h2>Gastos del mes</h2><p>Detalle de los pagos realizados desde el calendario.</p></div>
+            <div class="expenses-month-summary"><span>Total pagado</span><strong id="homeExpensesTotal">$0.00</strong></div>
+          </div>
+          <div class="home-expenses-table-wrap">
+            <table class="home-expenses-table">
+              <thead><tr><th>Servicio</th><th>Pagó</th><th>Plataforma</th><th>Fecha</th><th>Estado</th><th>Valor</th></tr></thead>
+              <tbody id="homeExpensesBody"></tbody>
+            </table>
+            <div id="homeExpensesEmpty" class="home-workers-empty" hidden>No hay gastos pagados registrados este mes.</div>
+          </div>
+        </section>
       </section>
 
       <section class="stats" id="resumen" hidden>
@@ -938,6 +956,18 @@
         <button type="button" class="btn btn-outline danger-soft" id="rejectCuadreReview">Rechazar</button>
         <button type="button" class="btn btn-accent" id="approveCuadreReview"><svg class="icon"><use href="#icon-check"></use></svg><span>Dar visto bueno</span></button>
       </div>
+    </form>
+  </dialog>
+
+  <dialog id="calendarPaymentDialog" class="confirm-dialog calendar-payment-dialog">
+    <form method="dialog" id="calendarPaymentDialogForm" class="confirm-card">
+      <span class="eyebrow">Registrar pago</span><h3 id="calendarPaymentDialogTitle">Marcar como pagado</h3>
+      <p class="help-text">Completa los datos del pago para guardarlo en el historial de gastos.</p>
+      <label>Plataforma / medio<select id="calendarPaymentPlatform" required><option value="Efectivo">Efectivo</option><option value="Banco Guayaquil">Banco Guayaquil</option><option value="Banco Pichincha">Banco Pichincha</option><option value="Banco Pacífico">Banco Pacífico</option><option value="Produbanco">Produbanco</option><option value="Ya Ganaste">Ya Ganaste</option><option value="Transferencia">Transferencia</option><option value="Tarjeta">Tarjeta</option><option value="Otro">Otro</option></select></label>
+      <label>Valor pagado<div class="money-field"><span>$</span><input id="calendarPaymentActualAmount" type="number" min="0" step="0.01" required /></div></label>
+      <label>Fecha del pago<input id="calendarPaymentPaidDate" type="date" required /></label>
+      <label>Nota del pago<input id="calendarPaymentNote" type="text" maxlength="160" placeholder="Opcional" /></label>
+      <div class="dialog-actions"><button type="button" class="btn btn-outline" id="calendarPaymentCancel">Cancelar</button><button type="submit" class="btn btn-accent">Confirmar pago</button></div>
     </form>
   </dialog>
 
@@ -1687,6 +1717,6 @@
     </article>
   </template>
 
-  <script src="app.js?v=11.25.5"></script>
+  <script src="app.js?v=11.25.6"></script>
 </body>
 </html>
