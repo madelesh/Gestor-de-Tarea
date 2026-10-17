@@ -1,4 +1,4 @@
-const APP_VERSION = '11.25.7';
+const APP_VERSION = '11.25.8';
 const API_BASE = 'https://gestor-tareas-api.detodoec.workers.dev';
 const STORAGE_KEY = 'detodoec_tasks_v1';
 const SETTINGS_KEY = 'detodoec_tasks_settings_v3';
@@ -4104,6 +4104,36 @@ function updateCuadreSubmitState(submission=null) {
   else if(submission.estado==='aprobado'){btn.classList.add('reviewed');btn.disabled=true;setCuadreFormLocked(true);if(label)label.textContent='Revisado';}
   else if(submission.estado==='rechazado'){btn.classList.add('rejected');if(label)label.textContent='Corregir y reenviar';}
 }
+function notificationCategoryVisual(category='otro'){
+  const map={
+    agua:{icon:'💧',color:'#28a9ff',label:'Agua'},
+    luz:{icon:'⚡',color:'#f2c94c',label:'Luz'},
+    internet:{icon:'🌐',color:'#a47cff',label:'Internet'},
+    deuda:{icon:'💳',color:'#ff6172',label:'Deuda'},
+    alquiler:{icon:'🏠',color:'#ff9f43',label:'Alquiler'},
+    nomina:{icon:'👥',color:'#54e38e',label:'Nómina'},
+    otro:{icon:'🧾',color:'#8e9bad',label:'Gasto'}
+  };
+  return map[String(category||'otro').toLowerCase()]||map.otro;
+}
+function notificationVisual(item={}){
+  const tipo=String(item.tipo||'');
+  const ref=String(item.referencia_tipo||'');
+  if(ref==='calendario_pago'||tipo.startsWith('calendario_')){
+    const meta=notificationCategoryVisual(item.categoria||'otro');
+    return {section:meta.label,color:meta.color,actor:item.actor_nombre||'',html:`<span class="notification-item-icon" aria-hidden="true">${meta.icon}</span>`};
+  }
+  if(ref==='cuadre_solicitud'||tipo.startsWith('cierre_')||ref==='apertura'||tipo==='apertura_diferencia'){
+    const color=tipo==='cierre_revision'||tipo==='apertura_diferencia'?'#f2c94c':'#54e38e';
+    const name=item.actor_nombre||'Usuario';
+    const avatar=item.actor_foto?`<img src="${escapeHtml(item.actor_foto)}" alt="" />`:`<span>${escapeHtml(String(name).slice(0,1).toUpperCase())}</span>`;
+    return {section:ref==='apertura'?'Apertura':'Cierre de caja',color,actor:name,html:`<span class="notification-item-icon notification-avatar">${avatar}</span>`};
+  }
+  if(tipo.includes('usuario')||ref==='usuario') return {section:'Usuarios',color:'#7c8cff',actor:item.actor_nombre||'',html:`<span class="notification-item-icon">${iconUse('icon-users')}</span>`};
+  if(tipo.includes('meta')||ref==='meta') return {section:'Metas',color:'#b7ff2a',actor:item.actor_nombre||'',html:`<span class="notification-item-icon">${iconUse('icon-target')}</span>`};
+  return {section:'Sistema',color:'#8e9bad',actor:item.actor_nombre||'',html:`<span class="notification-item-icon">${iconUse('icon-bell')}</span>`};
+}
+
 async function refreshCuadreNotifications({silent=false}={}){
   return refreshMainReviews({silent});
 }
@@ -4117,12 +4147,15 @@ function renderCuadreNotifications(){
   if($('#mainReviewsPending')) $('#mainReviewsPending').textContent=String(pendingCount);
   if(!list)return;
   if(!count){list.innerHTML='<div class="notification-empty">No hay notificaciones nuevas de caja.</div>';return;}
-  list.innerHTML=cuadreNotifications.map((i)=>`
-    <button type="button" class="notification-item" data-notification-id="${i.id}" data-notification-ref-type="${escapeHtml(i.referencia_tipo||'')}" data-notification-ref-id="${i.referencia_id||''}" data-notification-kind="${escapeHtml(i.tipo||'')}">
-      <span class="notification-item-icon">${iconUse(i.tipo?.startsWith('calendario_')?'icon-calendar':i.tipo==='apertura_diferencia'?'icon-alert':'icon-wallet')}</span>
-      <span class="notification-item-copy"><strong>${escapeHtml(i.titulo||'Caja')}</strong><span>${escapeHtml(i.mensaje||'')}</span></span>
+  list.innerHTML=cuadreNotifications.map((i)=>{
+    const visual=notificationVisual(i);
+    return `
+    <button type="button" class="notification-item" style="--notif-color:${visual.color}" data-notification-id="${i.id}" data-notification-ref-type="${escapeHtml(i.referencia_tipo||'')}" data-notification-ref-id="${i.referencia_id||''}" data-notification-kind="${escapeHtml(i.tipo||'')}">
+      ${visual.html}
+      <span class="notification-item-copy"><strong>${escapeHtml(i.titulo||visual.section)} <em class="notification-item-section">${escapeHtml(visual.section)}</em></strong><span>${escapeHtml(i.mensaje||'')}</span>${visual.actor?`<small class="notification-item-actor">${escapeHtml(visual.actor)}</small>`:''}</span>
       <span class="notification-item-time">${formatTime(i.creado_en)}</span>
-    </button>`).join('');
+    </button>`;
+  }).join('');
 }
 function reviewSummary(p){return{totalBanks:Number(p?.total_bancos||0),cash:Number(p?.efectivo||0),txCount:Number(p?.total_transacciones||0),txValue:Number(p?.valor_transacciones||0),found:Number(p?.total_encontrado||0),expected:Number(p?.valor_esperado||0),difference:Number(p?.diferencia||0),within:Boolean(p?.dentro_margen)}}
 function renderCuadreReview(item){

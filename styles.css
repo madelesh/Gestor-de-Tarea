@@ -8006,3 +8006,41 @@ textarea{
 .goals-readable-chart img{max-width:34px!important;max-height:34px!important}
 .calendar-selected-day{overflow:hidden}
 .calendar-selected-list{max-height:230px;overflow:auto}
+
+
+/* V11.25.8 · Home sin espacios vacíos + notificaciones por sección */
+.home-widget-dashboard{
+  display:grid!important;
+  grid-template-columns:330px minmax(0,1fr)!important;
+  gap:14px!important;
+  align-items:start!important;
+}
+.home-widget-right-column{
+  min-width:0;
+  display:flex;
+  flex-direction:column;
+  gap:14px;
+}
+.home-widget-right-column .home-goals-panel,
+.home-widget-right-column .home-expenses-panel{margin-top:0!important;width:100%}
+.home-expenses-panel{margin-top:0!important}
+@media(max-width:820px){
+  .home-widget-dashboard{grid-template-columns:1fr!important}
+  .home-widget-right-column{gap:12px}
+}
+
+.notification-item{align-items:center!important}
+.notification-item-icon{
+  width:38px!important;height:38px!important;min-width:38px!important;border-radius:12px!important;
+  display:grid!important;place-items:center!important;overflow:hidden!important;
+  border:1px solid color-mix(in srgb,var(--notif-color,#8e9bad) 32%,var(--line))!important;
+  background:color-mix(in srgb,var(--notif-color,#8e9bad) 13%,var(--surface-2))!important;
+  color:var(--notif-color,#8e9bad)!important;font-size:17px!important;font-weight:900!important;
+}
+.notification-item-icon .icon{width:18px!important;height:18px!important}
+.notification-item-icon.notification-avatar{border-radius:50%!important;padding:0!important;background:var(--surface-2)!important}
+.notification-item-icon.notification-avatar img{width:100%!important;height:100%!important;object-fit:cover!important;display:block!important}
+.notification-item-icon.notification-avatar span{font-size:12px!important;color:var(--text)!important}
+.notification-item-copy strong{display:flex!important;align-items:center!important;gap:5px!important}
+.notification-item-section{font-size:7px!important;line-height:1!important;padding:3px 5px!important;border-radius:999px!important;background:color-mix(in srgb,var(--notif-color,#8e9bad) 12%,transparent)!important;color:var(--notif-color,#8e9bad)!important;text-transform:uppercase!important;font-weight:900!important;letter-spacing:.03em!important}
+.notification-item-actor{display:block!important;margin-top:2px!important;font-size:7px!important;color:var(--muted)!important}
