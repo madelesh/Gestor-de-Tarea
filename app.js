@@ -1,4 +1,4 @@
-const APP_VERSION = '11.25.1';
+const APP_VERSION = '11.25.2';
 const API_BASE = 'https://gestor-tareas-api.detodoec.workers.dev';
 const STORAGE_KEY = 'detodoec_tasks_v1';
 const SETTINGS_KEY = 'detodoec_tasks_settings_v3';
@@ -2913,82 +2913,40 @@ function renderHomeGoals() {
   const empty = $('#homeGoalsEmpty');
   const monthLabel = $('#homeGoalsMonth');
   if (!grid || !empty) return;
-
   grid.innerHTML = '';
-
   const currentMonth = goalsToday[0]?.mes || todayLocal().slice(0,7);
   if (monthLabel) monthLabel.textContent = formatGoalMonth(currentMonth);
-
   const usersById = new Map(homeUsers.map((user) => [String(user.id), user]));
-
   goalsToday.forEach((goal) => {
     const user = usersById.get(String(goal.usuario_id)) || goal;
     const salesActive = Number(goal.ventas_activa ?? 1) === 1;
     const txActive = Number(goal.transacciones_activa ?? 1) === 1;
-
     const salesPercent = monthlyGoalPercent(goal.ventas_mes, goal.objetivo_ventas);
     const txPercent = monthlyGoalPercent(goal.transacciones_mes, goal.objetivo_transacciones);
-
+    const primaryPercent = salesActive ? salesPercent : txPercent;
+    const primaryValue = salesActive ? money(Number(goal.ventas_mes || 0)) : Math.round(Number(goal.transacciones_mes || 0));
+    const primaryLabel = salesActive ? 'Ventas' : 'Transacciones';
+    const targetLabel = salesActive ? money(Number(goal.objetivo_ventas || 0)) : Math.round(Number(goal.objetivo_transacciones || 0));
     const card = document.createElement('article');
-    card.className = 'home-goal-user-card';
-
+    card.className = 'goal-widget-card';
     card.innerHTML = `
-      <div class="home-goal-user-head">
-        <span class="home-goal-user-avatar">
-          ${user.foto_url ? `<img src="${escapeHtml(user.foto_url)}" alt="" />` : iconUse('icon-user')}
-        </span>
-        <span class="home-goal-user-copy">
-          <strong>${escapeHtml(user.nombre || user.usuario || 'Usuario')}</strong>
-          <small>${escapeHtml(user.role_name || (user.rol === 'admin' ? 'Administrador' : 'Usuario'))}</small>
-        </span>
+      <div class="goal-widget-head">
+        <div class="goal-widget-user">
+          <span class="goal-widget-avatar">${user.foto_url ? `<img src="${escapeHtml(user.foto_url)}" alt="" />` : iconUse('icon-user')}</span>
+          <div><strong>${escapeHtml(user.nombre || user.usuario || 'Usuario')}</strong><small>${escapeHtml(user.role_name || (user.rol === 'admin' ? 'Administrador' : 'Usuario'))}</small></div>
+        </div>
+        <span class="goal-widget-percent">${Math.round(primaryPercent)}%</span>
       </div>
-
-      <div class="home-goal-user-body">
-        <section class="home-goal-metric ${salesActive ? '' : 'inactive'}">
-          <div class="home-goal-metric-head">
-            <span>Ventas</span>
-            ${salesActive
-              ? `<strong>${Math.round(salesPercent)}%</strong>`
-              : `<strong class="goal-not-active">No activa</strong>`}
-          </div>
-          ${salesActive ? `
-            <div class="goal-progress-track">
-              <span class="goal-progress-fill" style="width:${salesPercent}%"></span>
-            </div>
-            <div class="home-goal-metric-foot">
-              <strong>${money(Number(goal.ventas_mes || 0))}</strong>
-              <span>Meta ${money(Number(goal.objetivo_ventas || 0))}</span>
-            </div>
-          ` : `
-            <div class="home-goal-inactive-text">Esta meta no está activa para este usuario.</div>
-          `}
-        </section>
-
-        <section class="home-goal-metric ${txActive ? '' : 'inactive'}">
-          <div class="home-goal-metric-head">
-            <span>Transacciones</span>
-            ${txActive
-              ? `<strong>${Math.round(txPercent)}%</strong>`
-              : `<strong class="goal-not-active">No activa</strong>`}
-          </div>
-          ${txActive ? `
-            <div class="goal-progress-track">
-              <span class="goal-progress-fill" style="width:${txPercent}%"></span>
-            </div>
-            <div class="home-goal-metric-foot">
-              <strong>${Math.round(Number(goal.transacciones_mes || 0))}</strong>
-              <span>Meta ${Math.round(Number(goal.objetivo_transacciones || 0))}</span>
-            </div>
-          ` : `
-            <div class="home-goal-inactive-text">Esta meta no está activa para este usuario.</div>
-          `}
-        </section>
+      <div class="goal-widget-main">
+        <div class="goal-widget-value"><small>${primaryLabel}</small><strong>${primaryValue}</strong><span>Meta ${targetLabel}</span></div>
+        <div class="goal-widget-bars" aria-label="Avance de metas">
+          <div class="goal-widget-bar-group ${salesActive ? '' : 'inactive'}"><div class="goal-widget-bar-track"><span style="height:${salesActive ? Math.max(5, Math.min(100,salesPercent)) : 0}%"></span></div><small>Ventas</small><b>${salesActive ? `${Math.round(salesPercent)}%` : '—'}</b></div>
+          <div class="goal-widget-bar-group ${txActive ? '' : 'inactive'}"><div class="goal-widget-bar-track secondary"><span style="height:${txActive ? Math.max(5, Math.min(100,txPercent)) : 0}%"></span></div><small>Trans.</small><b>${txActive ? `${Math.round(txPercent)}%` : '—'}</b></div>
+        </div>
       </div>
-    `;
-
+      <div class="goal-widget-foot">${salesActive ? `<span><b>${money(Number(goal.ventas_mes || 0))}</b> de ${money(Number(goal.objetivo_ventas || 0))}</span>` : '<span>Ventas no activas</span>'}${txActive ? `<span><b>${Math.round(Number(goal.transacciones_mes || 0))}</b> de ${Math.round(Number(goal.objetivo_transacciones || 0))} trans.</span>` : '<span>Transacciones no activas</span>'}</div>`;
     grid.appendChild(card);
   });
-
   empty.hidden = goalsToday.length > 0;
 }
 const PAYMENT_CATEGORY_META={agua:{label:'Agua',color:'#28a9ff'},luz:{label:'Luz',color:'#f2c94c'},internet:{label:'Internet',color:'#a47cff'},deuda:{label:'Deuda',color:'#ff6172'},alquiler:{label:'Alquiler',color:'#ff9f43'},nomina:{label:'Nómina',color:'#54e38e'},otro:{label:'Otro',color:'#8e9bad'}};
@@ -3008,7 +2966,22 @@ function renderPaymentCalendar(){
   list.innerHTML=sorted.map(item=>{const dm=formatCalendarDayMonth(item.fecha_pago),meta=calendarMeta(item.categoria);return`<div class="calendar-upcoming-item ${item.estado==='pagado'?'is-paid':''}"><div class="calendar-date-badge" style="--cat-color:${meta.color}"><strong>${dm.day}</strong><span>${escapeHtml(dm.month)}</span></div><div class="calendar-upcoming-copy"><strong>${escapeHtml(item.titulo)}</strong><small>${escapeHtml(meta.label)}${item.notas?` · ${escapeHtml(item.notas)}`:''}${item.estado==='pagado'?' · Pagado':''}</small></div><span class="calendar-upcoming-amount">${Number(item.monto||0)>0?money(item.monto):'—'}</span></div>`}).join('');empty.hidden=sorted.length>0;
 }
 async function refreshPaymentCalendar({silent=false,month=paymentCalendarMonth}={}){if(!currentUser)return;try{const rows=await apiFetch(`/api/calendario-pagos?month=${encodeURIComponent(month)}&_=${Date.now()}`,{cache:'no-store'});paymentCalendarItems=Array.isArray(rows)?rows:[];renderPaymentCalendar();renderAdminPaymentCalendar();return paymentCalendarItems}catch(err){if(!silent)showToast(err.message,'No se pudo cargar el calendario');return[]}}
-function renderAdminPaymentCalendar(){const root=$('#calendarAdminList'),empty=$('#calendarAdminEmpty');if(!root)return;const total=paymentCalendarItems.length;const paid=paymentCalendarItems.filter((item)=>item.estado==='pagado').length;const pending=total-paid;if($('#calendarAdminMonthLabel'))$('#calendarAdminMonthLabel').textContent=calendarMonthLabel(paymentCalendarMonth);if($('#calendarAdminTotal'))$('#calendarAdminTotal').textContent=String(total);if($('#calendarAdminPending'))$('#calendarAdminPending').textContent=String(pending);if($('#calendarAdminPaid'))$('#calendarAdminPaid').textContent=String(paid);root.innerHTML=paymentCalendarItems.map(item=>{const meta=calendarMeta(item.categoria);return`<div class="calendar-admin-row" data-calendar-id="${item.id}"><div class="calendar-admin-icon" style="--cat-color:${meta.color}">${String(meta.label).slice(0,1)}</div><div class="calendar-admin-main"><strong>${escapeHtml(item.titulo)}</strong><small>${escapeHtml(item.fecha_pago)} · ${escapeHtml(meta.label)}${item.notas?` · ${escapeHtml(item.notas)}`:''}</small></div><strong>${Number(item.monto||0)>0?money(item.monto):'—'}</strong><span class="calendar-admin-status ${item.estado==='pagado'?'paid':'pending'}">${item.estado==='pagado'?'Pagado':'Pendiente'}</span><div class="calendar-admin-actions"><button type="button" data-calendar-toggle="${item.id}">${item.estado==='pagado'?'Reabrir':'Marcar pagado'}</button><button type="button" class="danger" data-calendar-delete="${item.id}">Eliminar</button></div></div>`}).join('');if(empty)empty.hidden=paymentCalendarItems.length>0}
+function renderAdminPaymentCalendar(){
+  const root=$('#calendarAdminList'),empty=$('#calendarAdminEmpty');if(!root)return;
+  const total=paymentCalendarItems.length;
+  const paid=paymentCalendarItems.filter((item)=>item.estado==='pagado').length;
+  const pending=total-paid;
+  if($('#calendarAdminMonthLabel'))$('#calendarAdminMonthLabel').textContent=calendarMonthLabel(paymentCalendarMonth);
+  if($('#calendarAdminTotal'))$('#calendarAdminTotal').textContent=String(total);
+  if($('#calendarAdminPending'))$('#calendarAdminPending').textContent=String(pending);
+  if($('#calendarAdminPaid'))$('#calendarAdminPaid').textContent=String(paid);
+  root.innerHTML=paymentCalendarItems.map(item=>{
+    const meta=calendarMeta(item.categoria),creatorName=item.creado_por_nombre||'Usuario';
+    const creatorAvatar=item.creado_por_foto?`<img src="${escapeHtml(item.creado_por_foto)}" alt="" />`:`<span>${escapeHtml(String(creatorName).slice(0,1).toUpperCase())}</span>`;
+    return `<div class="calendar-admin-row" data-calendar-id="${item.id}"><div class="calendar-admin-icon" style="--cat-color:${meta.color}">${String(meta.label).slice(0,1)}</div><div class="calendar-admin-main"><strong>${escapeHtml(item.titulo)}</strong><small>${escapeHtml(item.fecha_pago)} · ${escapeHtml(meta.label)}${item.notas?` · ${escapeHtml(item.notas)}`:''}</small><div class="calendar-created-by"><span class="calendar-created-avatar">${creatorAvatar}</span><span>Anotado por <b>${escapeHtml(creatorName)}</b></span></div></div><strong>${Number(item.monto||0)>0?money(item.monto):'—'}</strong><span class="calendar-admin-status ${item.estado==='pagado'?'paid':'pending'}">${item.estado==='pagado'?'Pagado':'Pendiente'}</span><div class="calendar-admin-actions"><button type="button" data-calendar-toggle="${item.id}">${item.estado==='pagado'?'Reabrir':'Marcar pagado'}</button><button type="button" class="danger" data-calendar-delete="${item.id}">Eliminar</button></div></div>`;
+  }).join('');
+  if(empty)empty.hidden=paymentCalendarItems.length>0;
+}
 async function submitPaymentCalendar(e){e.preventDefault();const payload={titulo:$('#paymentCalendarTitle').value.trim(),categoria:$('#paymentCalendarCategory').value,fecha_pago:$('#paymentCalendarDate').value,monto:Number($('#paymentCalendarAmount').value||0),notas:$('#paymentCalendarNotes').value.trim()};try{await apiFetch('/api/calendario-pagos',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify(payload)});e.target.reset();$('#paymentCalendarDate').value=todayLocal();showToast('Pago agregado al calendario.','Calendario');const month=payload.fecha_pago.slice(0,7);if($('#calendarAdminMonth'))$('#calendarAdminMonth').value=month;paymentCalendarMonth=month;await refreshPaymentCalendar({silent:true,month})}catch(err){showToast(err.message,'No se pudo agregar')}}
 
 async function refreshHomeUsers() {

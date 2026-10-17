@@ -193,9 +193,10 @@
           <div class="home-workers-empty" id="homeWorkersEmpty" hidden>No hay usuarios registrados.</div>
         </section>
 
-        <section class="home-calendar-panel">
-          <div class="home-panel-head">
-            <div><span class="eyebrow">Calendario</span><h2>Próximos pagos</h2><p>Fechas de deudas, agua, luz, internet y otros compromisos del local.</p></div>
+        <div class="home-widget-dashboard">
+        <section class="home-calendar-panel home-widget-card">
+          <div class="home-panel-head compact-widget-head">
+            <div><span class="eyebrow">Calendario</span><h2>Próximos pagos</h2><p>Vencimientos y compromisos del local.</p></div>
             <div class="calendar-head-actions"><button type="button" class="btn btn-outline small" id="calendarPrevMonth">‹</button><strong id="calendarMonthLabel">Mes actual</strong><button type="button" class="btn btn-outline small" id="calendarNextMonth">›</button></div>
           </div>
           <div class="home-calendar-layout">
@@ -204,8 +205,8 @@
           </div>
         </section>
 
-        <section class="home-goals-panel">
-          <div class="home-panel-head">
+        <section class="home-goals-panel home-widget-card">
+          <div class="home-panel-head compact-widget-head">
             <div>
               <span class="eyebrow">Metas</span>
               <h2>Metas del mes</h2>
@@ -217,6 +218,7 @@
           <div class="home-goals-grid" id="homeGoalsGrid"></div>
           <div class="home-workers-empty" id="homeGoalsEmpty" hidden>No hay metas configuradas.</div>
         </section>
+        </div>
       </section>
 
       <section class="stats" id="resumen" hidden>
@@ -1685,6 +1687,6 @@
     </article>
   </template>
 
-  <script src="app.js?v=11.25.1"></script>
+  <script src="app.js?v=11.25.2"></script>
 </body>
 </html>
