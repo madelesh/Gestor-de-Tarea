@@ -1,4 +1,4 @@
-const APP_VERSION = '11.25.3';
+const APP_VERSION = '11.25.4';
 const API_BASE = 'https://gestor-tareas-api.detodoec.workers.dev';
 const STORAGE_KEY = 'detodoec_tasks_v1';
 const SETTINGS_KEY = 'detodoec_tasks_settings_v3';
@@ -2913,41 +2913,74 @@ function renderHomeGoals() {
   const empty = $('#homeGoalsEmpty');
   const monthLabel = $('#homeGoalsMonth');
   if (!grid || !empty) return;
+
   grid.innerHTML = '';
   const currentMonth = goalsToday[0]?.mes || todayLocal().slice(0,7);
   if (monthLabel) monthLabel.textContent = formatGoalMonth(currentMonth);
   const usersById = new Map(homeUsers.map((user) => [String(user.id), user]));
-  goalsToday.forEach((goal) => {
-    const user = usersById.get(String(goal.usuario_id)) || goal;
-    const salesActive = Number(goal.ventas_activa ?? 1) === 1;
-    const txActive = Number(goal.transacciones_activa ?? 1) === 1;
-    const salesPercent = monthlyGoalPercent(goal.ventas_mes, goal.objetivo_ventas);
-    const txPercent = monthlyGoalPercent(goal.transacciones_mes, goal.objetivo_transacciones);
-    const primaryPercent = salesActive ? salesPercent : txPercent;
-    const primaryValue = salesActive ? money(Number(goal.ventas_mes || 0)) : Math.round(Number(goal.transacciones_mes || 0));
-    const primaryLabel = salesActive ? 'Ventas' : 'Transacciones';
-    const targetLabel = salesActive ? money(Number(goal.objetivo_ventas || 0)) : Math.round(Number(goal.objetivo_transacciones || 0));
-    const card = document.createElement('article');
-    card.className = 'goal-widget-card';
-    card.innerHTML = `
-      <div class="goal-widget-head">
-        <div class="goal-widget-user">
-          <span class="goal-widget-avatar">${user.foto_url ? `<img src="${escapeHtml(user.foto_url)}" alt="" />` : iconUse('icon-user')}</span>
-          <div><strong>${escapeHtml(user.nombre || user.usuario || 'Usuario')}</strong><small>${escapeHtml(user.role_name || (user.rol === 'admin' ? 'Administrador' : 'Usuario'))}</small></div>
-        </div>
-        <span class="goal-widget-percent">${Math.round(primaryPercent)}%</span>
+
+  if (!goalsToday.length) {
+    empty.hidden = false;
+    return;
+  }
+
+  const totalSales = goalsToday.reduce((sum, goal) => sum + Number(goal.ventas_mes || 0), 0);
+  const totalSalesTarget = goalsToday.reduce((sum, goal) => sum + (Number(goal.ventas_activa ?? 1) === 1 ? Number(goal.objetivo_ventas || 0) : 0), 0);
+  const totalTx = goalsToday.reduce((sum, goal) => sum + Number(goal.transacciones_mes || 0), 0);
+  const totalTxTarget = goalsToday.reduce((sum, goal) => sum + (Number(goal.transacciones_activa ?? 1) === 1 ? Number(goal.objetivo_transacciones || 0) : 0), 0);
+  const salesGlobalPct = monthlyGoalPercent(totalSales, totalSalesTarget);
+  const txGlobalPct = monthlyGoalPercent(totalTx, totalTxTarget);
+
+  const chart = document.createElement('section');
+  chart.className = 'goals-compact-widget';
+  chart.innerHTML = `
+    <div class="goals-compact-summary">
+      <div class="goals-summary-copy">
+        <span class="goals-summary-label">Avance general</span>
+        <strong>${Math.round(salesGlobalPct)}%</strong>
+        <small>${money(totalSales)} de ${money(totalSalesTarget)} en ventas</small>
       </div>
-      <div class="goal-widget-main">
-        <div class="goal-widget-value"><small>${primaryLabel}</small><strong>${primaryValue}</strong><span>Meta ${targetLabel}</span></div>
-        <div class="goal-widget-bars" aria-label="Avance de metas">
-          <div class="goal-widget-bar-group ${salesActive ? '' : 'inactive'}"><div class="goal-widget-bar-track"><span style="height:${salesActive ? Math.max(5, Math.min(100,salesPercent)) : 0}%"></span></div><small>Ventas</small><b>${salesActive ? `${Math.round(salesPercent)}%` : '—'}</b></div>
-          <div class="goal-widget-bar-group ${txActive ? '' : 'inactive'}"><div class="goal-widget-bar-track secondary"><span style="height:${txActive ? Math.max(5, Math.min(100,txPercent)) : 0}%"></span></div><small>Trans.</small><b>${txActive ? `${Math.round(txPercent)}%` : '—'}</b></div>
-        </div>
+      <div class="goals-summary-pills">
+        <span><i class="goals-dot sales"></i>Ventas <b>${Math.round(salesGlobalPct)}%</b></span>
+        <span><i class="goals-dot tx"></i>Transacciones <b>${Math.round(txGlobalPct)}%</b></span>
       </div>
-      <div class="goal-widget-foot">${salesActive ? `<span><b>${money(Number(goal.ventas_mes || 0))}</b> de ${money(Number(goal.objetivo_ventas || 0))}</span>` : '<span>Ventas no activas</span>'}${txActive ? `<span><b>${Math.round(Number(goal.transacciones_mes || 0))}</b> de ${Math.round(Number(goal.objetivo_transacciones || 0))} trans.</span>` : '<span>Transacciones no activas</span>'}</div>`;
-    grid.appendChild(card);
-  });
-  empty.hidden = goalsToday.length > 0;
+    </div>
+    <div class="goals-compact-chart" role="group" aria-label="Metas por usuario">
+      ${goalsToday.map((goal) => {
+        const user = usersById.get(String(goal.usuario_id)) || goal;
+        const salesActive = Number(goal.ventas_activa ?? 1) === 1;
+        const txActive = Number(goal.transacciones_activa ?? 1) === 1;
+        const salesPercent = monthlyGoalPercent(goal.ventas_mes, goal.objetivo_ventas);
+        const txPercent = monthlyGoalPercent(goal.transacciones_mes, goal.objetivo_transacciones);
+        const salesHeight = salesActive ? Math.max(4, Math.min(100, salesPercent)) : 0;
+        const txHeight = txActive ? Math.max(4, Math.min(100, txPercent)) : 0;
+        const avatar = user.foto_url
+          ? `<img src="${escapeHtml(user.foto_url)}" alt="" />`
+          : `<span>${escapeHtml(String(user.nombre || user.usuario || 'U').slice(0,1).toUpperCase())}</span>`;
+        return `<article class="goal-person-column">
+          <div class="goal-person-bars">
+            <div class="goal-bar-wrap ${salesActive ? '' : 'inactive'}">
+              <span class="goal-bar-value">${salesActive ? `${Math.round(salesPercent)}%` : '—'}</span>
+              <div class="goal-bar-shell sales"><span style="height:${salesHeight}%"></span></div>
+              <small>Ventas</small>
+            </div>
+            <div class="goal-bar-wrap ${txActive ? '' : 'inactive'}">
+              <span class="goal-bar-value">${txActive ? `${Math.round(txPercent)}%` : '—'}</span>
+              <div class="goal-bar-shell tx"><span style="height:${txHeight}%"></span></div>
+              <small>Trans.</small>
+            </div>
+          </div>
+          <div class="goal-person-user">
+            <span class="goal-person-avatar">${avatar}</span>
+            <strong>${escapeHtml(user.nombre || user.usuario || 'Usuario')}</strong>
+            <small>${salesActive ? `${money(Number(goal.ventas_mes || 0))} / ${money(Number(goal.objetivo_ventas || 0))}` : 'Ventas desactivadas'}</small>
+            <small>${txActive ? `${Math.round(Number(goal.transacciones_mes || 0))} / ${Math.round(Number(goal.objetivo_transacciones || 0))} trans.` : 'Trans. desactivadas'}</small>
+          </div>
+        </article>`;
+      }).join('')}
+    </div>`;
+  grid.appendChild(chart);
+  empty.hidden = true;
 }
 const PAYMENT_CATEGORY_META={agua:{label:'Agua',color:'#28a9ff'},luz:{label:'Luz',color:'#f2c94c'},internet:{label:'Internet',color:'#a47cff'},deuda:{label:'Deuda',color:'#ff6172'},alquiler:{label:'Alquiler',color:'#ff9f43'},nomina:{label:'Nómina',color:'#54e38e'},otro:{label:'Otro',color:'#8e9bad'}};
 function calendarMeta(category){return PAYMENT_CATEGORY_META[category]||PAYMENT_CATEGORY_META.otro}
