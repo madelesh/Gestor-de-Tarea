@@ -7947,3 +7947,46 @@ textarea{
   .goal-person-bars{height:112px}
   .goal-bar-shell{height:78px;width:28px}
 }
+
+
+/* =========================================================
+   V11.25.5 · Metas más legibles y compactas
+   ========================================================= */
+.home-goals-panel{padding:13px!important}
+.home-goals-panel .compact-widget-head{margin-bottom:7px!important}
+.home-goals-panel .compact-widget-head h2{font-size:21px!important;line-height:1.05!important}
+.home-goals-panel .compact-widget-head p{font-size:11px!important;line-height:1.25!important}
+.goals-compact-widget{padding:10px 12px!important;border-radius:15px!important}
+.goals-compact-summary{gap:10px!important;padding-bottom:8px!important}
+.goals-summary-copy{gap:2px!important}
+.goals-summary-label{font-size:10px!important}
+.goals-summary-copy strong{font-size:30px!important}
+.goals-summary-copy small{font-size:10px!important}
+.goals-summary-pills{gap:6px!important}
+.goals-summary-pills>span{min-height:28px!important;padding:0 9px!important;font-size:10px!important}
+.goals-summary-pills b{font-size:11px!important}
+.goals-compact-chart{gap:4px!important;padding-top:8px!important;grid-template-columns:repeat(auto-fit,minmax(120px,1fr))!important}
+.goal-person-column{padding:5px 7px 6px!important}
+.goal-person-bars{height:150px!important;gap:12px!important;padding:0 1px 4px!important}
+.goal-bar-wrap{grid-template-rows:20px 1fr 18px!important;gap:2px!important}
+.goal-bar-value{font-size:11px!important}
+.goal-bar-shell{width:34px!important;height:118px!important;border-radius:16px!important}
+.goal-bar-shell>span{border-radius:15px!important}
+.goal-bar-wrap small{font-size:9px!important}
+.goal-person-user{padding-top:6px!important;grid-template-columns:34px minmax(0,1fr)!important;column-gap:8px!important;row-gap:1px!important}
+.goal-person-avatar{width:34px!important;height:34px!important;font-size:11px!important}
+.goal-person-user strong{font-size:12px!important;line-height:1.15!important}
+.goal-person-user small{font-size:9px!important;line-height:1.2!important}
+@media(max-width:1250px){
+  .goals-compact-chart{grid-template-columns:repeat(3,minmax(140px,1fr))!important}
+}
+@media(max-width:760px){
+  .goals-compact-chart{grid-template-columns:repeat(2,minmax(145px,1fr))!important}
+  .goal-person-bars{height:138px!important}
+  .goal-bar-shell{height:108px!important}
+}
+@media(max-width:480px){
+  .goals-compact-chart{grid-template-columns:1fr!important}
+  .goal-person-bars{height:132px!important}
+  .goal-bar-shell{height:102px!important;width:32px!important}
+}
