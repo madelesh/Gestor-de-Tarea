@@ -1032,12 +1032,13 @@
           </div>
           <div class="admin-module-grid">
             <article class="admin-module-card">
-              <div class="admin-module-title"><span class="admin-module-icon"><svg class="icon"><use href="#icon-users"></use></svg></span><div><strong>General</strong><small>Personal, acceso y metas</small></div></div>
+              <div class="admin-module-title"><span class="admin-module-icon"><svg class="icon"><use href="#icon-users"></use></svg></span><div><strong>General</strong><small>Personal, acceso, metas y calendario</small></div></div>
               <div class="admin-module-actions">
                 <button type="button" class="admin-nav-btn" data-admin-target="apariencia"><svg class="icon"><use href="#icon-image"></use></svg><span>Apariencia</span></button>
                 <button type="button" class="admin-nav-btn" data-admin-target="acceso"><svg class="icon"><use href="#icon-users"></use></svg><span>Usuarios</span></button>
                 <button type="button" class="admin-nav-btn" data-admin-target="roles"><svg class="icon"><use href="#icon-shield"></use></svg><span>Roles</span></button>
                 <button type="button" class="admin-nav-btn" data-admin-target="checkin"><svg class="icon"><use href="#icon-clock"></use></svg><span>Check-in</span></button>
+                <button type="button" class="admin-nav-btn" data-admin-target="calendario"><svg class="icon"><use href="#icon-calendar"></use></svg><span>Calendario</span></button>
               </div>
               <div class="admin-module-subgroup">
                 <button type="button" class="admin-nav-btn admin-module-wide" data-admin-target="metas"><svg class="icon"><use href="#icon-target"></use></svg><span>Metas</span></button>
@@ -1070,8 +1071,7 @@
               <div class="admin-module-title"><span class="admin-module-icon"><svg class="icon"><use href="#icon-cloud"></use></svg></span><div><strong>Configuración</strong><small>Datos y herramientas del sistema</small></div></div>
               <div class="admin-module-actions">
                 <button type="button" class="admin-nav-btn" data-admin-target="datos"><svg class="icon"><use href="#icon-cloud"></use></svg><span>Datos en la nube</span></button>
-                <button type="button" class="admin-nav-btn" data-admin-target="calendario"><svg class="icon"><use href="#icon-calendar"></use></svg><span>Calendario de pagos</span></button>
-              </div>
+                              </div>
             </article>
           </div>
         </section>
@@ -1574,17 +1574,41 @@
           </section>
 
           <section class="admin-section admin-view admin-calendar-section" data-admin-view="calendario" hidden>
-            <div class="admin-section-head"><span class="eyebrow">Calendario</span><h3>Calendario de pagos</h3><p>Registra las fechas importantes de pago para que aparezcan en la página principal.</p></div>
-            <form id="paymentCalendarForm" class="payment-calendar-form">
-              <label>Concepto<input id="paymentCalendarTitle" type="text" maxlength="80" required placeholder="Ej. Planilla de luz" /></label>
-              <label>Categoría<select id="paymentCalendarCategory"><option value="agua">Agua</option><option value="luz">Luz</option><option value="internet">Internet</option><option value="deuda">Deuda</option><option value="alquiler">Alquiler</option><option value="nomina">Nómina</option><option value="otro">Otro</option></select></label>
-              <label>Fecha de pago<input id="paymentCalendarDate" type="date" required /></label>
-              <label>Valor estimado<div class="money-field"><span>$</span><input id="paymentCalendarAmount" type="number" min="0" step="0.01" placeholder="0.00" /></div></label>
-              <label>Nota<input id="paymentCalendarNotes" type="text" maxlength="160" placeholder="Información adicional" /></label>
-              <button type="submit" class="btn btn-accent"><svg class="icon"><use href="#icon-plus"></use></svg><span>Agregar al calendario</span></button>
-            </form>
-            <div class="calendar-admin-toolbar"><div><strong>Pagos registrados</strong><small>Marca como pagado o elimina los registros que ya no necesites.</small></div><input id="calendarAdminMonth" type="month" /></div>
-            <div id="calendarAdminList" class="calendar-admin-list"></div><div id="calendarAdminEmpty" class="home-workers-empty" hidden>No hay pagos registrados en este mes.</div>
+            <div class="admin-section-head"><span class="eyebrow">Calendario</span><h3>Calendario de pagos</h3><p>Registra vencimientos y recordatorios para mostrarlos también en la página principal.</p></div>
+            <div class="calendar-widget-admin-grid">
+              <div class="calendar-widget-card calendar-widget-form-card">
+                <div class="calendar-widget-card-head"><strong>Nuevo recordatorio</strong><small>Llena los datos en una tarjeta más cómoda y organizada.</small></div>
+                <form id="paymentCalendarForm" class="payment-calendar-form payment-calendar-form-widget">
+                  <label>Concepto<input id="paymentCalendarTitle" type="text" maxlength="80" required placeholder="Ej. Pago de internet" /></label>
+                  <label>Categoría<select id="paymentCalendarCategory"><option value="agua">Agua</option><option value="luz">Luz</option><option value="internet">Internet</option><option value="deuda">Deuda</option><option value="alquiler">Alquiler</option><option value="nomina">Nómina</option><option value="otro">Otro</option></select></label>
+                  <label>Fecha de pago<input id="paymentCalendarDate" type="date" required /></label>
+                  <label>Valor estimado<div class="money-field"><span>$</span><input id="paymentCalendarAmount" type="number" min="0" step="0.01" placeholder="0.00" /></div></label>
+                  <label class="calendar-notes-field">Nota<input id="paymentCalendarNotes" type="text" maxlength="160" placeholder="Observación opcional" /></label>
+                  <div class="payment-calendar-submit"><button type="submit" class="btn btn-accent"><svg class="icon"><use href="#icon-plus"></use></svg><span>Agregar al calendario</span></button></div>
+                </form>
+              </div>
+              <aside class="calendar-widget-card calendar-widget-side-card">
+                <div class="calendar-widget-card-head"><strong>Vista rápida</strong><small>Consulta el mes activo sin ocupar toda la pantalla.</small></div>
+                <div class="calendar-admin-month-control">
+                  <span>Mes visible</span>
+                  <input id="calendarAdminMonth" type="month" />
+                </div>
+                <div class="calendar-widget-month-box">
+                  <span class="calendar-widget-month-label">Mes seleccionado</span>
+                  <strong id="calendarAdminMonthLabel">Octubre de 2026</strong>
+                </div>
+                <div class="calendar-widget-stats">
+                  <article><span>Registrados</span><strong id="calendarAdminTotal">0</strong></article>
+                  <article><span>Pendientes</span><strong id="calendarAdminPending">0</strong></article>
+                  <article><span>Pagados</span><strong id="calendarAdminPaid">0</strong></article>
+                </div>
+              </aside>
+            </div>
+            <div class="calendar-admin-records-card">
+              <div class="calendar-admin-toolbar"><div><strong>Pagos registrados</strong><small>Marca como pagado o elimina los registros que ya no necesites.</small></div></div>
+              <div id="calendarAdminList" class="calendar-admin-list"></div>
+              <div id="calendarAdminEmpty" class="home-workers-empty" hidden>No hay pagos registrados en este mes.</div>
+            </div>
           </section>
 
           <section class="admin-section admin-view" data-admin-view="datos" hidden>
@@ -1661,6 +1685,6 @@
     </article>
   </template>
 
-  <script src="app.js?v=11.25"></script>
+  <script src="app.js?v=11.25.1"></script>
 </body>
 </html>
