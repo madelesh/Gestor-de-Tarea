@@ -1,4 +1,4 @@
-const APP_VERSION = '11.22';
+const APP_VERSION = '11.25';
 const API_BASE = 'https://gestor-tareas-api.detodoec.workers.dev';
 const STORAGE_KEY = 'detodoec_tasks_v1';
 const SETTINGS_KEY = 'detodoec_tasks_settings_v3';
@@ -75,6 +75,8 @@ let pendingDeleteUserId = null;
 let openAdminUserMenuId = null;
 let adminReviewActiveTab = 'pendiente';
 let adminRejectedReviewRows = [];
+let paymentCalendarItems=[];
+let paymentCalendarMonth=todayLocal().slice(0,7);
 
 let adminPasswordResolver = null;
 let adminUserPhotoUrl = '';
@@ -2333,11 +2335,12 @@ function showMainView(view) {
   }
 
   if (isHome) {
-    Promise.allSettled([refreshAttendance(), refreshHomeUsers()]);
+    Promise.allSettled([refreshAttendance(), refreshHomeUsers(), refreshPaymentCalendar({silent:true})]);
     homeRefreshTimer = setInterval(() => {
       if (currentUser && !$('#home')?.hidden) {
         refreshHomeUsers();
         refreshAttendance();
+        refreshPaymentCalendar({silent:true});
       }
     }, 30000);
   }
@@ -2988,12 +2991,33 @@ function renderHomeGoals() {
 
   empty.hidden = goalsToday.length > 0;
 }
+const PAYMENT_CATEGORY_META={agua:{label:'Agua',color:'#28a9ff'},luz:{label:'Luz',color:'#f2c94c'},internet:{label:'Internet',color:'#a47cff'},deuda:{label:'Deuda',color:'#ff6172'},alquiler:{label:'Alquiler',color:'#ff9f43'},nomina:{label:'Nómina',color:'#54e38e'},otro:{label:'Otro',color:'#8e9bad'}};
+function calendarMeta(category){return PAYMENT_CATEGORY_META[category]||PAYMENT_CATEGORY_META.otro}
+function monthStartParts(ym){const [y,m]=String(ym).split('-').map(Number);return {y,m}}
+function calendarMonthLabel(ym){const {y,m}=monthStartParts(ym);return new Intl.DateTimeFormat('es-EC',{month:'long',year:'numeric'}).format(new Date(y,m-1,1))}
+function shiftCalendarMonth(delta){const {y,m}=monthStartParts(paymentCalendarMonth);const d=new Date(y,m-1+delta,1);paymentCalendarMonth=`${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}`;refreshPaymentCalendar({silent:true})}
+function formatCalendarDayMonth(dateStr){const [y,m,d]=String(dateStr).split('-').map(Number);return {day:d,month:new Intl.DateTimeFormat('es-EC',{month:'short'}).format(new Date(y,m-1,d)).replace('.','')}}
+function renderPaymentCalendar(){
+  const cal=$('#businessCalendar'),list=$('#calendarUpcomingList'),empty=$('#calendarUpcomingEmpty');if(!cal||!list)return;
+  if($('#calendarMonthLabel'))$('#calendarMonthLabel').textContent=calendarMonthLabel(paymentCalendarMonth);
+  const {y,m}=monthStartParts(paymentCalendarMonth),first=new Date(y,m-1,1),days=new Date(y,m,0).getDate(),start=(first.getDay()+6)%7,previousDays=new Date(y,m-1,0).getDate(),today=todayLocal();
+  const byDate=new Map();paymentCalendarItems.forEach(item=>{if(!byDate.has(item.fecha_pago))byDate.set(item.fecha_pago,[]);byDate.get(item.fecha_pago).push(item)});
+  const weekdays=['Lun','Mar','Mié','Jue','Vie','Sáb','Dom'];let html=weekdays.map(d=>`<div class="calendar-weekday">${d}</div>`).join('');const cells=Math.ceil((start+days)/7)*7;
+  for(let i=0;i<cells;i++){const num=i-start+1;let cy=y,cm=m,cd=num,outside=false;if(num<1){outside=true;cm=m-1;cy=y;if(cm<1){cm=12;cy--}cd=previousDays+num}else if(num>days){outside=true;cm=m+1;cy=y;if(cm>12){cm=1;cy++}cd=num-days}const date=`${cy}-${String(cm).padStart(2,'0')}-${String(cd).padStart(2,'0')}`,events=byDate.get(date)||[];html+=`<div class="calendar-day ${outside?'is-outside':''} ${date===today?'is-today':''}"><span class="calendar-day-number">${cd}</span><div class="calendar-day-events">${events.slice(0,3).map(e=>`<div class="calendar-event-chip" style="--event-color:${calendarMeta(e.categoria).color}" title="${escapeHtml(e.titulo)}"><span>${escapeHtml(e.titulo)}</span></div>`).join('')}${events.length>3?`<small>+${events.length-3} más</small>`:''}</div></div>`}
+  cal.innerHTML=html;const sorted=[...paymentCalendarItems].sort((a,b)=>String(a.fecha_pago).localeCompare(String(b.fecha_pago)));if($('#calendarPaymentCount'))$('#calendarPaymentCount').textContent=String(sorted.length);
+  list.innerHTML=sorted.map(item=>{const dm=formatCalendarDayMonth(item.fecha_pago),meta=calendarMeta(item.categoria);return`<div class="calendar-upcoming-item ${item.estado==='pagado'?'is-paid':''}"><div class="calendar-date-badge" style="--cat-color:${meta.color}"><strong>${dm.day}</strong><span>${escapeHtml(dm.month)}</span></div><div class="calendar-upcoming-copy"><strong>${escapeHtml(item.titulo)}</strong><small>${escapeHtml(meta.label)}${item.notas?` · ${escapeHtml(item.notas)}`:''}${item.estado==='pagado'?' · Pagado':''}</small></div><span class="calendar-upcoming-amount">${Number(item.monto||0)>0?money(item.monto):'—'}</span></div>`}).join('');empty.hidden=sorted.length>0;
+}
+async function refreshPaymentCalendar({silent=false,month=paymentCalendarMonth}={}){if(!currentUser)return;try{const rows=await apiFetch(`/api/calendario-pagos?month=${encodeURIComponent(month)}&_=${Date.now()}`,{cache:'no-store'});paymentCalendarItems=Array.isArray(rows)?rows:[];renderPaymentCalendar();renderAdminPaymentCalendar();return paymentCalendarItems}catch(err){if(!silent)showToast(err.message,'No se pudo cargar el calendario');return[]}}
+function renderAdminPaymentCalendar(){const root=$('#calendarAdminList'),empty=$('#calendarAdminEmpty');if(!root)return;root.innerHTML=paymentCalendarItems.map(item=>{const meta=calendarMeta(item.categoria);return`<div class="calendar-admin-row" data-calendar-id="${item.id}"><div class="calendar-admin-icon" style="--cat-color:${meta.color}">${String(meta.label).slice(0,1)}</div><div class="calendar-admin-main"><strong>${escapeHtml(item.titulo)}</strong><small>${escapeHtml(item.fecha_pago)} · ${escapeHtml(meta.label)}${item.notas?` · ${escapeHtml(item.notas)}`:''}</small></div><strong>${Number(item.monto||0)>0?money(item.monto):'—'}</strong><span class="calendar-admin-status ${item.estado==='pagado'?'paid':'pending'}">${item.estado==='pagado'?'Pagado':'Pendiente'}</span><div class="calendar-admin-actions"><button type="button" data-calendar-toggle="${item.id}">${item.estado==='pagado'?'Reabrir':'Marcar pagado'}</button><button type="button" class="danger" data-calendar-delete="${item.id}">Eliminar</button></div></div>`}).join('');if(empty)empty.hidden=paymentCalendarItems.length>0}
+async function submitPaymentCalendar(e){e.preventDefault();const payload={titulo:$('#paymentCalendarTitle').value.trim(),categoria:$('#paymentCalendarCategory').value,fecha_pago:$('#paymentCalendarDate').value,monto:Number($('#paymentCalendarAmount').value||0),notas:$('#paymentCalendarNotes').value.trim()};try{await apiFetch('/api/calendario-pagos',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify(payload)});e.target.reset();$('#paymentCalendarDate').value=todayLocal();showToast('Pago agregado al calendario.','Calendario');const month=payload.fecha_pago.slice(0,7);if($('#calendarAdminMonth'))$('#calendarAdminMonth').value=month;paymentCalendarMonth=month;await refreshPaymentCalendar({silent:true,month})}catch(err){showToast(err.message,'No se pudo agregar')}}
+
 async function refreshHomeUsers() {
   if (!currentUser || !userCan('home')) return;
   try {
     const [rows] = await Promise.all([
       apiFetch(`/api/home/usuarios?_=${Date.now()}`, { cache:'no-store' }),
-      refreshGoalsToday({ silent:true })
+      refreshGoalsToday({ silent:true }),
+      refreshPaymentCalendar({ silent:true })
     ]);
 
     homeUsers = Array.isArray(rows)
@@ -4930,6 +4954,7 @@ function showAdminSection(section = 'hub') {
   if (target === 'cuadre') refreshCnbConfig({ silent:true });
   if (target === 'cotizador') { renderQuotePriceAdmin(); renderQuoteClientAdmin(); }
   if (target === 'disenos') renderAdminDesigns();
+  if (target === 'calendario') { if($('#calendarAdminMonth')) $('#calendarAdminMonth').value=paymentCalendarMonth; refreshPaymentCalendar({silent:true}); }
   window.scrollTo({top:0,behavior:'instant'});
 }
 
@@ -5310,6 +5335,12 @@ $('#quoteItems')?.addEventListener('click', (e) => {
   const btn = e.target.closest('[data-remove-quote]');
   if (btn) removeQuoteItem(btn.dataset.removeQuote);
 });
+on('calendarPrevMonth','click',()=>shiftCalendarMonth(-1));
+on('calendarNextMonth','click',()=>shiftCalendarMonth(1));
+$('#paymentCalendarForm')?.addEventListener('submit',submitPaymentCalendar);
+$('#calendarAdminMonth')?.addEventListener('change',(e)=>{if(e.target.value){paymentCalendarMonth=e.target.value;refreshPaymentCalendar({silent:true})}});
+$('#calendarAdminList')?.addEventListener('click',async(e)=>{const toggle=e.target.closest('[data-calendar-toggle]'),del=e.target.closest('[data-calendar-delete]');try{if(toggle){const item=paymentCalendarItems.find(x=>String(x.id)===String(toggle.dataset.calendarToggle));if(!item)return;const estado=item.estado==='pagado'?'pendiente':'pagado';await apiFetch(`/api/calendario-pagos/${item.id}`,{method:'PUT',headers:{'Content-Type':'application/json'},body:JSON.stringify({estado})});showToast(estado==='pagado'?'Pago marcado como pagado.':'Pago reabierto.','Calendario');await refreshPaymentCalendar({silent:true})}if(del){const ok=await themedConfirm({title:'Eliminar pago del calendario',message:'¿Eliminar este recordatorio de pago?',confirmText:'Eliminar'});if(!ok)return;await apiFetch(`/api/calendario-pagos/${del.dataset.calendarDelete}`,{method:'DELETE'});showToast('Pago eliminado.','Calendario');await refreshPaymentCalendar({silent:true})}}catch(err){showToast(err.message,'Calendario')}});
+
 $$('.admin-nav-btn').forEach((btn) => btn.addEventListener('click', () => showAdminSection(btn.dataset.adminTarget)));
 
 

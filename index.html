@@ -193,6 +193,17 @@
           <div class="home-workers-empty" id="homeWorkersEmpty" hidden>No hay usuarios registrados.</div>
         </section>
 
+        <section class="home-calendar-panel">
+          <div class="home-panel-head">
+            <div><span class="eyebrow">Calendario</span><h2>Próximos pagos</h2><p>Fechas de deudas, agua, luz, internet y otros compromisos del local.</p></div>
+            <div class="calendar-head-actions"><button type="button" class="btn btn-outline small" id="calendarPrevMonth">‹</button><strong id="calendarMonthLabel">Mes actual</strong><button type="button" class="btn btn-outline small" id="calendarNextMonth">›</button></div>
+          </div>
+          <div class="home-calendar-layout">
+            <div class="business-calendar" id="businessCalendar"></div>
+            <aside class="calendar-upcoming"><div class="calendar-upcoming-head"><strong>Pagos del mes</strong><span id="calendarPaymentCount">0</span></div><div id="calendarUpcomingList" class="calendar-upcoming-list"></div><div id="calendarUpcomingEmpty" class="home-workers-empty" hidden>No hay pagos registrados para este mes.</div></aside>
+          </div>
+        </section>
+
         <section class="home-goals-panel">
           <div class="home-panel-head">
             <div>
@@ -1059,6 +1070,7 @@
               <div class="admin-module-title"><span class="admin-module-icon"><svg class="icon"><use href="#icon-cloud"></use></svg></span><div><strong>Configuración</strong><small>Datos y herramientas del sistema</small></div></div>
               <div class="admin-module-actions">
                 <button type="button" class="admin-nav-btn" data-admin-target="datos"><svg class="icon"><use href="#icon-cloud"></use></svg><span>Datos en la nube</span></button>
+                <button type="button" class="admin-nav-btn" data-admin-target="calendario"><svg class="icon"><use href="#icon-calendar"></use></svg><span>Calendario de pagos</span></button>
               </div>
             </article>
           </div>
@@ -1561,6 +1573,20 @@
             <div class="admin-design-list" id="adminDesignList"></div>
           </section>
 
+          <section class="admin-section admin-view admin-calendar-section" data-admin-view="calendario" hidden>
+            <div class="admin-section-head"><span class="eyebrow">Calendario</span><h3>Calendario de pagos</h3><p>Registra las fechas importantes de pago para que aparezcan en la página principal.</p></div>
+            <form id="paymentCalendarForm" class="payment-calendar-form">
+              <label>Concepto<input id="paymentCalendarTitle" type="text" maxlength="80" required placeholder="Ej. Planilla de luz" /></label>
+              <label>Categoría<select id="paymentCalendarCategory"><option value="agua">Agua</option><option value="luz">Luz</option><option value="internet">Internet</option><option value="deuda">Deuda</option><option value="alquiler">Alquiler</option><option value="nomina">Nómina</option><option value="otro">Otro</option></select></label>
+              <label>Fecha de pago<input id="paymentCalendarDate" type="date" required /></label>
+              <label>Valor estimado<div class="money-field"><span>$</span><input id="paymentCalendarAmount" type="number" min="0" step="0.01" placeholder="0.00" /></div></label>
+              <label>Nota<input id="paymentCalendarNotes" type="text" maxlength="160" placeholder="Información adicional" /></label>
+              <button type="submit" class="btn btn-accent"><svg class="icon"><use href="#icon-plus"></use></svg><span>Agregar al calendario</span></button>
+            </form>
+            <div class="calendar-admin-toolbar"><div><strong>Pagos registrados</strong><small>Marca como pagado o elimina los registros que ya no necesites.</small></div><input id="calendarAdminMonth" type="month" /></div>
+            <div id="calendarAdminList" class="calendar-admin-list"></div><div id="calendarAdminEmpty" class="home-workers-empty" hidden>No hay pagos registrados en este mes.</div>
+          </section>
+
           <section class="admin-section admin-view" data-admin-view="datos" hidden>
             <div class="admin-section-head"><h3>Datos en la nube</h3><p>Herramientas de migración y sincronización.</p></div>
             <div class="inline-actions"><button type="button" class="btn btn-accent small" id="migrateLocal">Migrar tareas locales a la nube</button></div>
@@ -1635,6 +1661,6 @@
     </article>
   </template>
 
-  <script src="app.js?v=11.23"></script>
+  <script src="app.js?v=11.25"></script>
 </body>
 </html>
