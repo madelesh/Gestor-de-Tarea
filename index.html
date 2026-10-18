@@ -9,7 +9,7 @@
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700;800&display=swap" rel="stylesheet">
   <link id="dynamicFavicon" rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 64 64'%3E%3Crect width='64' height='64' rx='16' fill='%23b9ff39'/%3E%3Cpath d='M18 33l9 9 19-22' fill='none' stroke='%23111' stroke-width='7' stroke-linecap='round' stroke-linejoin='round'/%3E%3C/svg%3E" />
-  <link rel="stylesheet" href="styles.css?v=11.25.9" />
+  <link rel="stylesheet" href="styles.css?v=11.26.1" />
 </head>
 <body>
   <svg xmlns="http://www.w3.org/2000/svg" style="display:none" aria-hidden="true" focusable="false">
@@ -104,7 +104,7 @@
           <img id="brandIcon" alt="" />
           <span id="brandFallback" class="brand-fallback"><svg class="icon"><use href="#icon-brand"></use></svg></span>
         </span>
-        <span class="brand-text">DeTodoEc</span>
+        <span class="brand-copy"><span class="brand-text">DeTodoEc</span><small class="brand-location">Matriz</small></span>
       </a>
 
       <nav class="main-nav" aria-label="Navegación principal">
@@ -925,6 +925,15 @@
         </div>
       </section>
 
+      <section class="profile-debt-card" id="profileDebtCard">
+        <div class="profile-debt-head">
+          <div><small>Mi deuda pendiente</small><strong id="profileDebtTotal">$0,00</strong></div>
+          <span id="profileDebtBadge">Sin deuda</span>
+        </div>
+        <div class="profile-debt-list" id="profileDebtList"></div>
+        <div class="profile-debt-empty" id="profileDebtEmpty">No tienes deudas registradas.</div>
+      </section>
+
       <div class="form-grid">
         <label>Nombre<input id="profileName" required /></label>
         <label>Usuario<input id="profileUsername" required autocomplete="username" /></label>
@@ -1072,7 +1081,7 @@
               <button type="button" class="admin-quick-card admin-nav-btn" data-admin-target="calendario"><span class="admin-quick-icon quick-calendar"><svg class="icon"><use href="#icon-calendar"></use></svg></span><span class="admin-quick-copy"><strong>Calendario</strong><small>Pagos, servicios y vencimientos</small></span><span class="admin-open-arrow">›</span></button>
             </div>
           </div>
-          <div class="admin-tools-header"><div class="admin-section-label"><div><strong>Todas las herramientas</strong><small>Organizadas por área.</small></div></div><div class="admin-category-tabs" role="tablist"><button type="button" class="active" data-admin-filter="all">Todas</button><button type="button" data-admin-filter="general">General</button><button type="button" data-admin-filter="caja">Caja</button><button type="button" data-admin-filter="operacion">Operación</button><button type="button" data-admin-filter="configuracion">Configuración</button></div></div>
+          <div class="admin-tools-header"><div class="admin-section-label"><div><strong>Todas las herramientas</strong><small>Organizadas por área.</small></div></div><div class="admin-category-tabs" role="tablist"><button type="button" class="active" data-admin-filter="all">Todas</button><button type="button" data-admin-filter="general">General</button><button type="button" data-admin-filter="caja">Caja</button><button type="button" data-admin-filter="finanzas">Finanzas</button><button type="button" data-admin-filter="operacion">Operación</button><button type="button" data-admin-filter="configuracion">Configuración</button></div></div>
           <div class="admin-tools-grid" id="adminToolsGrid">
             <article class="admin-tool-card" data-admin-category="general" data-admin-search="apariencia logo imagen personalización"><button type="button" class="admin-tool-open admin-nav-btn" data-admin-target="apariencia"><span class="admin-tool-icon"><svg class="icon"><use href="#icon-image"></use></svg></span><span class="admin-tool-copy"><strong>Apariencia</strong><small>Logo e imagen predeterminada del sistema.</small></span><span class="admin-open-arrow">›</span></button></article>
             <article class="admin-tool-card" data-admin-category="general" data-admin-search="usuarios cuentas empleados valor hora"><button type="button" class="admin-tool-open admin-nav-btn" data-admin-target="acceso"><span class="admin-tool-icon"><svg class="icon"><use href="#icon-users"></use></svg></span><span class="admin-tool-copy"><strong>Usuarios</strong><small>Cuentas, perfiles y valor por hora.</small></span><span class="admin-open-arrow">›</span></button></article>
@@ -1083,6 +1092,13 @@
             <article class="admin-tool-card" data-admin-category="caja" data-admin-search="revisiones cierre caja aprobadas rechazadas pendientes"><button type="button" class="admin-tool-open admin-nav-btn admin-review-nav" data-admin-target="revisiones"><span class="admin-tool-icon"><svg class="icon"><use href="#icon-bell"></use></svg></span><span class="admin-tool-copy"><strong>Revisiones</strong><small>Pendientes, aprobadas y rechazadas.</small></span><span class="admin-tool-badge admin-review-count" hidden>0</span><span class="admin-open-arrow">›</span></button></article>
             <article class="admin-tool-card" data-admin-category="caja" data-admin-search="bancos cuentas cnb colores iconos parámetros"><button type="button" class="admin-tool-open admin-nav-btn" data-admin-target="bancos"><span class="admin-tool-icon"><svg class="icon"><use href="#icon-wallet"></use></svg></span><span class="admin-tool-copy"><strong>Bancos</strong><small>Nombres, iconos, colores y parámetros.</small></span><span class="admin-open-arrow">›</span></button></article>
             <article class="admin-tool-card" data-admin-category="caja" data-admin-search="cuadre cierre efectivo margen transacción parámetros"><button type="button" class="admin-tool-open admin-nav-btn" data-admin-target="cuadre"><span class="admin-tool-icon"><svg class="icon"><use href="#icon-calculator"></use></svg></span><span class="admin-tool-copy"><strong>Configuración de cuadre</strong><small>Efectivo, transacciones y margen aceptable.</small></span><span class="admin-open-arrow">›</span></button></article>
+            <article class="admin-tool-card" data-admin-category="finanzas" data-admin-search="finanzas deuda empleados usuarios terceros inversión capital">
+              <button type="button" class="admin-tool-open admin-nav-btn" data-admin-target="finanzas">
+                <span class="admin-tool-icon"><svg class="icon"><use href="#icon-dollar"></use></svg></span>
+                <span class="admin-tool-copy"><strong>Deudas e inversión</strong><small>Deudas de empleados, terceros e inversiones del local.</small></span>
+                <span class="admin-open-arrow">›</span>
+              </button>
+            </article>
             <article class="admin-tool-card" data-admin-category="operacion" data-admin-search="cotizador precios materiales clientes"><button type="button" class="admin-tool-open admin-nav-btn" data-admin-target="cotizador"><span class="admin-tool-icon"><svg class="icon"><use href="#icon-calculator"></use></svg></span><span class="admin-tool-copy"><strong>Cotizador</strong><small>Precios, materiales y clientes.</small></span><span class="admin-open-arrow">›</span></button></article>
             <article class="admin-tool-card" data-admin-category="operacion" data-admin-search="diseños biblioteca materiales archivos precios"><button type="button" class="admin-tool-open admin-nav-btn" data-admin-target="disenos"><span class="admin-tool-icon"><svg class="icon"><use href="#icon-library"></use></svg></span><span class="admin-tool-copy"><strong>Diseños</strong><small>Biblioteca, materiales y precios.</small></span><span class="admin-open-arrow">›</span></button></article>
             <article class="admin-tool-card" data-admin-category="configuracion" data-admin-search="datos nube migración sincronización cloud"><button type="button" class="admin-tool-open admin-nav-btn" data-admin-target="datos"><span class="admin-tool-icon"><svg class="icon"><use href="#icon-cloud"></use></svg></span><span class="admin-tool-copy"><strong>Datos en la nube</strong><small>Migración y sincronización.</small></span><span class="admin-open-arrow">›</span></button></article>
@@ -1625,6 +1641,65 @@
             </div>
           </section>
 
+          <section class="admin-section admin-view finance-admin-section" data-admin-view="finanzas" hidden>
+            <div class="admin-section-head">
+              <span class="eyebrow">Finanzas</span>
+              <h3>Deudas e inversión</h3>
+              <p>Registra obligaciones de colaboradores, deudas de terceros e inversiones sin mezclar los tipos de movimiento.</p>
+            </div>
+
+            <div class="finance-admin-tabs">
+              <button type="button" class="active" data-finance-admin-tab="empleados"><svg class="icon"><use href="#icon-users"></use></svg><span>Deuda empleados</span></button>
+              <button type="button" data-finance-admin-tab="terceros"><svg class="icon"><use href="#icon-handshake"></use></svg><span>Deuda terceros</span></button>
+              <button type="button" data-finance-admin-tab="inversion"><svg class="icon"><use href="#icon-dollar"></use></svg><span>Inversión</span></button>
+            </div>
+
+            <div class="finance-admin-panel active" data-finance-admin-panel="empleados">
+              <div class="finance-admin-layout">
+                <form id="employeeDebtAdminForm" class="finance-admin-form">
+                  <div class="finance-form-head"><strong>Nueva deuda de empleado</strong><small>Esta deuda aparecerá automáticamente en el perfil del usuario.</small></div>
+                  <label>Empleado<select id="employeeDebtAdminUser" required></select></label>
+                  <div class="finance-form-row"><label>Monto<input id="employeeDebtAdminAmount" type="number" min="0.01" step="0.01" required placeholder="0.00" /></label><label>Fecha<input id="employeeDebtAdminDate" type="date" required /></label></div>
+                  <label>Concepto<input id="employeeDebtAdminConcept" maxlength="120" required placeholder="Ej. Adelanto de efectivo" /></label>
+                  <label>Vencimiento opcional<input id="employeeDebtAdminDue" type="date" /></label>
+                  <label>Nota<textarea id="employeeDebtAdminNote" rows="3" maxlength="240" placeholder="Información adicional"></textarea></label>
+                  <button type="submit" class="btn btn-accent"><svg class="icon"><use href="#icon-plus"></use></svg><span>Agregar deuda</span></button>
+                </form>
+                <div class="finance-admin-records-card"><div class="finance-records-head"><div><strong>Deudas de empleados</strong><small>Saldos pendientes y abonos registrados.</small></div><span id="employeeDebtAdminTotal">$0,00</span></div><div id="employeeDebtAdminList" class="finance-admin-list"></div></div>
+              </div>
+            </div>
+
+            <div class="finance-admin-panel" data-finance-admin-panel="terceros">
+              <div class="finance-admin-layout">
+                <form id="thirdPartyDebtForm" class="finance-admin-form">
+                  <div class="finance-form-head"><strong>Nueva deuda de tercero</strong><small>Para personas o entidades externas al equipo.</small></div>
+                  <label>Nombre del tercero<input id="thirdPartyDebtName" required maxlength="100" placeholder="Nombre o empresa" /></label>
+                  <label>Contacto<input id="thirdPartyDebtContact" maxlength="100" placeholder="Teléfono, correo o referencia" /></label>
+                  <div class="finance-form-row"><label>Monto<input id="thirdPartyDebtAmount" type="number" min="0.01" step="0.01" required placeholder="0.00" /></label><label>Fecha<input id="thirdPartyDebtDate" type="date" required /></label></div>
+                  <label>Concepto<input id="thirdPartyDebtConcept" maxlength="120" required placeholder="Ej. Préstamo / saldo pendiente" /></label>
+                  <label>Vencimiento opcional<input id="thirdPartyDebtDue" type="date" /></label>
+                  <label>Nota<textarea id="thirdPartyDebtNote" rows="3" maxlength="240"></textarea></label>
+                  <button type="submit" class="btn btn-accent"><svg class="icon"><use href="#icon-plus"></use></svg><span>Agregar deuda</span></button>
+                </form>
+                <div class="finance-admin-records-card"><div class="finance-records-head"><div><strong>Deudas de terceros</strong><small>Control de saldos externos.</small></div><span id="thirdPartyDebtTotal">$0,00</span></div><div id="thirdPartyDebtList" class="finance-admin-list"></div></div>
+              </div>
+            </div>
+
+            <div class="finance-admin-panel" data-finance-admin-panel="inversion">
+              <div class="finance-admin-layout">
+                <form id="investmentAdminForm" class="finance-admin-form">
+                  <div class="finance-form-head"><strong>Registrar inversión</strong><small>Registro informativo de capital invertido. Por ahora no modifica el cuadre de caja.</small></div>
+                  <label>Concepto<input id="investmentConcept" required maxlength="120" placeholder="Ej. Compra de maquinaria" /></label>
+                  <div class="finance-form-row"><label>Monto<input id="investmentAmount" type="number" min="0.01" step="0.01" required placeholder="0.00" /></label><label>Fecha<input id="investmentDate" type="date" required /></label></div>
+                  <label>Origen / fuente<input id="investmentSource" maxlength="120" placeholder="Ej. Capital propio / préstamo" /></label>
+                  <label>Nota<textarea id="investmentNote" rows="3" maxlength="240" placeholder="Detalle de la inversión"></textarea></label>
+                  <button type="submit" class="btn btn-accent"><svg class="icon"><use href="#icon-plus"></use></svg><span>Registrar inversión</span></button>
+                </form>
+                <div class="finance-admin-records-card"><div class="finance-records-head"><div><strong>Inversiones registradas</strong><small>Historial de capital destinado al negocio.</small></div><span id="investmentAdminTotal">$0,00</span></div><div id="investmentAdminList" class="finance-admin-list"></div></div>
+              </div>
+            </div>
+          </section>
+
           <section class="admin-section admin-view" data-admin-view="datos" hidden>
             <div class="admin-section-head"><h3>Datos en la nube</h3><p>Herramientas de migración y sincronización.</p></div>
             <div class="inline-actions"><button type="button" class="btn btn-accent small" id="migrateLocal">Migrar tareas locales a la nube</button></div>
@@ -1699,6 +1774,6 @@
     </article>
   </template>
 
-  <script src="app.js?v=11.25.9"></script>
+  <script src="app.js?v=11.26.1"></script>
 </body>
 </html>

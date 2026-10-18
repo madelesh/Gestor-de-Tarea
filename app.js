@@ -1,4 +1,4 @@
-const APP_VERSION = '11.25.9';
+const APP_VERSION = '11.26.1';
 const API_BASE = 'https://gestor-tareas-api.detodoec.workers.dev';
 const STORAGE_KEY = 'detodoec_tasks_v1';
 const SETTINGS_KEY = 'detodoec_tasks_settings_v3';
@@ -75,6 +75,8 @@ let pendingDeleteUserId = null;
 let openAdminUserMenuId = null;
 let adminReviewActiveTab = 'pendiente';
 let adminRejectedReviewRows = [];
+let financeAdminData={employee_debts:[],third_party_debts:[],investments:[]};
+let financeAdminTab='empleados';
 let paymentCalendarItems=[];
 let calendarMonthlyExpenses=[];
 let calendarSelectedDate=null;
@@ -2769,7 +2771,50 @@ function openProfile() {
   $('#profilePhoto').value = '';
   $('#profileDialog').showModal();
   refreshGoalsToday({ silent:true });
+  refreshProfileDebt({ silent:true });
 }
+
+async function refreshProfileDebt({silent=false}={}){
+  if(!currentUser)return;
+  try{
+    const data=await apiFetch(`/api/finanzas/deuda-personal?_=${Date.now()}`,{cache:'no-store'});
+    const total=Number(data?.saldo_total||0),rows=Array.isArray(data?.deudas)?data.deudas:[];
+    if($('#profileDebtTotal'))$('#profileDebtTotal').textContent=money(total);
+    if($('#profileDebtBadge')){ $('#profileDebtBadge').textContent=total>0?'Pendiente':'Sin deuda'; $('#profileDebtBadge').classList.toggle('has-debt',total>0); }
+    if($('#profileDebtList'))$('#profileDebtList').innerHTML=rows.slice(0,6).map(r=>`<div class="profile-debt-item"><div><strong>${escapeHtml(r.concepto||'Deuda')}</strong><small>${escapeHtml(r.fecha_local||'')}${r.vencimiento?` · vence ${escapeHtml(r.vencimiento)}`:''}</small></div><b>${money(r.saldo)}</b></div>`).join('');
+    if($('#profileDebtEmpty'))$('#profileDebtEmpty').hidden=rows.length>0;
+  }catch(err){if(!silent)showToast(err.message,'No se pudo cargar tu deuda')}
+}
+function setFinanceAdminTab(tab='empleados'){
+  financeAdminTab=tab;
+  $$('[data-finance-admin-tab]').forEach(b=>b.classList.toggle('active',b.dataset.financeAdminTab===tab));
+  $$('[data-finance-admin-panel]').forEach(p=>p.classList.toggle('active',p.dataset.financeAdminPanel===tab));
+}
+function financeUserAvatar(user){return user?.foto_url?`<img src="${escapeHtml(user.foto_url)}" alt="" />`:escapeHtml(String(user?.nombre||user?.usuario||'?').slice(0,1).toUpperCase())}
+function renderFinanceAdmin(){
+  const emp=financeAdminData.employee_debts||[],third=financeAdminData.third_party_debts||[],inv=financeAdminData.investments||[];
+  const empTotal=emp.reduce((s,r)=>s+Number(r.saldo||0),0),thirdTotal=third.reduce((s,r)=>s+Number(r.saldo||0),0),invTotal=inv.reduce((s,r)=>s+Number(r.monto||0),0);
+  if($('#employeeDebtAdminTotal'))$('#employeeDebtAdminTotal').textContent=money(empTotal);
+  if($('#thirdPartyDebtTotal'))$('#thirdPartyDebtTotal').textContent=money(thirdTotal);
+  if($('#investmentAdminTotal'))$('#investmentAdminTotal').textContent=money(invTotal);
+  if($('#employeeDebtAdminList'))$('#employeeDebtAdminList').innerHTML=emp.map(r=>`<div class="finance-admin-row" data-employee-debt-id="${r.id}"><div class="finance-admin-avatar">${financeUserAvatar(r)}</div><div class="finance-admin-copy"><strong>${escapeHtml(r.usuario_nombre||'Empleado')} · ${escapeHtml(r.concepto||'Deuda')}</strong><small>${escapeHtml(r.fecha_local||'')}${r.vencimiento?` · vence ${escapeHtml(r.vencimiento)}`:''}${r.nota?` · ${escapeHtml(r.nota)}`:''}</small></div><div class="finance-admin-amount"><strong>${money(r.saldo)}</strong><small>de ${money(r.monto_inicial)}</small></div>${Number(r.saldo||0)>0?`<div class="finance-admin-actions"><input type="number" min="0.01" max="${Number(r.saldo||0)}" step="0.01" placeholder="Abono" data-employee-debt-payment /><button type="button" data-pay-employee-debt="${r.id}">Registrar abono</button></div>`:''}</div>`).join('')||'<div class="finance-admin-empty">No hay deudas de empleados.</div>';
+  if($('#thirdPartyDebtList'))$('#thirdPartyDebtList').innerHTML=third.map(r=>`<div class="finance-admin-row" data-third-debt-id="${r.id}"><div class="finance-admin-avatar"><svg class="icon"><use href="#icon-handshake"></use></svg></div><div class="finance-admin-copy"><strong>${escapeHtml(r.nombre_tercero)} · ${escapeHtml(r.concepto||'Deuda')}</strong><small>${escapeHtml(r.contacto||'Sin contacto')} · ${escapeHtml(r.fecha_local||'')}${r.vencimiento?` · vence ${escapeHtml(r.vencimiento)}`:''}</small></div><div class="finance-admin-amount"><strong>${money(r.saldo)}</strong><small>de ${money(r.monto_inicial)}</small></div>${Number(r.saldo||0)>0?`<div class="finance-admin-actions"><input type="number" min="0.01" max="${Number(r.saldo||0)}" step="0.01" placeholder="Abono" data-third-debt-payment /><button type="button" data-pay-third-debt="${r.id}">Registrar abono</button></div>`:''}</div>`).join('')||'<div class="finance-admin-empty">No hay deudas de terceros.</div>';
+  if($('#investmentAdminList'))$('#investmentAdminList').innerHTML=inv.map(r=>`<div class="finance-admin-row"><div class="finance-admin-avatar finance-investment-icon"><svg class="icon"><use href="#icon-dollar"></use></svg></div><div class="finance-admin-copy"><strong>${escapeHtml(r.concepto||'Inversión')}</strong><small>${escapeHtml(r.fecha_local||'')} · ${escapeHtml(r.fuente||'Sin origen')}${r.nota?` · ${escapeHtml(r.nota)}`:''}</small></div><div class="finance-admin-amount"><strong>${money(r.monto)}</strong><small>Inversión</small></div></div>`).join('')||'<div class="finance-admin-empty">No hay inversiones registradas.</div>';
+}
+async function refreshFinanceAdmin({silent=false}={}){
+  if(currentUser?.rol!=='admin')return;
+  try{
+    if(!adminUsers.length)await refreshAdminUsers();
+    const data=await apiFetch(`/api/finanzas/registros?_=${Date.now()}`,{cache:'no-store'});
+    financeAdminData=data||financeAdminData;
+    if($('#employeeDebtAdminUser'))$('#employeeDebtAdminUser').innerHTML='<option value="">Selecciona un empleado</option>'+adminUsers.map(u=>`<option value="${u.id}">${escapeHtml(u.nombre||u.usuario)}</option>`).join('');
+    const today=todayLocal();['employeeDebtAdminDate','thirdPartyDebtDate','investmentDate'].forEach(id=>{if($('#'+id)&&!$('#'+id).value)$('#'+id).value=today});
+    renderFinanceAdmin();
+  }catch(err){if(!silent)showToast(err.message,'No se pudo cargar Finanzas')}
+}
+async function submitEmployeeDebtAdmin(e){e.preventDefault();const payload={usuario_id:Number($('#employeeDebtAdminUser').value),monto:Number($('#employeeDebtAdminAmount').value||0),fecha:$('#employeeDebtAdminDate').value,concepto:$('#employeeDebtAdminConcept').value.trim(),vencimiento:$('#employeeDebtAdminDue').value,nota:$('#employeeDebtAdminNote').value.trim()};try{await apiFetch('/api/finanzas/deudas-empleados',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify(payload)});e.target.reset();$('#employeeDebtAdminDate').value=todayLocal();showToast('Deuda agregada al empleado.','Finanzas');await refreshFinanceAdmin({silent:true})}catch(err){showToast(err.message,'No se pudo agregar la deuda')}}
+async function submitThirdPartyDebt(e){e.preventDefault();const payload={nombre_tercero:$('#thirdPartyDebtName').value.trim(),contacto:$('#thirdPartyDebtContact').value.trim(),monto:Number($('#thirdPartyDebtAmount').value||0),fecha:$('#thirdPartyDebtDate').value,concepto:$('#thirdPartyDebtConcept').value.trim(),vencimiento:$('#thirdPartyDebtDue').value,nota:$('#thirdPartyDebtNote').value.trim()};try{await apiFetch('/api/finanzas/deudas-terceros',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify(payload)});e.target.reset();$('#thirdPartyDebtDate').value=todayLocal();showToast('Deuda de tercero registrada.','Finanzas');await refreshFinanceAdmin({silent:true})}catch(err){showToast(err.message,'No se pudo registrar')}}
+async function submitInvestment(e){e.preventDefault();const payload={concepto:$('#investmentConcept').value.trim(),monto:Number($('#investmentAmount').value||0),fecha:$('#investmentDate').value,fuente:$('#investmentSource').value.trim(),nota:$('#investmentNote').value.trim()};try{await apiFetch('/api/finanzas/inversiones',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify(payload)});e.target.reset();$('#investmentDate').value=todayLocal();showToast('Inversión registrada.','Finanzas');await refreshFinanceAdmin({silent:true})}catch(err){showToast(err.message,'No se pudo registrar')}}
 
 function goalForUser(userId) {
   return goalsToday.find((goal) => String(goal.usuario_id) === String(userId)) || null;
@@ -4917,6 +4962,7 @@ function showAdminSection(section = 'hub') {
   if (target === 'cotizador') { renderQuotePriceAdmin(); renderQuoteClientAdmin(); }
   if (target === 'disenos') renderAdminDesigns();
   if (target === 'calendario') { if($('#calendarAdminMonth')) $('#calendarAdminMonth').value=paymentCalendarMonth; refreshPaymentCalendar({silent:true}); }
+  if (target === 'finanzas') refreshFinanceAdmin({silent:true});
   window.scrollTo({top:0,behavior:'instant'});
 }
 
@@ -5312,6 +5358,13 @@ let adminToolFilter='all';
 function applyAdminToolFilters(){const query=String($('#adminToolSearch')?.value||'').trim().toLowerCase();const cards=$$('#adminToolsGrid .admin-tool-card');let visible=0;cards.forEach(card=>{const category=card.dataset.adminCategory||'';const haystack=((card.dataset.adminSearch||'')+' '+(card.textContent||'')).toLowerCase();const show=(adminToolFilter==='all'||category===adminToolFilter)&&(!query||haystack.includes(query));card.hidden=!show;if(show)visible++});if($('#adminToolsEmpty'))$('#adminToolsEmpty').hidden=visible>0}
 $('#adminToolSearch')?.addEventListener('input',applyAdminToolFilters);
 $$('[data-admin-filter]').forEach(btn=>btn.addEventListener('click',()=>{adminToolFilter=btn.dataset.adminFilter||'all';$$('[data-admin-filter]').forEach(x=>x.classList.toggle('active',x===btn));applyAdminToolFilters()}));
+$$('[data-finance-admin-tab]').forEach(btn=>btn.addEventListener('click',()=>setFinanceAdminTab(btn.dataset.financeAdminTab)));
+$('#employeeDebtAdminForm')?.addEventListener('submit',submitEmployeeDebtAdmin);
+$('#thirdPartyDebtForm')?.addEventListener('submit',submitThirdPartyDebt);
+$('#investmentAdminForm')?.addEventListener('submit',submitInvestment);
+$('#employeeDebtAdminList')?.addEventListener('click',async(e)=>{const btn=e.target.closest('[data-pay-employee-debt]');if(!btn)return;const row=btn.closest('[data-employee-debt-id]'),input=row?.querySelector('[data-employee-debt-payment]'),monto=Number(input?.value||0);if(monto<=0)return showToast('Ingresa el valor del abono.','Finanzas');try{await apiFetch(`/api/finanzas/deudas-empleados/${btn.dataset.payEmployeeDebt}/abono`,{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({monto,fecha:todayLocal()})});showToast('Abono registrado.','Finanzas');await refreshFinanceAdmin({silent:true})}catch(err){showToast(err.message,'No se pudo registrar el abono')}});
+$('#thirdPartyDebtList')?.addEventListener('click',async(e)=>{const btn=e.target.closest('[data-pay-third-debt]');if(!btn)return;const row=btn.closest('[data-third-debt-id]'),input=row?.querySelector('[data-third-debt-payment]'),monto=Number(input?.value||0);if(monto<=0)return showToast('Ingresa el valor del abono.','Finanzas');try{await apiFetch(`/api/finanzas/deudas-terceros/${btn.dataset.payThirdDebt}/abono`,{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({monto,fecha:todayLocal()})});showToast('Abono registrado.','Finanzas');await refreshFinanceAdmin({silent:true})}catch(err){showToast(err.message,'No se pudo registrar el abono')}});
+
 $$('.admin-nav-btn').forEach((btn) => btn.addEventListener('click', () => showAdminSection(btn.dataset.adminTarget)));
 
 
