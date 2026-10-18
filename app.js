@@ -1,4 +1,4 @@
-const APP_VERSION = '11.28';
+const APP_VERSION = '11.28.1';
 const API_BASE = 'https://gestor-tareas-api.detodoec.workers.dev';
 const STORAGE_KEY = 'detodoec_tasks_v1';
 const SETTINGS_KEY = 'detodoec_tasks_settings_v3';
@@ -5915,3 +5915,4 @@ function escapeHtml(value) {
 }
 
 document.addEventListener('click', (e) => { if (!e.target.closest('.admin-user-card-v2')) closeAdminUserMenus(); });
+// GitHub refresh marker: V11.28.1-APP-R1
