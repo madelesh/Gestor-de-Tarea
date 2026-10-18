@@ -5868,3 +5868,5 @@ function escapeHtml(value) {
 }
 
 document.addEventListener('click', (e) => { if (!e.target.closest('.admin-user-card-v2')) closeAdminUserMenus(); });
+
+// GitHub refresh marker V11.27.7-EGRESOS-APP-R1
