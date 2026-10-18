@@ -1,4 +1,4 @@
-const APP_VERSION = '11.29.5';
+const APP_VERSION = '11.29.6';
 const API_BASE = 'https://gestor-tareas-api.detodoec.workers.dev';
 const STORAGE_KEY = 'detodoec_tasks_v1';
 const SETTINGS_KEY = 'detodoec_tasks_settings_v3';
@@ -1341,6 +1341,43 @@ async function saveQuotePrices() {
    V11.3.1 — Restauración de tareas, empleados y carga de archivos
    ========================================================= */
 
+async function prepareProfilePhoto(file) {
+  if (!file) return '';
+  if (!String(file.type || '').startsWith('image/')) throw new Error('Selecciona una imagen válida.');
+  if (file.size > 8 * 1024 * 1024) throw new Error('La foto no puede superar los 8 MB.');
+
+  // Las fotos de perfil se guardan como imagen optimizada dentro del registro del usuario.
+  // Así los avatares no dependen de una URL/R2 para mostrarse en Equipo, Perfil, Revisiones, etc.
+  const sourceUrl = URL.createObjectURL(file);
+  try {
+    const img = await new Promise((resolve, reject) => {
+      const el = new Image();
+      el.onload = () => resolve(el);
+      el.onerror = () => reject(new Error('No se pudo leer la imagen seleccionada.'));
+      el.src = sourceUrl;
+    });
+    const maxSide = 360;
+    const scale = Math.min(1, maxSide / Math.max(img.naturalWidth || img.width, img.naturalHeight || img.height));
+    const width = Math.max(1, Math.round((img.naturalWidth || img.width) * scale));
+    const height = Math.max(1, Math.round((img.naturalHeight || img.height) * scale));
+    const canvas = document.createElement('canvas');
+    canvas.width = width; canvas.height = height;
+    const ctx = canvas.getContext('2d', { alpha:false });
+    if (!ctx) throw new Error('No se pudo procesar la foto.');
+    ctx.fillStyle = '#ffffff';
+    ctx.fillRect(0,0,width,height);
+    ctx.drawImage(img,0,0,width,height);
+    let dataUrl = canvas.toDataURL('image/webp', 0.82);
+    if (!dataUrl.startsWith('data:image/')) dataUrl = canvas.toDataURL('image/jpeg',0.84);
+    if (dataUrl.length > 700000) {
+      dataUrl = canvas.toDataURL('image/jpeg',0.68);
+    }
+    return dataUrl;
+  } finally {
+    URL.revokeObjectURL(sourceUrl);
+  }
+}
+
 async function uploadImage(file) {
   const fd = new FormData();
   fd.append('imagen', file);
@@ -2406,6 +2443,7 @@ function hideAuthGate() {
 function resolveProfileImageUrl(photoUrl='') {
   const raw=String(photoUrl||'').trim();
   if(!raw) return '';
+  if(raw.startsWith('data:image/') || raw.startsWith('blob:')) return raw;
   try{
     const parsed=new URL(raw,API_BASE);
     const match=parsed.pathname.match(/^\/api\/imagenes\/(.+)$/);
@@ -5585,7 +5623,7 @@ $('#profileForm')?.addEventListener('submit', async (e) => {
   submit.disabled = true;
   try {
     let foto_url = currentUser?.foto_url || '';
-    if (profilePhotoFile) foto_url = await uploadImage(profilePhotoFile);
+    if (profilePhotoFile) foto_url = await prepareProfilePhoto(profilePhotoFile);
     const payload = {
       nombre: $('#profileName').value.trim(),
       usuario: $('#profileUsername').value.trim(),
@@ -5647,7 +5685,7 @@ $('#adminUserForm')?.addEventListener('submit', async (e) => {
   btn.disabled = true;
   try {
     let foto_url = adminUserPhotoUrl || '';
-    if (adminUserPhotoFile) foto_url = await uploadImage(adminUserPhotoFile);
+    if (adminUserPhotoFile) foto_url = await prepareProfilePhoto(adminUserPhotoFile);
     const payload = {
       nombre,
       usuario,
@@ -5772,7 +5810,7 @@ employeeForm?.addEventListener('submit', async (e) => {
   btn.disabled = true; btn.textContent = 'Guardando…';
   try {
     let photoUrl = employeeEditingPhoto || '';
-    if (employeeEditingPhotoFile) photoUrl = await uploadImage(employeeEditingPhotoFile);
+    if (employeeEditingPhotoFile) photoUrl = await prepareProfilePhoto(employeeEditingPhotoFile);
     const payload = { nombre:name, foto_url:photoUrl };
     await apiFetch(id ? `/api/empleados/${id}` : '/api/empleados', { method:id ? 'PUT':'POST', headers:{'Content-Type':'application/json'}, body:JSON.stringify(payload) });
     await refreshEmployees({ migrateLocal:false });

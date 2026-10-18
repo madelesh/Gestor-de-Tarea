@@ -8665,3 +8665,13 @@ input[type="number"]::-webkit-inner-spin-button,input[type="number"]::-webkit-ou
 /* V11.29.5 · fallback visual de avatar */
 .avatar-load-failed img{display:none!important}
 .avatar-load-failed .avatar-fallback-letter{display:grid!important;z-index:2!important}
+
+
+/* V11.29.6 · Avatares persistentes sin dependencia de R2 */
+.home-worker-avatar img,.top-user-avatar img,.profile-avatar img,.admin-user-avatar-v2 img,
+.employee-debt-avatar img,.attendance-table-avatar img,.review-card-avatar img,.goal-readable-avatar img{
+  object-fit:cover!important;
+  object-position:center!important;
+  max-width:100%!important;
+  max-height:100%!important;
+}
