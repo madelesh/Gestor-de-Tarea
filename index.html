@@ -9,7 +9,7 @@
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700;800&display=swap" rel="stylesheet">
   <link id="dynamicFavicon" rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 64 64'%3E%3Crect width='64' height='64' rx='16' fill='%23b9ff39'/%3E%3Cpath d='M18 33l9 9 19-22' fill='none' stroke='%23111' stroke-width='7' stroke-linecap='round' stroke-linejoin='round'/%3E%3C/svg%3E" />
-  <link rel="stylesheet" href="styles.css?v=11.30" />
+  <link rel="stylesheet" href="styles.css?v=11.30.1" />
 </head>
 <body>
   <svg xmlns="http://www.w3.org/2000/svg" style="display:none" aria-hidden="true" focusable="false">
@@ -44,6 +44,7 @@
     <symbol id="icon-calendar" viewBox="0 0 24 24"><path fill="currentColor" d="M7 2h2v2h6V2h2v2h3a2 2 0 0 1 2 2v14a2 2 0 0 1-2 2H4a2 2 0 0 1-2-2V6a2 2 0 0 1 2-2h3V2Zm13 8H4v10h16V10Z"/></symbol>
     <symbol id="icon-dollar" viewBox="0 0 24 24"><path fill="currentColor" d="M11 2h2v2.06c2.83.36 5 2.31 5 4.69h-2c0-1.39-1.79-2.75-4-2.75s-4 1.36-4 2.75c0 1.14.93 1.88 4.31 2.48 3.53.63 5.69 1.76 5.69 4.77 0 2.46-2.17 4.38-5 4.75V22h-2v-2.03C7.99 19.61 5 17.45 5 14.75h2c0 1.65 2.08 3.25 5 3.25s5-1.6 5-3.25c0-1.38-1.02-2.08-4.23-2.66C9.57 11.51 6 10.66 6 7.75c0-2.38 2.17-4.33 5-4.69V2Z"/></symbol>
     <symbol id="icon-wallet" viewBox="0 0 24 24"><path fill="currentColor" d="M3 6a2 2 0 0 1 2-2h12a2 2 0 0 1 2 2v1h1a2 2 0 0 1 2 2v8a3 3 0 0 1-3 3H5a2 2 0 0 1-2-2V6Zm16 3H3v9h16a1 1 0 0 0 1-1v-2h-3a2 2 0 0 1 0-4h3v-1a1 1 0 0 0-1-1Zm1 4h-3v1h3v-1Z"/></symbol>
+    <symbol id="icon-card" viewBox="0 0 24 24"><path fill="currentColor" d="M3 5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2v14a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V5Zm2 1v2h14V6H5Zm0 5v7h14v-7H5Zm2 4h5v2H7v-2Z"/></symbol>
     <symbol id="icon-check" viewBox="0 0 24 24"><path fill="currentColor" d="m9 16.17-3.88-3.88L3.7 13.71 9 19l12-12-1.41-1.41z"/></symbol>
     <symbol id="icon-edit" viewBox="0 0 24 24"><path fill="currentColor" d="M4 17.25V20h2.75l8.11-8.11-2.75-2.75L4 17.25Zm13.71-8.04a1 1 0 0 0 0-1.42l-1.5-1.5a1 1 0 0 0-1.42 0l-1.17 1.17 2.75 2.75 1.34-1Z"/></symbol>
     <symbol id="icon-archive" viewBox="0 0 24 24"><path fill="currentColor" d="M3 3h18v4H3V3Zm2 6h14v10a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V9Zm5 3v2h4v-2h-4Z"/></symbol>
@@ -115,7 +116,6 @@
         <button type="button" class="main-nav-btn" id="navReviews" hidden><svg class="icon"><use href="#icon-bell"></use></svg><span>Revisiones</span><span class="main-review-count" id="mainReviewCount" hidden>0</span></button>
         <button type="button" class="main-nav-btn" id="navDesigns"><svg class="icon"><use href="#icon-library"></use></svg><span>Diseños</span></button>
         <button type="button" class="main-nav-btn main-nav-finance" id="navFinance" hidden><svg class="icon"><use href="#icon-dollar"></use></svg><span>Egresos</span></button>
-        <button type="button" class="main-nav-btn" id="navCards" hidden><svg class="icon"><use href="#icon-card"></use></svg><span>Tarjetas</span></button>
       </nav>
 
       <div class="topbar-actions">
@@ -610,6 +610,7 @@
           </form>
           <div class="cards-admin-list-wrap">
             <div class="cards-admin-summary"><div><span>Tarjetas activas</span><strong id="cardsAdminCount">0</strong></div><div><span>Total mensual</span><strong id="cardsAdminMonthly">$0,00</strong></div></div>
+            <div class="cards-filter-bar"><div class="cards-filter-search"><svg class="icon"><use href="#icon-search"></use></svg><input id="cardsAdminSearch" type="search" placeholder="Buscar tarjeta o titular..." /></div><select id="cardsAdminStatusFilter"><option value="all">Todas</option><option value="pending">Con cuotas pendientes</option><option value="paid">Pagadas</option></select></div>
             <div id="cardsAdminList" class="cards-admin-list"></div>
           </div>
         </div>
@@ -643,7 +644,7 @@
     <footer class="app-version-footer" aria-label="Versión de la aplicación">
       <span>DeTodoEc</span>
       <span class="version-separator">•</span>
-      <strong>Versión 11.30</strong>
+      <strong>Versión 11.30.1</strong>
     </footer>
   </div>
 
@@ -1143,6 +1144,7 @@
             <article class="admin-tool-card" data-admin-category="general" data-admin-search="roles permisos acceso seguridad"><button type="button" class="admin-tool-open admin-nav-btn" data-admin-target="roles"><span class="admin-tool-icon"><svg class="icon"><use href="#icon-shield"></use></svg></span><span class="admin-tool-copy"><strong>Roles y permisos</strong><small>Controla qué puede ver y hacer cada rol.</small></span><span class="admin-open-arrow">›</span></button></article>
             <article class="admin-tool-card" data-admin-category="general" data-admin-search="check-in asistencia horas trabajadores entrada salida"><button type="button" class="admin-tool-open admin-nav-btn" data-admin-target="checkin"><span class="admin-tool-icon"><svg class="icon"><use href="#icon-clock"></use></svg></span><span class="admin-tool-copy"><strong>Check-in y horas</strong><small>Entradas, salidas y horas acumuladas.</small></span><span class="admin-open-arrow">›</span></button></article>
             <article class="admin-tool-card" data-admin-category="general" data-admin-search="calendario pagos vencimientos agua luz internet servicios"><button type="button" class="admin-tool-open admin-nav-btn" data-admin-target="calendario"><span class="admin-tool-icon"><svg class="icon"><use href="#icon-calendar"></use></svg></span><span class="admin-tool-copy"><strong>Calendario de pagos</strong><small>Servicios, gastos y fechas de vencimiento.</small></span><span class="admin-open-arrow">›</span></button></article>
+            <article class="admin-tool-card" data-admin-category="general" data-admin-search="tarjetas crédito cuotas pagos bancos"><button type="button" class="admin-tool-open" id="adminCardsTool"><span class="admin-tool-icon"><svg class="icon"><use href="#icon-card"></use></svg></span><span class="admin-tool-copy"><strong>Tarjetas</strong><small>Administra tarjetas, cuotas, vencimientos y pagos.</small></span><span class="admin-open-arrow">›</span></button></article>
             <article class="admin-tool-card admin-tool-card-goals" data-admin-category="general" data-admin-search="metas ventas transacciones historial bancos objetivos"><button type="button" class="admin-tool-open admin-nav-btn" data-admin-target="metas"><span class="admin-tool-icon"><svg class="icon"><use href="#icon-target"></use></svg></span><span class="admin-tool-copy"><strong>Metas</strong><small>Objetivos mensuales de ventas y transacciones.</small></span><span class="admin-open-arrow">›</span></button><div class="admin-tool-shortcuts"><button type="button" data-goals-subtarget="editor">Editor</button><button type="button" data-goals-subtarget="history">Historial</button><button type="button" data-goals-subtarget="banks">Bancos</button></div></article>
             <article class="admin-tool-card" data-admin-category="caja" data-admin-search="revisiones cierre caja aprobadas rechazadas pendientes"><button type="button" class="admin-tool-open admin-nav-btn admin-review-nav" data-admin-target="revisiones"><span class="admin-tool-icon"><svg class="icon"><use href="#icon-bell"></use></svg></span><span class="admin-tool-copy"><strong>Revisiones</strong><small>Pendientes, aprobadas y rechazadas.</small></span><span class="admin-tool-badge admin-review-count" hidden>0</span><span class="admin-open-arrow">›</span></button></article>
             <article class="admin-tool-card" data-admin-category="caja" data-admin-search="bancos cuentas cnb colores iconos parámetros"><button type="button" class="admin-tool-open admin-nav-btn" data-admin-target="bancos"><span class="admin-tool-icon"><svg class="icon"><use href="#icon-wallet"></use></svg></span><span class="admin-tool-copy"><strong>Bancos</strong><small>Nombres, iconos, colores y parámetros.</small></span><span class="admin-open-arrow">›</span></button></article>
@@ -1732,6 +1734,7 @@
               <div class="finance-calendar-shell">
                 <div class="finance-calendar-head"><div><span class="eyebrow">Tarjetas</span><h4>Cuotas por pagar</h4><p>Cualquier usuario puede registrar el pago. El administrador deberá aprobarlo en Revisiones.</p></div></div>
                 <div class="finance-calendar-summary"><article><span>Pendientes</span><strong id="financeCardsPendingTotal">0</strong></article><article><span>Valor pendiente</span><strong id="financeCardsPendingAmount">$0,00</strong></article><article><span>Pagadas</span><strong id="financeCardsPaidTotal">0</strong></article></div>
+                <div class="cards-filter-bar cards-filter-bar-finance"><div class="cards-filter-search"><svg class="icon"><use href="#icon-search"></use></svg><input id="financeCardsSearch" type="search" placeholder="Buscar tarjeta..." /></div><select id="financeCardsStatusFilter"><option value="all">Todas las cuotas</option><option value="pending">Pendientes</option><option value="paid">Pagadas</option></select></div>
                 <div class="finance-calendar-list" id="financeCardsList"></div>
                 <div class="finance-admin-empty" id="financeCardsEmpty" hidden>No hay cuotas de tarjetas registradas.</div>
               </div>
@@ -1767,6 +1770,22 @@
       </div>
     </div>
   </section>
+
+  <dialog id="cardDetailDialog" class="card-detail-dialog">
+    <div class="card-detail-shell">
+      <div class="card-detail-head"><div><span class="eyebrow">Tarjeta</span><h2 id="cardDetailTitle">Detalle de tarjeta</h2></div><button type="button" class="icon-btn square" id="closeCardDetail" aria-label="Cerrar">×</button></div>
+      <div id="cardDetailVisual"></div>
+      <div class="card-detail-grid">
+        <article><span>Titular</span><strong id="cardDetailHolder">—</strong></article>
+        <article><span>Terminación</span><strong id="cardDetailLast4">••••</strong></article>
+        <article><span>Caducidad</span><strong id="cardDetailExpiry">—</strong></article>
+        <article><span>Cuota mensual</span><strong id="cardDetailMonthly">$0,00</strong></article>
+        <article><span>Cuotas</span><strong id="cardDetailInstallments">0/0</strong></article>
+        <article><span>Próximo pago</span><strong id="cardDetailNextDue">—</strong></article>
+      </div>
+      <div class="card-detail-info"><span>Información</span><p id="cardDetailInfo">—</p></div>
+    </div>
+  </dialog>
 
   <dialog id="openingAlertDialog" class="cuadre-review-dialog">
     <form method="dialog" class="cuadre-review-shell">
@@ -1831,6 +1850,6 @@
     </article>
   </template>
 
-  <script src="app.js?v=11.30"></script>
+  <script src="app.js?v=11.30.1"></script>
 </body>
 </html>
