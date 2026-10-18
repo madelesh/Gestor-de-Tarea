@@ -1,4 +1,4 @@
-const APP_VERSION = '11.29.8';
+const APP_VERSION = '11.30';
 const API_BASE = 'https://gestor-tareas-api.detodoec.workers.dev';
 const STORAGE_KEY = 'detodoec_tasks_v1';
 const SETTINGS_KEY = 'detodoec_tasks_settings_v3';
@@ -91,6 +91,10 @@ let calendarMonthlyExpenses=[];
 let calendarSelectedDate=null;
 let pendingCalendarPaymentId=null;
 let paymentCalendarMonth=todayLocal().slice(0,7);
+let cardsData=[];
+let cardInstallments=[];
+let pendingCardPaymentId=null;
+let revealedCardIds=new Set();
 
 let adminPasswordResolver = null;
 let adminUserPhotoUrl = '';
@@ -2322,7 +2326,7 @@ async function refreshMyCheckin() {
 function showMyCheckinPage() {
   hideStandalonePages();
 
-  ['home','resumen','tareas','archivados','cotizador','cuadre','revisiones','disenos'].forEach((id) => {
+  ['home','resumen','tareas','archivados','cotizador','cuadre','revisiones','disenos','tarjetas'].forEach((id) => {
     const el = $('#' + id);
     if (el) el.hidden = true;
   });
@@ -2335,7 +2339,7 @@ function showMyCheckinPage() {
 
 function showSettingsPage() {
   hideStandalonePages();
-  ['home','resumen','tareas','archivados','cotizador','cuadre','disenos'].forEach((id) => {
+  ['home','resumen','tareas','archivados','cotizador','cuadre','disenos','tarjetas'].forEach((id) => {
     const el = $('#' + id);
     if (el) el.hidden = true;
   });
@@ -2354,6 +2358,7 @@ function showMainView(view) {
     reviews:'reviews',
     designs:'designs'
   };
+  if(view==='cards' && currentUser?.rol!=='admin'){showToast('Solo el administrador puede ver Tarjetas.','Sin permiso');return;}
 
   if (permissionMap[view] && !userCan(permissionMap[view])) {
     showToast('Tu rol no tiene permiso para ver esta sección.', 'Sin permiso');
@@ -2366,6 +2371,7 @@ function showMainView(view) {
   const isCuadre = view === 'cuadre';
   const isReviews = view === 'reviews';
   const isDesigns = view === 'designs';
+  const isCards = view === 'cards';
 
   $('#home').hidden = !isHome;
   $('#resumen').hidden = !isTasks;
@@ -2375,6 +2381,7 @@ function showMainView(view) {
   $('#cuadre').hidden = !isCuadre;
   $('#revisiones').hidden = !isReviews;
   $('#disenos').hidden = !isDesigns;
+  $('#tarjetas').hidden = !isCards;
 
   $('#navHome')?.classList.toggle('active', isHome);
   $('#navTasks')?.classList.toggle('active', isTasks);
@@ -2382,6 +2389,7 @@ function showMainView(view) {
   $('#navCuadre')?.classList.toggle('active', isCuadre);
   $('#navReviews')?.classList.toggle('active', isReviews);
   $('#navDesigns')?.classList.toggle('active', isDesigns);
+  $('#navCards')?.classList.toggle('active', isCards);
 
   if (homeRefreshTimer) {
     clearInterval(homeRefreshTimer);
@@ -2389,12 +2397,13 @@ function showMainView(view) {
   }
 
   if (isHome) {
-    Promise.allSettled([refreshAttendance(), refreshHomeUsers(), refreshPaymentCalendar({silent:true})]);
+    Promise.allSettled([refreshAttendance(), refreshHomeUsers(), refreshPaymentCalendar({silent:true}), refreshCards({silent:true})]);
     homeRefreshTimer = setInterval(() => {
       if (currentUser && !$('#home')?.hidden) {
         refreshHomeUsers();
         refreshAttendance();
         refreshPaymentCalendar({silent:true});
+        refreshCards({silent:true});
       }
     }, 30000);
   }
@@ -2408,6 +2417,7 @@ function showMainView(view) {
     calculateQuote();
   }
   if (isDesigns) refreshDesigns({ silent:true });
+  if (isCards) refreshCards({silent:true});
 }
 function setArchiveView(show) {
   const archive = $('#archivados');
@@ -2497,7 +2507,9 @@ function updateNavigationPermissions() {
   const reviewsNav = $('#navReviews');
   if (reviewsNav) reviewsNav.hidden = currentUser?.rol !== 'admin';
   const financeNav = $('#navFinance');
-  if (financeNav) financeNav.hidden = !(currentUser?.rol === 'admin' || userCan('expenses'));
+  if (financeNav) financeNav.hidden = false;
+  const cardsNav=$('#navCards');
+  if(cardsNav) cardsNav.hidden=currentUser?.rol!=='admin';
 }
 
 function syncProfileThemeControl() {
@@ -2708,6 +2720,7 @@ function bindCoreNavigationEarly() {
   safeBind('navReviews', () => showMainView('reviews'));
   safeBind('navDesigns', () => showMainView('designs'));
   safeBind('navFinance', () => requestFinancePanel());
+  safeBind('navCards', () => showMainView('cards'));
 
   safeBind('profileBtn', () => {
     updateNavigationPermissions();
@@ -2867,9 +2880,9 @@ async function refreshProfileDebt({silent=false}={}){
     if($('#profileDebtEmpty'))$('#profileDebtEmpty').hidden=rows.length>0||pending.length>0;
   }catch(err){if(!silent)showToast(err.message,'No se pudo cargar tu deuda')}
 }
-function financeTabAllowed(tab='empleados'){if(tab==='aprobaciones')return currentUser?.rol==='admin';return currentUser?.rol==='admin'||userCan('expenses');}
-function setFinanceAdminTab(tab='empleados'){if(!financeTabAllowed(tab))tab='empleados';financeAdminTab=tab;$$('[data-finance-admin-tab]').forEach(b=>{const allowed=financeTabAllowed(b.dataset.financeAdminTab);b.hidden=!allowed;b.classList.toggle('active',allowed&&b.dataset.financeAdminTab===tab);});$$('[data-finance-admin-panel]').forEach(p=>p.classList.toggle('active',p.dataset.financeAdminPanel===tab));if(tab==='calendario')refreshFinanceCalendarPayments({silent:true});if(tab==='aprobaciones')refreshExpenseApprovals({silent:true});}
-function requestFinancePanel(){if(!currentUser||!(currentUser.rol==='admin'||userCan('expenses'))){showToast('Tu rol no tiene permiso para Egresos.','Sin permiso');return;}pendingAdminSection='finanzas';openAdminPanel('finanzas');setFinanceAdminTab('empleados');}
+function financeTabAllowed(tab='empleados'){if(tab==='aprobaciones')return currentUser?.rol==='admin';if(tab==='tarjetas')return Boolean(currentUser);return currentUser?.rol==='admin'||userCan('expenses');}
+function setFinanceAdminTab(tab='empleados'){if(!financeTabAllowed(tab))tab='empleados';financeAdminTab=tab;$$('[data-finance-admin-tab]').forEach(b=>{const allowed=financeTabAllowed(b.dataset.financeAdminTab);b.hidden=!allowed;b.classList.toggle('active',allowed&&b.dataset.financeAdminTab===tab);});$$('[data-finance-admin-panel]').forEach(p=>p.classList.toggle('active',p.dataset.financeAdminPanel===tab));if(tab==='calendario')refreshFinanceCalendarPayments({silent:true});if(tab==='tarjetas')refreshCards({silent:true});if(tab==='aprobaciones')refreshExpenseApprovals({silent:true});}
+function requestFinancePanel(){if(!currentUser)return;pendingAdminSection='finanzas';openAdminPanel('finanzas');setFinanceAdminTab(currentUser.rol==='admin'||userCan('expenses')?'empleados':'tarjetas');}
 function financeUserAvatar(user){return user?.foto_url?`<img src="${escapeHtml(resolveProfileImageUrl(user.foto_url))}" alt="" />`:escapeHtml(String(user?.nombre||user?.usuario||'?').slice(0,1).toUpperCase())}
 function renderEmployeeDebtPicker(){const root=$('#employeeDebtUserPicker');if(!root)return;root.innerHTML=adminUsers.map(u=>`<button type="button" class="employee-debt-user-option" data-debt-user="${u.id}"><span class="employee-debt-avatar">${avatarMarkup(u.foto_url,u.nombre||u.usuario||'U')}</span><span><strong>${escapeHtml(u.nombre||u.usuario)}</strong><small>${escapeHtml(u.role_name||'Usuario')}</small></span></button>`).join('')}
 function updateEmployeeDebtLimitHint(){const uid=String($('#employeeDebtAdminUser')?.value||''),u=adminUsers.find(x=>String(x.id)===uid),hint=$('#employeeDebtLimitHint');if(!hint)return;if(!u){hint.textContent='Selecciona un usuario para ver su límite.';return}const limit=Number(u.deuda_limite_mensual||0);hint.textContent=limit>0?`Límite mensual: ${money(limit)} · reinicia al pagar ${Number(u.deuda_reset_pct||50)}%`:'Este usuario no tiene límite configurado.'}
@@ -2917,7 +2930,7 @@ async function refreshFinanceCalendarPayments({silent=false}={}){
 }
 
 function renderFinanceAdmin(){const emp=financeAdminData.employee_debts||[],third=financeAdminData.third_party_debts||[],inv=financeAdminData.investments||[];const empTotal=emp.reduce((s,r)=>s+Number(r.saldo||0),0),thirdTotal=third.reduce((s,r)=>s+Number(r.saldo||0),0),invTotal=inv.reduce((s,r)=>s+Number(r.monto||0),0);if($('#employeeDebtAdminTotal'))$('#employeeDebtAdminTotal').textContent=money(empTotal);if($('#thirdPartyDebtTotal'))$('#thirdPartyDebtTotal').textContent=money(thirdTotal);if($('#investmentAdminTotal'))$('#investmentAdminTotal').textContent=money(invTotal);if($('#employeeDebtAdminList'))$('#employeeDebtAdminList').innerHTML=emp.map(r=>`<div class="finance-admin-row" data-employee-debt-id="${r.id}"><div class="finance-admin-avatar">${financeUserAvatar(r)}</div><div class="finance-admin-copy"><strong>${escapeHtml(r.usuario_nombre||'Empleado')} · ${escapeHtml(r.concepto||'Deuda')}</strong><small>${escapeHtml(r.fecha_local||'')} · ${escapeHtml(r.local||'Matriz')}${r.nota?` · ${escapeHtml(r.nota)}`:''}</small></div><div class="finance-admin-amount"><strong>${money(r.saldo)}</strong><small>de ${money(r.monto_inicial)}</small></div>${Number(r.saldo||0)>0?`<div class="finance-admin-actions"><input type="number" min="0.01" max="${Number(r.saldo||0)}" step="0.01" placeholder="Abono" data-employee-debt-payment /><button type="button" data-pay-employee-debt="${r.id}">Registrar abono</button></div>`:''}</div>`).join('')||'<div class="finance-admin-empty">No hay deudas de empleados.</div>';if($('#thirdPartyDebtList'))$('#thirdPartyDebtList').innerHTML=third.map(r=>`<div class="finance-admin-row" data-third-debt-id="${r.id}"><div class="finance-admin-avatar"><svg class="icon"><use href="#icon-handshake"></use></svg></div><div class="finance-admin-copy"><strong>${escapeHtml(r.nombre_tercero)} · ${escapeHtml(r.concepto||'Deuda')}</strong><small>${escapeHtml(r.contacto||'Sin contacto')} · ${escapeHtml(r.fecha_local||'')} · ${escapeHtml(r.local||'Matriz')}</small></div><div class="finance-admin-amount"><strong>${money(r.saldo)}</strong><small>de ${money(r.monto_inicial)}</small></div>${Number(r.saldo||0)>0?`<div class="finance-admin-actions"><input type="number" min="0.01" max="${Number(r.saldo||0)}" step="0.01" placeholder="Abono" data-third-debt-payment /><button type="button" data-pay-third-debt="${r.id}">Registrar abono</button></div>`:''}</div>`).join('')||'<div class="finance-admin-empty">No hay deudas de terceros.</div>';if($('#investmentAdminList'))$('#investmentAdminList').innerHTML=inv.map(r=>`<div class="finance-admin-row"><div class="finance-admin-avatar finance-investment-icon"><svg class="icon"><use href="#icon-dollar"></use></svg></div><div class="finance-admin-copy"><strong>${escapeHtml(r.categoria||'Inversión')} · ${escapeHtml(r.concepto||'Inversión')}</strong><small>${escapeHtml(r.fecha_local||'')} · ${escapeHtml(r.local||'Matriz')} · ${escapeHtml(r.fuente||'Sin origen')}${r.nota?` · ${escapeHtml(r.nota)}`:''}</small></div><div class="finance-admin-amount"><strong>${money(r.monto)}</strong><small>Inversión</small></div></div>`).join('')||'<div class="finance-admin-empty">No hay inversiones registradas.</div>'}
-function expenseApprovalLabel(t=''){return ({deuda_empleado:'Deuda de empleado',deuda_tercero:'Deuda de tercero',abono_empleado:'Abono de empleado',abono_tercero:'Abono de tercero',calendario_pago:'Pago de servicio básico'})[t]||'Movimiento de Egresos';}
+function expenseApprovalLabel(t=''){return ({deuda_empleado:'Deuda de empleado',deuda_tercero:'Deuda de tercero',abono_empleado:'Abono de empleado',abono_tercero:'Abono de tercero',calendario_pago:'Pago de servicio básico',tarjeta_pago:'Pago de tarjeta'})[t]||'Movimiento de Egresos';}
 function expenseApprovalSummary(item={}){let p={};try{p=JSON.parse(item.payload_json||'{}')}catch{};const a=Number(p.monto_pagado??p.monto??0),parts=[];if(p.concepto)parts.push(p.concepto);if(p.nombre_tercero)parts.push(p.nombre_tercero);if(p.titulo)parts.push(p.titulo);if(a>0)parts.push(money(a));if(p.local)parts.push(p.local);if(p.plataforma_pago)parts.push(p.plataforma_pago);return parts.join(' · ')||'Sin detalle';}
 function renderExpenseApprovals(){const root=$('#expenseApprovalList'),empty=$('#expenseApprovalEmpty'),badge=$('#financeApprovalPendingCount');if(!root)return;if(badge){badge.textContent=String(expenseApprovalItems.length);badge.hidden=!expenseApprovalItems.length}root.innerHTML=expenseApprovalItems.map(i=>{const n=i.usuario_nombre||i.usuario||'Usuario',av=i.usuario_foto?`<img src="${escapeHtml(i.usuario_foto)}" alt="" />`:`<span>${escapeHtml(n.slice(0,1).toUpperCase())}</span>`;return `<article class="expense-approval-card"><div class="expense-approval-avatar">${av}</div><div class="expense-approval-copy"><strong>${escapeHtml(expenseApprovalLabel(i.tipo))}</strong><span>${escapeHtml(expenseApprovalSummary(i))}</span><small>Solicitado por ${escapeHtml(n)} · ${formatTime(i.creado_en)}</small></div><div class="expense-approval-actions"><button class="reject" data-reject-expense="${i.id}">Rechazar</button><button class="approve" data-approve-expense="${i.id}">Aprobar</button></div></article>`}).join('');if(empty)empty.hidden=expenseApprovalItems.length>0;}
 async function refreshExpenseApprovals({silent=false}={}){if(currentUser?.rol!=='admin')return;try{const r=await apiFetch(`/api/finanzas/solicitudes?estado=pendiente&_=${Date.now()}`,{cache:'no-store'});expenseApprovalItems=Array.isArray(r)?r:[];renderExpenseApprovals()}catch(e){if(!silent)showToast(e.message,'Aprobaciones')}}
@@ -2926,6 +2939,52 @@ async function refreshFinanceAdmin({silent=false}={}){if(!currentUser||!(current
 async function submitEmployeeDebtAdmin(e){e.preventDefault();const payload={usuario_id:Number($('#employeeDebtAdminUser').value),monto:Number($('#employeeDebtAdminAmount').value||0),fecha:$('#employeeDebtAdminDate').value,concepto:$('#employeeDebtAdminConcept').value.trim(),local:document.querySelector('input[name="employeeDebtLocation"]:checked')?.value||'Matriz',nota:$('#employeeDebtAdminNote').value.trim()};try{const result=await apiFetch('/api/finanzas/deudas-empleados',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify(payload)});e.target.reset();$('#employeeDebtAdminDate').value=todayLocal();$('#employeeDebtAdminUser').value='';$$('.employee-debt-user-option').forEach(x=>x.classList.remove('active'));updateEmployeeDebtLimitHint();showToast('Deuda enviada a Revisiones para aprobación.','Egresos');await Promise.allSettled([refreshFinanceAdmin({silent:true}),refreshMainReviews({silent:true}),refreshCuadreNotifications({silent:true})])}catch(err){showToast(err.message,'No se pudo agregar la deuda')}}
 async function submitThirdPartyDebt(e){e.preventDefault();const payload={nombre_tercero:$('#thirdPartyDebtName').value.trim(),contacto:$('#thirdPartyDebtContact').value.trim(),monto:Number($('#thirdPartyDebtAmount').value||0),fecha:$('#thirdPartyDebtDate').value,concepto:$('#thirdPartyDebtConcept').value.trim(),local:document.querySelector('input[name="thirdDebtLocation"]:checked')?.value||'Matriz',nota:$('#thirdPartyDebtNote').value.trim()};try{const result=await apiFetch('/api/finanzas/deudas-terceros',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify(payload)});e.target.reset();$('#thirdPartyDebtDate').value=todayLocal();showToast('Deuda enviada a Revisiones para aprobación.','Egresos');await Promise.allSettled([refreshFinanceAdmin({silent:true}),refreshMainReviews({silent:true}),refreshCuadreNotifications({silent:true})])}catch(err){showToast(err.message,'No se pudo registrar')}}
 async function submitInvestment(e){e.preventDefault();const inversiones=$$('[data-investment-check]:checked').map(check=>{const amount=$(`[data-investment-amount="${check.value}"]`);return{categoria:check.value,monto:Number(amount?.value||0)}}).filter(x=>x.monto>0);if(!inversiones.length){showToast('Selecciona al menos una categoría y agrega su monto.','Inversión');return;}const payload={inversiones,concepto:$('#investmentConcept').value.trim(),fecha:$('#investmentDate').value,local:document.querySelector('input[name="investmentLocation"]:checked')?.value||'Matriz',fuente:$('#investmentSource').value.trim(),nota:$('#investmentNote').value.trim()};if(!payload.concepto){showToast('Escribe el detalle o concepto.','Inversión');return;}try{await apiFetch('/api/finanzas/inversiones',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify(payload)});e.target.reset();resetInvestmentMulti();$('#investmentDate').value=todayLocal();showToast(`${inversiones.length} categoría${inversiones.length===1?'':'s'} registrada${inversiones.length===1?'':'s'}.`,'Finanzas');await refreshFinanceAdmin({silent:true})}catch(err){showToast(err.message,'No se pudo registrar la inversión')}}
+
+
+function cardMaskedNumber(card, reveal=false){
+  const last4=String(card?.ultimos4||'').padStart(4,'•');
+  return reveal?`•••• •••• •••• ${last4}`:'•••• •••• •••• ••••';
+}
+function cardProgress(card){const total=Math.max(1,Number(card?.cuotas_total||1)),paid=Math.max(0,Number(card?.cuotas_pagadas||0));return Math.min(100,(paid/total)*100)}
+function paymentCardHtml(card,{admin=false}={}){
+  const reveal=admin&&revealedCardIds.has(Number(card.id));
+  const due=card.proxima_fecha_pago||'—';
+  return `<article class="payment-card-widget" style="--card1:${escapeHtml(card.color_1||'#263f67')};--card2:${escapeHtml(card.color_2||'#586a88')}">
+    <div class="payment-card-top"><div><strong>${escapeHtml(card.nombre||'Tarjeta')}</strong><span>${escapeHtml(card.info||'')}</span></div>${admin?`<button type="button" class="card-reveal-btn" data-card-reveal="${card.id}" title="${reveal?'Ocultar terminación':'Ver terminación'}">${iconUse('icon-eye')}</button>`:''}</div>
+    <div class="payment-card-number">${cardMaskedNumber(card,reveal)}</div>
+    <div class="payment-card-progress"><span style="width:${cardProgress(card)}%"></span></div>
+    <div class="payment-card-bottom"><div><small>Titular</small><strong>${escapeHtml(card.titular||'—')}</strong></div><div><small>Caduca</small><strong>${escapeHtml(card.vencimiento||'—')}</strong></div><div class="payment-card-meta"><small>Cuota mensual</small><strong>${money(card.valor_mensual||0)} · ${Number(card.cuotas_pagadas||0)}/${Number(card.cuotas_total||0)} pagadas</strong><small>Próxima: ${escapeHtml(due)}</small></div></div>
+  </article>`;
+}
+function renderHomeCards(){
+  const root=$('#homeCardsCarousel'),empty=$('#homeCardsEmpty');if(!root)return;
+  root.innerHTML=cardsData.map(c=>paymentCardHtml(c,{admin:currentUser?.rol==='admin'})).join('');
+  if(empty)empty.hidden=cardsData.length>0;
+  const due=cardInstallments.filter(x=>x.estado==='pendiente').sort((a,b)=>String(a.fecha_pago).localeCompare(String(b.fecha_pago)))[0];
+  if($('#homeCardsNextDue'))$('#homeCardsNextDue').textContent=due?`${due.fecha_pago} · ${money(due.monto_programado)}`:'Sin pagos pendientes';
+}
+function renderFinanceCards(){
+  const root=$('#financeCardsList'),empty=$('#financeCardsEmpty');if(!root)return;
+  const pending=cardInstallments.filter(x=>x.estado==='pendiente'),paid=cardInstallments.filter(x=>x.estado==='pagado');
+  if($('#financeCardsPendingCount')){const e=$('#financeCardsPendingCount');e.textContent=String(pending.length);e.hidden=pending.length===0}
+  if($('#financeCardsPendingTotal'))$('#financeCardsPendingTotal').textContent=String(pending.length);
+  if($('#financeCardsPendingAmount'))$('#financeCardsPendingAmount').textContent=money(pending.reduce((s,x)=>s+Number(x.monto_programado||0),0));
+  if($('#financeCardsPaidTotal'))$('#financeCardsPaidTotal').textContent=String(paid.length);
+  root.innerHTML=cardInstallments.map(q=>`<div class="finance-card-row"><span class="finance-card-icon" style="--c1:${escapeHtml(q.color_1||'#263f67')};--c2:${escapeHtml(q.color_2||'#586a88')}"></span><div class="finance-card-copy"><strong>${escapeHtml(q.tarjeta_nombre)} · Cuota ${q.numero_cuota}/${q.cuotas_total}</strong><small>${escapeHtml(q.fecha_pago)} · ${escapeHtml(q.titular||'')} · •••• ${escapeHtml(q.ultimos4||'')}</small></div><div class="finance-card-due"><strong>${money(q.monto_programado)}</strong><small><span class="card-status-pill ${q.estado==='pagado'?'paid':'pending'}">${q.estado==='pagado'?'Pagada':'Pendiente'}</span></small></div>${q.estado==='pendiente'?`<button type="button" class="finance-card-pay" data-card-pay="${q.id}">Pagar</button>`:''}</div>`).join('');
+  if(empty)empty.hidden=cardInstallments.length>0;
+}
+function renderCardsAdmin(){
+  const root=$('#cardsAdminList');if(!root)return;
+  if($('#cardsAdminCount'))$('#cardsAdminCount').textContent=String(cardsData.length);
+  if($('#cardsAdminMonthly'))$('#cardsAdminMonthly').textContent=money(cardsData.reduce((s,c)=>s+Number(c.valor_mensual||0),0));
+  root.innerHTML=cardsData.map(c=>`<div class="cards-admin-row" data-card-id="${c.id}"><span class="cards-admin-swatch" style="--c1:${escapeHtml(c.color_1)};--c2:${escapeHtml(c.color_2)}"></span><div class="cards-admin-copy"><strong>${escapeHtml(c.nombre)} · •••• ${escapeHtml(c.ultimos4)}</strong><small>${escapeHtml(c.titular)} · ${money(c.valor_mensual)}/mes · ${c.cuotas_pagadas}/${c.cuotas_total} pagadas · próxima ${escapeHtml(c.proxima_fecha_pago||'—')}</small></div><div class="cards-admin-actions-row"><button type="button" data-card-edit="${c.id}">Editar</button><button type="button" data-card-delete="${c.id}">Desactivar</button></div></div>`).join('')||'<div class="home-workers-empty">No hay tarjetas registradas.</div>';
+}
+function renderCardAdminPreview(){const fake={nombre:$('#cardName')?.value||'Tarjeta',titular:$('#cardHolder')?.value||'Titular',ultimos4:$('#cardLast4')?.value||'0000',vencimiento:$('#cardExpiry')?.value||'00/00',info:$('#cardInfo')?.value||'',valor_mensual:Number($('#cardMonthlyAmount')?.value||0),cuotas_total:Number($('#cardInstallments')?.value||1),cuotas_pagadas:0,color_1:$('#cardColor1')?.value||'#263f67',color_2:$('#cardColor2')?.value||'#586a88'};const el=$('#cardAdminPreview');if(el)el.outerHTML=`<div class="payment-card-preview" id="cardAdminPreview" style="--card1:${fake.color_1};--card2:${fake.color_2}">${paymentCardHtml(fake).replace(/^<article[^>]*>|<\/article>$/g,'')}</div>`}
+async function refreshCards({silent=false}={}){if(!currentUser)return;try{const data=await apiFetch(`/api/tarjetas?_=${Date.now()}`,{cache:'no-store'});cardsData=Array.isArray(data.tarjetas)?data.tarjetas:[];cardInstallments=Array.isArray(data.cuotas)?data.cuotas:[];renderHomeCards();renderFinanceCards();if(currentUser.rol==='admin')renderCardsAdmin();return data}catch(e){if(!silent)showToast(e.message,'No se pudieron cargar las tarjetas')}}
+function openCardAdminForm(card=null){if(currentUser?.rol!=='admin')return;$('#cardAdminForm').hidden=false;$('#cardAdminId').value=card?.id||'';$('#cardAdminFormTitle').textContent=card?'Editar tarjeta':'Nueva tarjeta';$('#cardName').value=card?.nombre||'';$('#cardHolder').value=card?.titular||'';$('#cardLast4').value=card?.ultimos4||'';$('#cardExpiry').value=card?.vencimiento||'';$('#cardMonthlyAmount').value=card?.valor_mensual||'';$('#cardInstallments').value=card?.cuotas_total||1;$('#cardFirstDue').value=card?.primera_fecha_pago||todayLocal();$('#cardInfo').value=card?.info||'';$('#cardColor1').value=card?.color_1||'#263f67';$('#cardColor2').value=card?.color_2||'#586a88';renderCardAdminPreview()}
+async function submitCardAdmin(e){e.preventDefault();const id=Number($('#cardAdminId').value||0),payload={nombre:$('#cardName').value.trim(),titular:$('#cardHolder').value.trim(),ultimos4:$('#cardLast4').value.trim(),vencimiento:$('#cardExpiry').value.trim(),valor_mensual:Number($('#cardMonthlyAmount').value||0),cuotas_total:Number($('#cardInstallments').value||1),primera_fecha_pago:$('#cardFirstDue').value,info:$('#cardInfo').value.trim(),color_1:$('#cardColor1').value,color_2:$('#cardColor2').value};try{await apiFetch(id?`/api/tarjetas/${id}`:'/api/tarjetas',{method:id?'PUT':'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify(payload)});$('#cardAdminForm').hidden=true;showToast(id?'Tarjeta actualizada.':'Tarjeta creada.','Tarjetas');await Promise.allSettled([refreshCards({silent:true}),refreshPaymentCalendar({silent:true})])}catch(err){showToast(err.message,'No se pudo guardar la tarjeta')}}
+function openCardPayment(id){const q=cardInstallments.find(x=>String(x.id)===String(id));if(!q)return;pendingCardPaymentId=Number(id);$('#cardPaymentDialogTitle').textContent=`${q.tarjeta_nombre} · Cuota ${q.numero_cuota}/${q.cuotas_total}`;$('#cardPaymentAmount').value=Number(q.monto_programado||0).toFixed(2);$('#cardPaymentDate').value=todayLocal();$('#cardPaymentPlatform').value='Efectivo';$('#cardPaymentNote').value='';$('#cardPaymentDialog')?.showModal()}
+async function submitCardPayment(e){e.preventDefault();if(!pendingCardPaymentId)return;const payload={monto:Number($('#cardPaymentAmount').value||0),fecha:$('#cardPaymentDate').value,plataforma:$('#cardPaymentPlatform').value,nota:$('#cardPaymentNote').value.trim()};try{await apiFetch(`/api/tarjetas/cuotas/${pendingCardPaymentId}/pagar`,{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify(payload)});$('#cardPaymentDialog')?.close();pendingCardPaymentId=null;showToast('Pago enviado a Revisiones para aprobación.','Tarjetas');await Promise.allSettled([refreshCards({silent:true}),refreshMainReviews({silent:true}),refreshCuadreNotifications({silent:true})])}catch(err){showToast(err.message,'No se pudo registrar el pago')}}
 
 function goalForUser(userId) {
   return goalsToday.find((goal) => String(goal.usuario_id) === String(userId)) || null;
@@ -3078,7 +3137,7 @@ function renderHomeGoals() {
   chart.innerHTML=`<div class="goals-readable-summary"><div><span>Avance general</span><strong>${Math.round(salesGlobalPct)}%</strong><small>${money(totalSales)} de ${money(totalSalesTarget)} en ventas</small></div><div class="goals-readable-legend"><span><i class="goals-dot sales"></i> Ventas <b>${Math.round(salesGlobalPct)}%</b></span><span><i class="goals-dot tx"></i> Transacciones <b>${Math.round(txGlobalPct)}%</b></span></div></div><div class="goals-readable-scroll"><div class="goals-readable-chart">${goalsToday.map(goal=>{const user=usersById.get(String(goal.usuario_id))||goal,salesActive=Number(goal.ventas_activa??1)===1,txActive=Number(goal.transacciones_activa??1)===1,sp=monthlyGoalPercent(goal.ventas_mes,goal.objetivo_ventas),tp=monthlyGoalPercent(goal.transacciones_mes,goal.objetivo_transacciones),sh=salesActive?(sp<=0?2:Math.max(8,Math.min(100,sp))):0,th=txActive?(tp<=0?2:Math.max(8,Math.min(100,tp))):0,avatar=user.foto_url?`<img src="${escapeHtml(resolveProfileImageUrl(user.foto_url))}" alt="" />`:`<span>${escapeHtml(String(user.nombre||user.usuario||'U').slice(0,1).toUpperCase())}</span>`;return `<article class="goal-readable-person"><div class="goal-readable-bars"><div class="goal-readable-bar"><b>${salesActive?`${Math.round(sp)}%`:'—'}</b><div class="goal-readable-track sales"><span style="height:${sh}%"></span></div><small>Ventas</small></div><div class="goal-readable-bar"><b>${txActive?`${Math.round(tp)}%`:'—'}</b><div class="goal-readable-track tx"><span style="height:${th}%"></span></div><small>Trans.</small></div></div><div class="goal-readable-user"><span class="goal-readable-avatar">${avatar}</span><div><strong>${escapeHtml(user.nombre||user.usuario||'Usuario')}</strong><small>${salesActive?`${money(Number(goal.ventas_mes||0))} / ${money(Number(goal.objetivo_ventas||0))}`:'Ventas desactivadas'}</small><small>${txActive?`${Math.round(Number(goal.transacciones_mes||0))} / ${Math.round(Number(goal.objetivo_transacciones||0))} trans.`:'Trans. desactivadas'}</small></div></div></article>`}).join('')}</div></div>`;
   grid.appendChild(chart);empty.hidden=true;
 }
-const PAYMENT_CATEGORY_META={agua:{label:'Agua',color:'#28a9ff'},luz:{label:'Luz',color:'#f2c94c'},internet:{label:'Internet',color:'#a47cff'},deuda:{label:'Deuda',color:'#ff6172'},alquiler:{label:'Alquiler',color:'#ff9f43'},nomina:{label:'Nómina',color:'#54e38e'},otro:{label:'Otro',color:'#8e9bad'}};
+const PAYMENT_CATEGORY_META={agua:{label:'Agua',color:'#28a9ff'},luz:{label:'Luz',color:'#f2c94c'},internet:{label:'Internet',color:'#a47cff'},deuda:{label:'Deuda',color:'#ff6172'},alquiler:{label:'Alquiler',color:'#ff9f43'},nomina:{label:'Nómina',color:'#54e38e'},tarjeta:{label:'Tarjeta',color:'#4f73c8'},otro:{label:'Otro',color:'#8e9bad'}};
 function calendarMeta(category){return PAYMENT_CATEGORY_META[category]||PAYMENT_CATEGORY_META.otro}
 function monthStartParts(ym){const [y,m]=String(ym).split('-').map(Number);return {y,m}}
 function calendarMonthLabel(ym){const {y,m}=monthStartParts(ym);return new Intl.DateTimeFormat('es-EC',{month:'long',year:'numeric'}).format(new Date(y,m-1,1))}
@@ -4455,7 +4514,7 @@ function expenseReviewDate(item={}){const p=expenseReviewPayload(item);return St
 function expenseReviewCardHtml(item,{status='pendiente'}={}){
   const p=expenseReviewPayload(item),name=item.usuario_nombre||item.usuario||'Usuario';
   const avatar=item.usuario_foto?`<img src="${escapeHtml(item.usuario_foto)}" alt="" />`:`<span>${escapeHtml(name.slice(0,1).toUpperCase())}</span>`;
-  const amount=Number(p.monto_pagado??p.monto??0),label=expenseApprovalLabel(item.tipo),summary=expenseApprovalSummary(item);
+  const amount=Number(p.monto_pagado??p.monto??p.valor_pagado??0),label=expenseApprovalLabel(item.tipo),summary=expenseApprovalSummary(item);
   const actions=status==='pendiente'?`<div class="expense-review-actions"><button type="button" class="reject" data-review-expense-reject="${item.id}">Rechazar</button><button type="button" class="approve" data-review-expense-approve="${item.id}">Aprobar</button></div>`:'';
   return `<article class="review-card expense-review-card" data-expense-review-id="${item.id}">
     <div class="review-card-user"><span class="review-card-avatar expense-avatar">${avatar}</span><span class="review-card-user-copy"><strong>${escapeHtml(name)}</strong><small>${escapeHtml(label)} · ${escapeHtml(expenseReviewDate(item)||'—')}</small></span></div>
@@ -5167,7 +5226,7 @@ function requestAdminPanel(section = 'hub') {
 }
 function openAdminPanel(section = pendingAdminSection || 'hub') {
   // Primero abre la página; después carga los módulos.
-  ['home','resumen','tareas','archivados','cotizador','cuadre','disenos'].forEach((id) => {
+  ['home','resumen','tareas','archivados','cotizador','cuadre','disenos','tarjetas'].forEach((id) => {
     const el = $('#' + id);
     if (el) el.hidden = true;
   });
@@ -5542,6 +5601,17 @@ $('#quoteItems')?.addEventListener('click', (e) => {
 });
 on('calendarPrevMonth','click',()=>shiftCalendarMonth(-1));
 on('calendarNextMonth','click',()=>shiftCalendarMonth(1));
+$('#cardAdminForm')?.addEventListener('submit',submitCardAdmin);
+on('newCardBtn','click',()=>openCardAdminForm());
+on('closeCardAdminForm','click',()=>{$('#cardAdminForm').hidden=true});
+on('cancelCardAdmin','click',()=>{$('#cardAdminForm').hidden=true});
+['cardName','cardHolder','cardLast4','cardExpiry','cardMonthlyAmount','cardInstallments','cardInfo','cardColor1','cardColor2'].forEach(id=>$('#'+id)?.addEventListener('input',renderCardAdminPreview));
+$('#cardsAdminList')?.addEventListener('click',async(e)=>{const edit=e.target.closest('[data-card-edit]'),del=e.target.closest('[data-card-delete]');if(edit){const c=cardsData.find(x=>String(x.id)===String(edit.dataset.cardEdit));if(c)openCardAdminForm(c)}if(del){const ok=await themedConfirm({title:'Desactivar tarjeta',message:'La tarjeta dejará de aparecer, pero se conservará su historial.',confirmText:'Desactivar'});if(!ok)return;try{await apiFetch(`/api/tarjetas/${del.dataset.cardDelete}`,{method:'DELETE'});await refreshCards({silent:true})}catch(err){showToast(err.message,'Tarjetas')}}});
+$('#homeCardsCarousel')?.addEventListener('click',(e)=>{const b=e.target.closest('[data-card-reveal]');if(!b||currentUser?.rol!=='admin')return;const id=Number(b.dataset.cardReveal);revealedCardIds.has(id)?revealedCardIds.delete(id):revealedCardIds.add(id);renderHomeCards()});
+$('#financeCardsList')?.addEventListener('click',(e)=>{const b=e.target.closest('[data-card-pay]');if(b)openCardPayment(b.dataset.cardPay)});
+$('#cardPaymentDialogForm')?.addEventListener('submit',submitCardPayment);
+on('cardPaymentCancel','click',()=>{$('#cardPaymentDialog')?.close();pendingCardPaymentId=null});
+
 $('#paymentCalendarForm')?.addEventListener('submit',submitPaymentCalendar);
 $('#calendarAdminMonth')?.addEventListener('change',(e)=>{if(e.target.value){paymentCalendarMonth=e.target.value;refreshPaymentCalendar({silent:true})}});
 $('#businessCalendar')?.addEventListener('click',(e)=>{const day=e.target.closest('[data-calendar-date]');if(!day)return;renderCalendarSelectedDay(day.dataset.calendarDate);renderPaymentCalendar();});

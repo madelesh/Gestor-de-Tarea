@@ -9,7 +9,7 @@
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700;800&display=swap" rel="stylesheet">
   <link id="dynamicFavicon" rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 64 64'%3E%3Crect width='64' height='64' rx='16' fill='%23b9ff39'/%3E%3Cpath d='M18 33l9 9 19-22' fill='none' stroke='%23111' stroke-width='7' stroke-linecap='round' stroke-linejoin='round'/%3E%3C/svg%3E" />
-  <link rel="stylesheet" href="styles.css?v=11.29.8" />
+  <link rel="stylesheet" href="styles.css?v=11.30" />
 </head>
 <body>
   <svg xmlns="http://www.w3.org/2000/svg" style="display:none" aria-hidden="true" focusable="false">
@@ -115,6 +115,7 @@
         <button type="button" class="main-nav-btn" id="navReviews" hidden><svg class="icon"><use href="#icon-bell"></use></svg><span>Revisiones</span><span class="main-review-count" id="mainReviewCount" hidden>0</span></button>
         <button type="button" class="main-nav-btn" id="navDesigns"><svg class="icon"><use href="#icon-library"></use></svg><span>Diseños</span></button>
         <button type="button" class="main-nav-btn main-nav-finance" id="navFinance" hidden><svg class="icon"><use href="#icon-dollar"></use></svg><span>Egresos</span></button>
+        <button type="button" class="main-nav-btn" id="navCards" hidden><svg class="icon"><use href="#icon-card"></use></svg><span>Tarjetas</span></button>
       </nav>
 
       <div class="topbar-actions">
@@ -192,6 +193,15 @@
           </div>
           <div class="home-workers-grid" id="homeWorkersGrid"></div>
           <div class="home-workers-empty" id="homeWorkersEmpty" hidden>No hay usuarios registrados.</div>
+        </section>
+
+        <section class="home-cards-widget" id="homeCardsWidget">
+          <div class="home-cards-widget-head">
+            <div><span class="eyebrow">Tarjetas</span><h2>Tarjetas a pagar</h2><p>Cuotas y próximos vencimientos.</p></div>
+            <div class="home-cards-widget-summary"><span>Próximo pago</span><strong id="homeCardsNextDue">—</strong></div>
+          </div>
+          <div class="home-cards-carousel" id="homeCardsCarousel"></div>
+          <div class="home-workers-empty" id="homeCardsEmpty" hidden>No hay tarjetas registradas.</div>
         </section>
 
         <div class="home-widget-dashboard">
@@ -574,6 +584,37 @@
         <div class="review-list" id="mainReviewList"></div>
       </section>
 
+      <section class="section cards-admin-section" id="tarjetas" hidden>
+        <div class="cards-page-head">
+          <div><span class="eyebrow">Administración</span><h1>Tarjetas</h1><p>Configura las tarjetas, sus cuotas y el calendario de pagos.</p></div>
+          <button type="button" class="btn btn-accent" id="newCardBtn"><svg class="icon"><use href="#icon-plus"></use></svg><span>Nueva tarjeta</span></button>
+        </div>
+        <div class="cards-admin-layout">
+          <form id="cardAdminForm" class="card-admin-form" hidden>
+            <input type="hidden" id="cardAdminId" />
+            <div class="card-admin-form-head"><div><span class="eyebrow">Tarjeta</span><h3 id="cardAdminFormTitle">Nueva tarjeta</h3></div><button type="button" class="icon-btn" id="closeCardAdminForm">×</button></div>
+            <div class="card-admin-grid">
+              <label>Nombre de la tarjeta<input id="cardName" maxlength="60" required placeholder="Ej. Visa Banco Guayaquil" /></label>
+              <label>Titular<input id="cardHolder" maxlength="80" required placeholder="Nombre del titular" /></label>
+              <label>Últimos 4 dígitos<input id="cardLast4" inputmode="numeric" maxlength="4" pattern="[0-9]{4}" required placeholder="7223" /></label>
+              <label>Caducidad<input id="cardExpiry" maxlength="5" required placeholder="03/26" /></label>
+              <label>Valor mensual<input id="cardMonthlyAmount" type="number" min="0.01" step="0.01" required placeholder="0.00" /></label>
+              <label>Meses diferidos<input id="cardInstallments" type="number" min="1" max="60" step="1" required value="1" /></label>
+              <label>Primera fecha de pago<input id="cardFirstDue" type="date" required /></label>
+              <label>Información<input id="cardInfo" maxlength="120" placeholder="Ej. Compra tecnología" /></label>
+              <label>Color principal<input id="cardColor1" type="color" value="#263f67" /></label>
+              <label>Color secundario<input id="cardColor2" type="color" value="#586a88" /></label>
+            </div>
+            <div class="card-admin-preview-wrap"><span>Vista previa</span><div class="payment-card-preview" id="cardAdminPreview"></div></div>
+            <div class="card-admin-actions"><button type="button" class="btn btn-outline" id="cancelCardAdmin">Cancelar</button><button type="submit" class="btn btn-accent">Guardar tarjeta</button></div>
+          </form>
+          <div class="cards-admin-list-wrap">
+            <div class="cards-admin-summary"><div><span>Tarjetas activas</span><strong id="cardsAdminCount">0</strong></div><div><span>Total mensual</span><strong id="cardsAdminMonthly">$0,00</strong></div></div>
+            <div id="cardsAdminList" class="cards-admin-list"></div>
+          </div>
+        </div>
+      </section>
+
       <section class="section designs-section" id="disenos" hidden>
         <div class="section-head designs-head">
           <div>
@@ -602,7 +643,7 @@
     <footer class="app-version-footer" aria-label="Versión de la aplicación">
       <span>DeTodoEc</span>
       <span class="version-separator">•</span>
-      <strong>Versión 11.29.8</strong>
+      <strong>Versión 11.30</strong>
     </footer>
   </div>
 
@@ -981,6 +1022,18 @@
       <label>Fecha del pago<input id="calendarPaymentPaidDate" type="date" required /></label>
       <label>Nota del pago<input id="calendarPaymentNote" type="text" maxlength="160" placeholder="Opcional" /></label>
       <div class="dialog-actions"><button type="button" class="btn btn-outline" id="calendarPaymentCancel">Cancelar</button><button type="submit" class="btn btn-accent">Confirmar pago</button></div>
+    </form>
+  </dialog>
+
+  <dialog id="cardPaymentDialog" class="confirm-dialog calendar-payment-dialog">
+    <form method="dialog" id="cardPaymentDialogForm" class="confirm-card">
+      <span class="eyebrow">Pago de tarjeta</span><h3 id="cardPaymentDialogTitle">Registrar cuota</h3>
+      <p class="help-text">Este pago pasará a Revisiones antes de aplicarse.</p>
+      <label>Plataforma / medio<select id="cardPaymentPlatform" required><option value="Efectivo">Efectivo</option><option value="Banco Guayaquil">Banco Guayaquil</option><option value="Banco Pichincha">Banco Pichincha</option><option value="Banco Pacífico">Banco Pacífico</option><option value="Produbanco">Produbanco</option><option value="Transferencia">Transferencia</option><option value="Otro">Otro</option></select></label>
+      <label>Valor pagado<div class="money-field"><span>$</span><input id="cardPaymentAmount" type="number" min="0.01" step="0.01" required /></div></label>
+      <label>Fecha del pago<input id="cardPaymentDate" type="date" required /></label>
+      <label>Nota<input id="cardPaymentNote" maxlength="160" placeholder="Opcional" /></label>
+      <div class="dialog-actions"><button type="button" class="btn btn-outline" id="cardPaymentCancel">Cancelar</button><button type="submit" class="btn btn-accent">Enviar a revisión</button></div>
     </form>
   </dialog>
 
@@ -1650,6 +1703,7 @@
               <button type="button" data-finance-admin-tab="terceros"><svg class="icon"><use href="#icon-handshake"></use></svg><span>Deuda terceros</span></button>
               <button type="button" data-finance-admin-tab="inversion"><svg class="icon"><use href="#icon-dollar"></use></svg><span>Inversión</span></button>
               <button type="button" data-finance-admin-tab="calendario"><svg class="icon"><use href="#icon-calendar"></use></svg><span>Servicios Básicos</span><span class="finance-tab-count" id="financeCalendarPendingCount" hidden>0</span></button>
+              <button type="button" data-finance-admin-tab="tarjetas"><svg class="icon"><use href="#icon-card"></use></svg><span>Tarjetas</span><span class="finance-tab-count" id="financeCardsPendingCount" hidden>0</span></button>
             </div>
             <div class="finance-admin-panel active" data-finance-admin-panel="empleados"><div class="finance-admin-layout finance-entry-layout">
               <form id="employeeDebtAdminForm" class="finance-entry-card egresos-form egresos-employee-form"><div class="egresos-form-title"><div><strong>Nueva deuda de empleado</strong><small>Selecciona colaborador, monto, local y concepto.</small></div></div><div class="egresos-employee-users"><span class="finance-entry-label">Empleado</span><input id="employeeDebtAdminUser" type="hidden" required /><div id="employeeDebtUserPicker" class="employee-debt-user-picker employee-picker-horizontal"></div></div><div class="egresos-inline-row employee-fields-row"><label class="egresos-field egresos-money"><span>Monto</span><div class="egresos-money-input"><b>$</b><input id="employeeDebtAdminAmount" type="number" min="0.01" step="0.01" required placeholder="0.00" /></div><small id="employeeDebtLimitHint">Selecciona un usuario para ver su límite.</small></label><label class="egresos-field"><span>Fecha</span><input id="employeeDebtAdminDate" type="date" required /></label><div class="egresos-field egresos-local"><span>Local</span><div class="finance-choice-row"><label><input type="radio" name="employeeDebtLocation" value="Matriz" checked /><span>Matriz</span></label><label><input type="radio" name="employeeDebtLocation" value="Sucursal 1" /><span>Sucursal 1</span></label></div></div><label class="egresos-field egresos-concept"><span>Concepto</span><input id="employeeDebtAdminConcept" maxlength="120" required placeholder="Ej. Adelanto de efectivo" /></label></div><div class="egresos-inline-row employee-bottom-row"><label class="egresos-field egresos-note"><span>Nota</span><input id="employeeDebtAdminNote" maxlength="240" placeholder="Información adicional" /></label><button type="submit" class="btn btn-accent egresos-submit"><svg class="icon"><use href="#icon-plus"></use></svg><span>Agregar deuda</span></button></div></form>
@@ -1674,6 +1728,14 @@
                   <div class="investment-multi-total"><span>Total seleccionado</span><strong id="investmentMultiTotal">$0,00</strong></div></div><div class="egresos-investment-details"><div class="egresos-inline-row investment-top-row"><label class="egresos-field"><span>Fecha</span><input id="investmentDate" type="date" required /></label><div class="egresos-field egresos-local"><span>Local</span><div class="finance-choice-row"><label><input type="radio" name="investmentLocation" value="Matriz" checked /><span>Matriz</span></label><label><input type="radio" name="investmentLocation" value="Sucursal 1" /><span>Sucursal 1</span></label></div></div></div><label class="egresos-field"><span>Detalle / concepto</span><input id="investmentConcept" required maxlength="120" placeholder="Ej. Compra de impresora" /></label><label class="egresos-field"><span>Origen / fuente</span><input id="investmentSource" maxlength="120" placeholder="Ej. Capital propio / préstamo" /></label><label class="egresos-field"><span>Nota</span><input id="investmentNote" maxlength="240" placeholder="Detalle de la inversión" /></label><button type="submit" class="btn btn-accent egresos-submit"><svg class="icon"><use href="#icon-plus"></use></svg><span>Registrar inversión</span></button></div></div></form>
               <div class="finance-admin-records-card finance-admin-records-wide"><div class="finance-records-head"><div><strong>Inversiones registradas</strong><small>Historial por categoría y local.</small></div><span id="investmentAdminTotal">$0,00</span></div><div id="investmentAdminList" class="finance-admin-list"></div></div>
             </div></div>
+            <div class="finance-admin-panel" data-finance-admin-panel="tarjetas">
+              <div class="finance-calendar-shell">
+                <div class="finance-calendar-head"><div><span class="eyebrow">Tarjetas</span><h4>Cuotas por pagar</h4><p>Cualquier usuario puede registrar el pago. El administrador deberá aprobarlo en Revisiones.</p></div></div>
+                <div class="finance-calendar-summary"><article><span>Pendientes</span><strong id="financeCardsPendingTotal">0</strong></article><article><span>Valor pendiente</span><strong id="financeCardsPendingAmount">$0,00</strong></article><article><span>Pagadas</span><strong id="financeCardsPaidTotal">0</strong></article></div>
+                <div class="finance-calendar-list" id="financeCardsList"></div>
+                <div class="finance-admin-empty" id="financeCardsEmpty" hidden>No hay cuotas de tarjetas registradas.</div>
+              </div>
+            </div>
             <div class="finance-admin-panel" data-finance-admin-panel="calendario">
               <div class="finance-calendar-shell">
                 <div class="finance-calendar-head">
@@ -1769,6 +1831,6 @@
     </article>
   </template>
 
-  <script src="app.js?v=11.29.8"></script>
+  <script src="app.js?v=11.30"></script>
 </body>
 </html>
