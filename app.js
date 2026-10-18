@@ -1,4 +1,4 @@
-const APP_VERSION = '11.27.1';
+const APP_VERSION = '11.27.2';
 const API_BASE = 'https://gestor-tareas-api.detodoec.workers.dev';
 const STORAGE_KEY = 'detodoec_tasks_v1';
 const SETTINGS_KEY = 'detodoec_tasks_settings_v3';
@@ -2426,7 +2426,7 @@ function updateNavigationPermissions() {
   const reviewsNav = $('#navReviews');
   if (reviewsNav) reviewsNav.hidden = currentUser?.rol !== 'admin';
   const financeNav = $('#navFinance');
-  if (financeNav) financeNav.hidden = !(currentUser?.rol === 'admin' || userCan('debts') || userCan('investments'));
+  if (financeNav) financeNav.hidden = !(currentUser?.rol === 'admin' || userCan('expenses'));
 }
 
 function syncProfileThemeControl() {
@@ -2788,9 +2788,11 @@ async function refreshProfileDebt({silent=false}={}){
     if($('#profileDebtEmpty'))$('#profileDebtEmpty').hidden=rows.length>0;
   }catch(err){if(!silent)showToast(err.message,'No se pudo cargar tu deuda')}
 }
-function financeTabAllowed(tab='empleados'){if(currentUser?.rol==='admin')return true;return tab==='inversion'?userCan('investments'):userCan('debts');}
-function setFinanceAdminTab(tab='empleados'){if(!financeTabAllowed(tab))tab=userCan('debts')?'empleados':(userCan('investments')?'inversion':'empleados');financeAdminTab=tab;$$('[data-finance-admin-tab]').forEach(b=>{const allowed=financeTabAllowed(b.dataset.financeAdminTab);b.hidden=!allowed;b.classList.toggle('active',allowed&&b.dataset.financeAdminTab===tab);});$$('[data-finance-admin-panel]').forEach(p=>p.classList.toggle('active',p.dataset.financeAdminPanel===tab));}
-function requestFinancePanel(){if(!currentUser||!(currentUser.rol==='admin'||userCan('debts')||userCan('investments'))){showToast('Tu rol no tiene permiso para Deudas o Inversión.','Sin permiso');return;}pendingAdminSection='finanzas';openAdminPanel('finanzas');setFinanceAdminTab(currentUser.rol==='admin'||userCan('debts')?'empleados':'inversion');}
+function financeTabAllowed(tab='empleados'){
+  return currentUser?.rol==='admin' || userCan('expenses');
+}
+function setFinanceAdminTab(tab='empleados'){if(!financeTabAllowed(tab))tab='empleados';financeAdminTab=tab;$$('[data-finance-admin-tab]').forEach(b=>{const allowed=financeTabAllowed(b.dataset.financeAdminTab);b.hidden=!allowed;b.classList.toggle('active',allowed&&b.dataset.financeAdminTab===tab);});$$('[data-finance-admin-panel]').forEach(p=>p.classList.toggle('active',p.dataset.financeAdminPanel===tab));}
+function requestFinancePanel(){if(!currentUser||!(currentUser.rol==='admin'||userCan('expenses'))){showToast('Tu rol no tiene permiso para Egresos.','Sin permiso');return;}pendingAdminSection='finanzas';openAdminPanel('finanzas');setFinanceAdminTab('empleados');}
 function financeUserAvatar(user){return user?.foto_url?`<img src="${escapeHtml(user.foto_url)}" alt="" />`:escapeHtml(String(user?.nombre||user?.usuario||'?').slice(0,1).toUpperCase())}
 function renderEmployeeDebtPicker(){const root=$('#employeeDebtUserPicker');if(!root)return;root.innerHTML=adminUsers.map(u=>`<button type="button" class="employee-debt-user-option" data-debt-user="${u.id}"><span class="employee-debt-avatar">${u.foto_url?`<img src="${escapeHtml(u.foto_url)}" alt="" />`:iconUse('icon-user')}</span><span><strong>${escapeHtml(u.nombre||u.usuario)}</strong><small>${escapeHtml(u.role_name||'Usuario')}</small></span></button>`).join('')}
 function updateEmployeeDebtLimitHint(){const uid=String($('#employeeDebtAdminUser')?.value||''),u=adminUsers.find(x=>String(x.id)===uid),hint=$('#employeeDebtLimitHint');if(!hint)return;if(!u){hint.textContent='Selecciona un usuario para ver su límite.';return}const limit=Number(u.deuda_limite_mensual||0);hint.textContent=limit>0?`Límite mensual: ${money(limit)} · reinicia al pagar ${Number(u.deuda_reset_pct||50)}%`:'Este usuario no tiene límite configurado.'}
@@ -3630,7 +3632,7 @@ function clearRoleEditor() {
   $('#roleName').value = '';
   $('#roleIsAdmin').checked = false;
   $$('[data-role-permission]').forEach((input) => {
-    input.checked = !['checkin','debts','investments'].includes(input.dataset.rolePermission);
+    input.checked = !['checkin','expenses'].includes(input.dataset.rolePermission);
   });
   $('#deleteRoleBtn').disabled = true;
 }
@@ -4952,7 +4954,7 @@ function showAdminSection(section = 'hub') {
 
 function requestAdminPanel(section = 'hub') {
   if (!currentUser) return;
-  if(section==='finanzas' && (currentUser.rol==='admin'||userCan('debts')||userCan('investments'))){pendingAdminSection='finanzas';openAdminPanel('finanzas');return;}
+  if(section==='finanzas' && (currentUser.rol==='admin'||userCan('expenses'))){pendingAdminSection='finanzas';openAdminPanel('finanzas');return;}
   if (currentUser.rol !== 'admin') {
     showToast('Solo un administrador puede abrir este panel.', 'Acceso restringido');
     return;

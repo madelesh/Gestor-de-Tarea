@@ -9,7 +9,7 @@
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700;800&display=swap" rel="stylesheet">
   <link id="dynamicFavicon" rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 64 64'%3E%3Crect width='64' height='64' rx='16' fill='%23b9ff39'/%3E%3Cpath d='M18 33l9 9 19-22' fill='none' stroke='%23111' stroke-width='7' stroke-linecap='round' stroke-linejoin='round'/%3E%3C/svg%3E" />
-  <link rel="stylesheet" href="styles.css?v=11.27.1" />
+  <link rel="stylesheet" href="styles.css?v=11.27.2" />
 </head>
 <body>
   <svg xmlns="http://www.w3.org/2000/svg" style="display:none" aria-hidden="true" focusable="false">
@@ -114,7 +114,7 @@
         <button type="button" class="main-nav-btn" id="navCuadre"><svg class="icon"><use href="#icon-wallet"></use></svg><span>Cuadre</span></button>
         <button type="button" class="main-nav-btn" id="navReviews" hidden><svg class="icon"><use href="#icon-bell"></use></svg><span>Revisiones</span><span class="main-review-count" id="mainReviewCount" hidden>0</span></button>
         <button type="button" class="main-nav-btn" id="navDesigns"><svg class="icon"><use href="#icon-library"></use></svg><span>Diseños</span></button>
-        <button type="button" class="main-nav-btn main-nav-finance" id="navFinance" hidden><svg class="icon"><use href="#icon-dollar"></use></svg><span>Deudas e inversión</span></button>
+        <button type="button" class="main-nav-btn main-nav-finance" id="navFinance" hidden><svg class="icon"><use href="#icon-dollar"></use></svg><span>Egresos</span></button>
       </nav>
 
       <div class="topbar-actions">
@@ -1220,12 +1220,8 @@
                     <label class="discord-switch"><input type="checkbox" data-role-permission="cuadre" checked /><span></span></label>
                   </div>
                   <div class="role-permission-row">
-                    <div><strong>Deudas</strong><span>Acceder a deudas de empleados y de terceros.</span></div>
-                    <label class="discord-switch"><input type="checkbox" data-role-permission="debts" /><span></span></label>
-                  </div>
-                  <div class="role-permission-row">
-                    <div><strong>Inversión</strong><span>Registrar y consultar inversiones del negocio.</span></div>
-                    <label class="discord-switch"><input type="checkbox" data-role-permission="investments" /><span></span></label>
+                    <div><strong>Egresos</strong><span>Acceder a deudas de empleados, de terceros e inversiones.</span></div>
+                    <label class="discord-switch"><input type="checkbox" data-role-permission="expenses" /><span></span></label>
                   </div>
                   <div class="role-permission-row">
                     <div><strong>Diseños</strong><span>Acceder a la biblioteca de diseños.</span></div>
@@ -1647,7 +1643,7 @@
           </section>
 
           <section class="admin-section admin-view finance-admin-section" data-admin-view="finanzas" hidden>
-            <div class="admin-section-head"><span class="eyebrow">Finanzas</span><h3>Deudas e inversión</h3><p>Controla deudas de colaboradores, terceros e inversiones por local.</p></div>
+            <div class="admin-section-head"><span class="eyebrow">Finanzas</span><h3>Egresos</h3><p>Controla deudas de colaboradores, terceros e inversiones por local.</p></div>
             <div class="finance-admin-tabs">
               <button type="button" class="active" data-finance-admin-tab="empleados"><svg class="icon"><use href="#icon-users"></use></svg><span>Deuda empleados</span></button>
               <button type="button" data-finance-admin-tab="terceros"><svg class="icon"><use href="#icon-handshake"></use></svg><span>Deuda terceros</span></button>
@@ -1780,6 +1776,6 @@
     </article>
   </template>
 
-  <script src="app.js?v=11.27.1"></script>
+  <script src="app.js?v=11.27.2"></script>
 </body>
 </html>
