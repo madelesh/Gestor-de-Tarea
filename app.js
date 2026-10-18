@@ -1,4 +1,4 @@
-const APP_VERSION = '11.29.1';
+const APP_VERSION = '11.29.2';
 const API_BASE = 'https://gestor-tareas-api.detodoec.workers.dev';
 const STORAGE_KEY = 'detodoec_tasks_v1';
 const SETTINGS_KEY = 'detodoec_tasks_settings_v3';
@@ -2790,11 +2790,18 @@ async function refreshProfileDebt({silent=false}={}){
   if(!currentUser)return;
   try{
     const data=await apiFetch(`/api/finanzas/deuda-personal?_=${Date.now()}`,{cache:'no-store'});
-    const total=Number(data?.saldo_total||0),rows=Array.isArray(data?.deudas)?data.deudas:[];
+    const total=Number(data?.saldo_total||0),rows=Array.isArray(data?.deudas)?data.deudas:[],pending=Array.isArray(data?.pendientes_aprobacion)?data.pendientes_aprobacion:[];
     if($('#profileDebtTotal'))$('#profileDebtTotal').textContent=money(total);
-    if($('#profileDebtBadge')){ $('#profileDebtBadge').textContent=total>0?'Pendiente':'Sin deuda'; $('#profileDebtBadge').classList.toggle('has-debt',total>0); }
-    if($('#profileDebtList'))$('#profileDebtList').innerHTML=(data.limite_mensual?`<div class="profile-debt-limit"><span>Límite mensual</span><strong>${money(data.limite_mensual)}</strong><small>Disponible: ${money(data.limite_disponible||0)} · descuento mensual ${Number(data.descuento_nomina_pct||0)}%</small></div>`:'')+rows.slice(0,6).map(r=>`<div class="profile-debt-item"><div><strong>${escapeHtml(r.concepto||'Deuda')}</strong><small>${escapeHtml(r.fecha_local||'')} · ${escapeHtml(r.local||'Matriz')}</small></div><b>${money(r.saldo)}</b></div>`).join('');
-    if($('#profileDebtEmpty'))$('#profileDebtEmpty').hidden=rows.length>0;
+    if($('#profileDebtBadge')){
+      $('#profileDebtBadge').textContent=total>0?'Pendiente':(pending.length?'En revisión':'Sin deuda');
+      $('#profileDebtBadge').classList.toggle('has-debt',total>0||pending.length>0);
+    }
+    if($('#profileDebtPending')){
+      $('#profileDebtPending').hidden=pending.length===0;
+      $('#profileDebtPending').innerHTML=pending.length?`<div class="profile-debt-pending-head"><span>En revisión</span><strong>${pending.length}</strong></div>${pending.slice(0,4).map(r=>`<div class="profile-debt-pending-item"><div><strong>${escapeHtml(r.concepto||'Deuda')}</strong><small>${escapeHtml(r.fecha||'')} · ${escapeHtml(r.local||'Matriz')}</small></div><b>${money(r.monto)}</b></div>`).join('')}`:'';
+    }
+    if($('#profileDebtList'))$('#profileDebtList').innerHTML=(data.limite_mensual?`<div class="profile-debt-limit"><span>Límite mensual</span><strong>${money(data.limite_mensual)}</strong><small>Disponible: ${money(data.limite_disponible||0)} · descuento mensual ${Number(data.descuento_nomina_pct||0)}%</small></div>`:'')+rows.slice(0,8).map(r=>`<div class="profile-debt-item"><div><strong>${escapeHtml(r.concepto||'Deuda')}</strong><small>${escapeHtml(r.fecha_local||'')} · ${escapeHtml(r.local||'Matriz')} · ${r.estado==='pagada'?'Pagada':'Pendiente'}</small></div><b>${money(r.saldo)}</b></div>`).join('');
+    if($('#profileDebtEmpty'))$('#profileDebtEmpty').hidden=rows.length>0||pending.length>0;
   }catch(err){if(!silent)showToast(err.message,'No se pudo cargar tu deuda')}
 }
 function financeTabAllowed(tab='empleados'){if(tab==='aprobaciones')return currentUser?.rol==='admin';return currentUser?.rol==='admin'||userCan('expenses');}
@@ -5948,6 +5955,8 @@ $('#adminDesignList')?.addEventListener('click', (e) => {
   if (editId) editDesign(editId);
   if (deleteId) deleteDesign(deleteId);
 });
+
+setInterval(()=>{if(currentUser && $('#profileDialog')?.open) refreshProfileDebt({silent:true});},15000);
 
 window.addEventListener('error', (event) => {
   console.error(`[DeTodoEc V${APP_VERSION}]`, event.error || event.message);

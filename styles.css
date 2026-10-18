@@ -8646,3 +8646,9 @@ input[type="number"]::-webkit-inner-spin-button,input[type="number"]::-webkit-ou
 .expense-review-actions .approve{background:var(--accent);border-color:var(--accent);color:#101410}
 .expense-review-actions .reject{background:rgba(255,97,114,.08);border-color:rgba(255,97,114,.28);color:#ff6172}
 @media(max-width:900px){.expense-review-card{grid-template-columns:1fr!important}.expense-review-actions{justify-content:flex-start}}
+
+
+/* V11.29.2 · Deuda personal reflejada en Mi Perfil */
+.profile-debt-pending{margin-top:10px;padding:9px 10px;border:1px solid rgba(255,188,79,.25);border-radius:12px;background:rgba(255,188,79,.06)}
+.profile-debt-pending-head{display:flex;align-items:center;justify-content:space-between;margin-bottom:4px}.profile-debt-pending-head span{font-size:8px;font-weight:900;color:#ffbc4f;text-transform:uppercase}.profile-debt-pending-head strong{font-size:9px;min-width:20px;height:20px;border-radius:999px;display:grid;place-items:center;background:rgba(255,188,79,.14);color:#ffbc4f}
+.profile-debt-pending-item{display:grid;grid-template-columns:minmax(0,1fr) auto;gap:10px;padding:7px 0;border-top:1px solid rgba(255,188,79,.13)}.profile-debt-pending-item:first-of-type{border-top:0}.profile-debt-pending-item strong{font-size:9px}.profile-debt-pending-item small{display:block;margin-top:2px;color:var(--muted);font-size:7px}.profile-debt-pending-item b{font-size:10px;color:#ffbc4f}
