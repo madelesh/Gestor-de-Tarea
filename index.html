@@ -9,7 +9,7 @@
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700;800&display=swap" rel="stylesheet">
   <link id="dynamicFavicon" rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 64 64'%3E%3Crect width='64' height='64' rx='16' fill='%23b9ff39'/%3E%3Cpath d='M18 33l9 9 19-22' fill='none' stroke='%23111' stroke-width='7' stroke-linecap='round' stroke-linejoin='round'/%3E%3C/svg%3E" />
-  <link rel="stylesheet" href="styles.css?v=11.30.1" />
+  <link rel="stylesheet" href="styles.css?v=11.30.2" />
 </head>
 <body>
   <svg xmlns="http://www.w3.org/2000/svg" style="display:none" aria-hidden="true" focusable="false">
@@ -591,13 +591,15 @@
         </div>
         <div class="cards-admin-layout">
           <form id="cardAdminForm" class="card-admin-form" hidden>
-            <input type="hidden" id="cardAdminId" />
+            <input type="hidden" id="cardAdminId" /><input type="hidden" id="cardName" />
             <div class="card-admin-form-head"><div><span class="eyebrow">Tarjeta</span><h3 id="cardAdminFormTitle">Nueva tarjeta</h3></div><button type="button" class="icon-btn" id="closeCardAdminForm">×</button></div>
             <div class="card-admin-grid">
-              <label>Nombre de la tarjeta<input id="cardName" maxlength="60" required placeholder="Ej. Visa Banco Guayaquil" /></label>
-              <label>Titular<input id="cardHolder" maxlength="80" required placeholder="Nombre del titular" /></label>
+              <label>Banco<select id="cardBank" required><option value="">Seleccionar banco</option><option>Banco Guayaquil</option><option>Banco Pichincha</option><option>Banco Bolivariano</option><option>Banco del Austro</option><option>Banco Produbanco</option><option>Banco Pacifico</option></select></label>
+              <label>Nombre / titular<input id="cardHolder" maxlength="80" required placeholder="Nombre del titular" /></label>
               <label>Últimos 4 dígitos<input id="cardLast4" inputmode="numeric" maxlength="4" pattern="[0-9]{4}" required placeholder="7223" /></label>
-              <label>Caducidad<input id="cardExpiry" maxlength="5" required placeholder="03/26" /></label>
+              <label>Caducidad<input id="cardExpiry" maxlength="5" required placeholder="03/28" /></label>
+              <label class="card-logo-upload-label">Logo del banco<input id="cardBankLogo" type="file" accept="image/png,image/jpeg,image/webp" /><small>PNG, JPG o WEBP</small></label>
+              <input id="cardBankLogoUrl" type="hidden" />
               <label>Valor mensual<input id="cardMonthlyAmount" type="number" min="0.01" step="0.01" required placeholder="0.00" /></label>
               <label>Meses diferidos<input id="cardInstallments" type="number" min="1" max="60" step="1" required value="1" /></label>
               <label>Primera fecha de pago<input id="cardFirstDue" type="date" required /></label>
@@ -610,7 +612,7 @@
           </form>
           <div class="cards-admin-list-wrap">
             <div class="cards-admin-summary"><div><span>Tarjetas activas</span><strong id="cardsAdminCount">0</strong></div><div><span>Total mensual</span><strong id="cardsAdminMonthly">$0,00</strong></div></div>
-            <div class="cards-filter-bar"><div class="cards-filter-search"><svg class="icon"><use href="#icon-search"></use></svg><input id="cardsAdminSearch" type="search" placeholder="Buscar tarjeta o titular..." /></div><select id="cardsAdminStatusFilter"><option value="all">Todas</option><option value="pending">Con cuotas pendientes</option><option value="paid">Pagadas</option></select></div>
+            <div class="cards-filter-bar cards-filter-bar-three"><div class="cards-filter-search"><svg class="icon"><use href="#icon-search"></use></svg><input id="cardsAdminSearch" type="search" placeholder="Buscar titular o terminación..." /></div><select id="cardsAdminBankFilter"><option value="all">Todos los bancos</option><option>Banco Guayaquil</option><option>Banco Pichincha</option><option>Banco Bolivariano</option><option>Banco del Austro</option><option>Banco Produbanco</option><option>Banco Pacifico</option></select><select id="cardsAdminStatusFilter"><option value="all">Todas</option><option value="pending">Con cuotas pendientes</option><option value="paid">Pagadas</option></select></div>
             <div id="cardsAdminList" class="cards-admin-list"></div>
           </div>
         </div>
@@ -644,7 +646,7 @@
     <footer class="app-version-footer" aria-label="Versión de la aplicación">
       <span>DeTodoEc</span>
       <span class="version-separator">•</span>
-      <strong>Versión 11.30.1</strong>
+      <strong>Versión 11.30.2</strong>
     </footer>
   </div>
 
@@ -1734,7 +1736,7 @@
               <div class="finance-calendar-shell">
                 <div class="finance-calendar-head"><div><span class="eyebrow">Tarjetas</span><h4>Cuotas por pagar</h4><p>Cualquier usuario puede registrar el pago. El administrador deberá aprobarlo en Revisiones.</p></div></div>
                 <div class="finance-calendar-summary"><article><span>Pendientes</span><strong id="financeCardsPendingTotal">0</strong></article><article><span>Valor pendiente</span><strong id="financeCardsPendingAmount">$0,00</strong></article><article><span>Pagadas</span><strong id="financeCardsPaidTotal">0</strong></article></div>
-                <div class="cards-filter-bar cards-filter-bar-finance"><div class="cards-filter-search"><svg class="icon"><use href="#icon-search"></use></svg><input id="financeCardsSearch" type="search" placeholder="Buscar tarjeta..." /></div><select id="financeCardsStatusFilter"><option value="all">Todas las cuotas</option><option value="pending">Pendientes</option><option value="paid">Pagadas</option></select></div>
+                <div class="cards-filter-bar cards-filter-bar-finance cards-filter-bar-three"><div class="cards-filter-search"><svg class="icon"><use href="#icon-search"></use></svg><input id="financeCardsSearch" type="search" placeholder="Buscar tarjeta..." /></div><select id="financeCardsBankFilter"><option value="all">Todos los bancos</option><option>Banco Guayaquil</option><option>Banco Pichincha</option><option>Banco Bolivariano</option><option>Banco del Austro</option><option>Banco Produbanco</option><option>Banco Pacifico</option></select><select id="financeCardsStatusFilter"><option value="all">Todas las cuotas</option><option value="pending">Pendientes</option><option value="paid">Pagadas</option></select></div>
                 <div class="finance-calendar-list" id="financeCardsList"></div>
                 <div class="finance-admin-empty" id="financeCardsEmpty" hidden>No hay cuotas de tarjetas registradas.</div>
               </div>
@@ -1850,6 +1852,6 @@
     </article>
   </template>
 
-  <script src="app.js?v=11.30.1"></script>
+  <script src="app.js?v=11.30.2"></script>
 </body>
 </html>

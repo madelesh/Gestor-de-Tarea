@@ -1,4 +1,4 @@
-const APP_VERSION = '11.30.1';
+const APP_VERSION = '11.30.2';
 const API_BASE = 'https://gestor-tareas-api.detodoec.workers.dev';
 const STORAGE_KEY = 'detodoec_tasks_v1';
 const SETTINGS_KEY = 'detodoec_tasks_settings_v3';
@@ -97,8 +97,10 @@ let pendingCardPaymentId=null;
 let revealedCardIds=new Set();
 let cardsAdminSearch='';
 let cardsAdminStatus='all';
+let cardsAdminBank='all';
 let financeCardsSearch='';
 let financeCardsStatus='all';
+let financeCardsBank='all';
 
 let adminPasswordResolver = null;
 let adminUserPhotoUrl = '';
@@ -2952,12 +2954,13 @@ function cardMaskedNumber(card, reveal=false){
 }
 function cardProgress(card){const total=Math.max(1,Number(card?.cuotas_total||1)),paid=Math.max(0,Number(card?.cuotas_pagadas||0));return Math.min(100,(paid/total)*100)}
 function paymentCardHtml(card,{admin=false}={}){
-  const reveal=admin&&revealedCardIds.has(Number(card.id));
-  const serial=reveal?String(card.ultimos4||'••••'):`•••• ${escapeHtml(card.ultimos4||'••••')}`;
+  const serial=`•••• •••• •••• ${escapeHtml(card.ultimos4||'••••')}`;
+  const bank=card.banco||card.nombre||'Tarjeta';
+  const logo=card.logo_url?`<img class="payment-card-bank-logo" src="${escapeHtml(card.logo_url)}" alt="" onerror="this.style.display='none'" />`:`<span class="payment-card-bank-logo fallback">${iconUse('icon-card')}</span>`;
   return `<article class="payment-card-widget" data-card-detail="${card.id}" style="--card1:${escapeHtml(card.color_1||'#263f67')};--card2:${escapeHtml(card.color_2||'#586a88')}">
-    <div class="payment-card-top"><div><strong>${escapeHtml(card.nombre||'Tarjeta')}</strong></div>${admin?`<button type="button" class="card-reveal-btn" data-card-reveal="${card.id}" title="${reveal?'Ocultar':'Mostrar terminación'}">${iconUse('icon-eye')}</button>`:''}</div>
+    <div class="payment-card-top"><div class="payment-card-bank-head">${logo}<strong>${escapeHtml(bank)}</strong></div></div>
     <div class="payment-card-number">${serial}</div>
-    <div class="payment-card-bottom"><div></div><div><small>Caduca</small><strong>${escapeHtml(card.vencimiento||'—')}</strong></div></div>
+    <div class="payment-card-bottom"><div class="payment-card-holder"><small>Nombre</small><strong>${escapeHtml(card.titular||'—')}</strong></div><div><small>Caduca</small><strong>${escapeHtml(card.vencimiento||'—')}</strong></div></div>
   </article>`;
 }
 function renderHomeCards(){
@@ -2975,8 +2978,8 @@ function renderFinanceCards(){
   if($('#financeCardsPendingAmount'))$('#financeCardsPendingAmount').textContent=money(pending.reduce((s,x)=>s+Number(x.monto_programado||0),0));
   if($('#financeCardsPaidTotal'))$('#financeCardsPaidTotal').textContent=String(paid.length);
   const q=financeCardsSearch.trim().toLowerCase();
-  const rows=cardInstallments.filter(x=>(financeCardsStatus==='all'||x.estado===financeCardsStatus)&&(!q||`${x.tarjeta_nombre} ${x.titular||''} ${x.ultimos4||''}`.toLowerCase().includes(q)));
-  root.innerHTML=rows.map(q=>`<div class="finance-card-row"><span class="finance-card-icon" style="--c1:${escapeHtml(q.color_1||'#263f67')};--c2:${escapeHtml(q.color_2||'#586a88')}"></span><div class="finance-card-copy"><strong>${escapeHtml(q.tarjeta_nombre)} · Cuota ${q.numero_cuota}/${q.cuotas_total}</strong><small>${escapeHtml(q.fecha_pago)} · ${escapeHtml(q.titular||'')} · •••• ${escapeHtml(q.ultimos4||'')}</small></div><div class="finance-card-due"><strong>${money(q.monto_programado)}</strong><small><span class="card-status-pill ${q.estado==='pagado'?'paid':'pending'}">${q.estado==='pagado'?'Pagada':'Pendiente'}</span></small></div>${q.estado==='pendiente'?`<button type="button" class="finance-card-pay" data-card-pay="${q.id}">Pagar</button>`:''}</div>`).join('');
+  const rows=cardInstallments.filter(x=>(financeCardsStatus==='all'||x.estado===financeCardsStatus)&&(financeCardsBank==='all'||x.banco===financeCardsBank)&&(!q||`${x.banco||''} ${x.tarjeta_nombre||''} ${x.titular||''} ${x.ultimos4||''}`.toLowerCase().includes(q)));
+  root.innerHTML=rows.map(q=>`<div class="finance-card-row"><span class="finance-card-icon" style="--c1:${escapeHtml(q.color_1||'#263f67')};--c2:${escapeHtml(q.color_2||'#586a88')}">${q.logo_url?`<img src="${escapeHtml(q.logo_url)}" alt="" onerror="this.style.display='none'" />`:iconUse('icon-card')}</span><div class="finance-card-copy"><strong>${escapeHtml(q.banco||q.tarjeta_nombre)} · Cuota ${q.numero_cuota}/${q.cuotas_total}</strong><small>${escapeHtml(q.fecha_pago)} · ${escapeHtml(q.titular||'')} · •••• ${escapeHtml(q.ultimos4||'')}</small></div><div class="finance-card-due"><strong>${money(q.monto_programado)}</strong><small><span class="card-status-pill ${q.estado==='pagado'?'paid':'pending'}">${q.estado==='pagado'?'Pagada':'Pendiente'}</span></small></div>${q.estado==='pendiente'?`<button type="button" class="finance-card-pay" data-card-pay="${q.id}">Pagar</button>`:''}</div>`).join('');
   if(empty)empty.hidden=rows.length>0;
 }
 function renderCardsAdmin(){
@@ -2987,15 +2990,16 @@ function renderCardsAdmin(){
   const rows=cardsData.filter(c=>{
     const isPaid=Number(c.cuotas_pagadas||0)>=Number(c.cuotas_total||0);
     const statusOk=cardsAdminStatus==='all'||(cardsAdminStatus==='paid'?isPaid:!isPaid);
-    const text=`${c.nombre||''} ${c.titular||''} ${c.ultimos4||''}`.toLowerCase();
-    return statusOk&&(!q||text.includes(q));
+    const bankOk=cardsAdminBank==='all'||c.banco===cardsAdminBank;
+    const text=`${c.banco||''} ${c.nombre||''} ${c.titular||''} ${c.ultimos4||''}`.toLowerCase();
+    return statusOk&&bankOk&&(!q||text.includes(q));
   });
-  root.innerHTML=rows.map(c=>`<div class="cards-admin-row" data-card-id="${c.id}"><span class="cards-admin-swatch" style="--c1:${escapeHtml(c.color_1)};--c2:${escapeHtml(c.color_2)}"></span><div class="cards-admin-copy"><strong>${escapeHtml(c.nombre)} · •••• ${escapeHtml(c.ultimos4)}</strong><small>${escapeHtml(c.titular)} · ${money(c.valor_mensual)}/mes · ${c.cuotas_pagadas}/${c.cuotas_total} pagadas · próxima ${escapeHtml(c.proxima_fecha_pago||'—')}</small></div><div class="cards-admin-actions-row"><button type="button" data-card-detail="${c.id}">Ver</button><button type="button" data-card-edit="${c.id}">Editar</button><button type="button" data-card-delete="${c.id}">Desactivar</button></div></div>`).join('')||'<div class="home-workers-empty">No hay tarjetas que coincidan con el filtro.</div>';
+  root.innerHTML=rows.map(c=>`<div class="cards-admin-row" data-card-id="${c.id}"><span class="cards-admin-swatch" style="--c1:${escapeHtml(c.color_1)};--c2:${escapeHtml(c.color_2)}">${c.logo_url?`<img src="${escapeHtml(c.logo_url)}" alt="" onerror="this.style.display='none'" />`:iconUse('icon-card')}</span><div class="cards-admin-copy"><strong>${escapeHtml(c.banco||c.nombre)} · •••• ${escapeHtml(c.ultimos4)}</strong><small>${escapeHtml(c.titular)} · ${money(c.valor_mensual)}/mes · ${c.cuotas_pagadas}/${c.cuotas_total} pagadas · próxima ${escapeHtml(c.proxima_fecha_pago||'—')}</small></div><div class="cards-admin-actions-row"><button type="button" data-card-detail="${c.id}">Ver</button><button type="button" data-card-edit="${c.id}">Editar</button><button type="button" data-card-delete="${c.id}">Desactivar</button></div></div>`).join('')||'<div class="home-workers-empty">No hay tarjetas que coincidan con el filtro.</div>';
 }
-function renderCardAdminPreview(){const fake={nombre:$('#cardName')?.value||'Tarjeta',titular:$('#cardHolder')?.value||'Titular',ultimos4:$('#cardLast4')?.value||'0000',vencimiento:$('#cardExpiry')?.value||'00/00',info:$('#cardInfo')?.value||'',valor_mensual:Number($('#cardMonthlyAmount')?.value||0),cuotas_total:Number($('#cardInstallments')?.value||1),cuotas_pagadas:0,color_1:$('#cardColor1')?.value||'#263f67',color_2:$('#cardColor2')?.value||'#586a88'};const el=$('#cardAdminPreview');if(el)el.outerHTML=`<div class="payment-card-preview" id="cardAdminPreview" style="--card1:${fake.color_1};--card2:${fake.color_2}">${paymentCardHtml(fake).replace(/^<article[^>]*>|<\/article>$/g,'')}</div>`}
+function renderCardAdminPreview(){const fake={id:0,nombre:$('#cardBank')?.value||'Banco',banco:$('#cardBank')?.value||'Banco',titular:$('#cardHolder')?.value||'Nombre del titular',ultimos4:$('#cardLast4')?.value||'0000',vencimiento:$('#cardExpiry')?.value||'00/00',logo_url:$('#cardBankLogoUrl')?.value||'',color_1:$('#cardColor1')?.value||'#263f67',color_2:$('#cardColor2')?.value||'#586a88'};const el=$('#cardAdminPreview');if(el)el.outerHTML=`<div class="payment-card-preview" id="cardAdminPreview" style="--card1:${fake.color_1};--card2:${fake.color_2}">${paymentCardHtml(fake).replace(/^<article[^>]*>|<\/article>$/g,'')}</div>`}
 function openCardDetail(id){
   const c=cardsData.find(x=>String(x.id)===String(id));if(!c)return;
-  $('#cardDetailTitle').textContent=c.nombre||'Detalle de tarjeta';
+  $('#cardDetailTitle').textContent=c.banco||c.nombre||'Detalle de tarjeta';
   $('#cardDetailHolder').textContent=c.titular||'—';
   $('#cardDetailLast4').textContent=`•••• ${c.ultimos4||'••••'}`;
   $('#cardDetailExpiry').textContent=c.vencimiento||'—';
@@ -3003,12 +3007,12 @@ function openCardDetail(id){
   $('#cardDetailInstallments').textContent=`${Number(c.cuotas_pagadas||0)}/${Number(c.cuotas_total||0)} pagadas`;
   $('#cardDetailNextDue').textContent=c.proxima_fecha_pago||'Sin pagos pendientes';
   $('#cardDetailInfo').textContent=c.info||'Sin información adicional';
-  $('#cardDetailVisual').innerHTML=`<div class="card-detail-visual" style="--card1:${escapeHtml(c.color_1||'#263f67')};--card2:${escapeHtml(c.color_2||'#586a88')}"><strong>${escapeHtml(c.nombre||'Tarjeta')}</strong><div class="card-detail-number">•••• ${escapeHtml(c.ultimos4||'••••')}</div><small>Caduca ${escapeHtml(c.vencimiento||'—')}</small></div>`;
+  $('#cardDetailVisual').innerHTML=`<div class="card-detail-visual" style="--card1:${escapeHtml(c.color_1||'#263f67')};--card2:${escapeHtml(c.color_2||'#586a88')}"><div class="card-detail-bank-head">${c.logo_url?`<img src="${escapeHtml(c.logo_url)}" alt="" />`:iconUse('icon-card')}<strong>${escapeHtml(c.banco||c.nombre||'Tarjeta')}</strong></div><div class="card-detail-number">•••• •••• •••• ${escapeHtml(c.ultimos4||'••••')}</div><div class="card-detail-mini"><span>${escapeHtml(c.titular||'—')}</span><span>Caduca ${escapeHtml(c.vencimiento||'—')}</span></div></div>`;
   $('#cardDetailDialog')?.showModal();
 }
 async function refreshCards({silent=false}={}){if(!currentUser)return;try{const data=await apiFetch(`/api/tarjetas?_=${Date.now()}`,{cache:'no-store'});cardsData=Array.isArray(data.tarjetas)?data.tarjetas:[];cardInstallments=Array.isArray(data.cuotas)?data.cuotas:[];renderHomeCards();renderFinanceCards();if(currentUser.rol==='admin')renderCardsAdmin();return data}catch(e){if(!silent)showToast(e.message,'No se pudieron cargar las tarjetas')}}
-function openCardAdminForm(card=null){if(currentUser?.rol!=='admin')return;$('#cardAdminForm').hidden=false;$('#cardAdminId').value=card?.id||'';$('#cardAdminFormTitle').textContent=card?'Editar tarjeta':'Nueva tarjeta';$('#cardName').value=card?.nombre||'';$('#cardHolder').value=card?.titular||'';$('#cardLast4').value=card?.ultimos4||'';$('#cardExpiry').value=card?.vencimiento||'';$('#cardMonthlyAmount').value=card?.valor_mensual||'';$('#cardInstallments').value=card?.cuotas_total||1;$('#cardFirstDue').value=card?.primera_fecha_pago||todayLocal();$('#cardInfo').value=card?.info||'';$('#cardColor1').value=card?.color_1||'#263f67';$('#cardColor2').value=card?.color_2||'#586a88';renderCardAdminPreview()}
-async function submitCardAdmin(e){e.preventDefault();const id=Number($('#cardAdminId').value||0),payload={nombre:$('#cardName').value.trim(),titular:$('#cardHolder').value.trim(),ultimos4:$('#cardLast4').value.trim(),vencimiento:$('#cardExpiry').value.trim(),valor_mensual:Number($('#cardMonthlyAmount').value||0),cuotas_total:Number($('#cardInstallments').value||1),primera_fecha_pago:$('#cardFirstDue').value,info:$('#cardInfo').value.trim(),color_1:$('#cardColor1').value,color_2:$('#cardColor2').value};try{await apiFetch(id?`/api/tarjetas/${id}`:'/api/tarjetas',{method:id?'PUT':'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify(payload)});$('#cardAdminForm').hidden=true;showToast(id?'Tarjeta actualizada.':'Tarjeta creada.','Tarjetas');await Promise.allSettled([refreshCards({silent:true}),refreshPaymentCalendar({silent:true})])}catch(err){showToast(err.message,'No se pudo guardar la tarjeta')}}
+function openCardAdminForm(card=null){if(currentUser?.rol!=='admin')return;$('#cardAdminForm').hidden=false;$('#cardAdminId').value=card?.id||'';$('#cardAdminFormTitle').textContent=card?'Editar tarjeta':'Nueva tarjeta';$('#cardBank').value=card?.banco||card?.nombre||'';$('#cardName').value=card?.banco||card?.nombre||'';$('#cardHolder').value=card?.titular||'';$('#cardLast4').value=card?.ultimos4||'';$('#cardExpiry').value=card?.vencimiento||'';$('#cardMonthlyAmount').value=card?.valor_mensual||'';$('#cardInstallments').value=card?.cuotas_total||1;$('#cardFirstDue').value=card?.primera_fecha_pago||todayLocal();$('#cardInfo').value=card?.info||'';$('#cardColor1').value=card?.color_1||'#263f67';$('#cardColor2').value=card?.color_2||'#586a88';$('#cardBankLogoUrl').value=card?.logo_url||'';$('#cardBankLogo').value='';renderCardAdminPreview()}
+async function submitCardAdmin(e){e.preventDefault();const id=Number($('#cardAdminId').value||0);let logo_url=$('#cardBankLogoUrl').value||'';const logoFile=$('#cardBankLogo')?.files?.[0];try{if(logoFile)logo_url=await uploadImage(logoFile);const banco=$('#cardBank').value.trim();const payload={nombre:banco,banco,titular:$('#cardHolder').value.trim(),ultimos4:$('#cardLast4').value.trim(),vencimiento:$('#cardExpiry').value.trim(),valor_mensual:Number($('#cardMonthlyAmount').value||0),cuotas_total:Number($('#cardInstallments').value||1),primera_fecha_pago:$('#cardFirstDue').value,info:$('#cardInfo').value.trim(),color_1:$('#cardColor1').value,color_2:$('#cardColor2').value,logo_url};await apiFetch(id?`/api/tarjetas/${id}`:'/api/tarjetas',{method:id?'PUT':'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify(payload)});$('#cardAdminForm').hidden=true;showToast(id?'Tarjeta actualizada.':'Tarjeta creada.','Tarjetas');await Promise.allSettled([refreshCards({silent:true}),refreshPaymentCalendar({silent:true})])}catch(err){showToast(err.message,'No se pudo guardar la tarjeta')}}
 function openCardPayment(id){const q=cardInstallments.find(x=>String(x.id)===String(id));if(!q)return;pendingCardPaymentId=Number(id);$('#cardPaymentDialogTitle').textContent=`${q.tarjeta_nombre} · Cuota ${q.numero_cuota}/${q.cuotas_total}`;$('#cardPaymentAmount').value=Number(q.monto_programado||0).toFixed(2);$('#cardPaymentDate').value=todayLocal();$('#cardPaymentPlatform').value='Efectivo';$('#cardPaymentNote').value='';$('#cardPaymentDialog')?.showModal()}
 async function submitCardPayment(e){e.preventDefault();if(!pendingCardPaymentId)return;const payload={monto:Number($('#cardPaymentAmount').value||0),fecha:$('#cardPaymentDate').value,plataforma:$('#cardPaymentPlatform').value,nota:$('#cardPaymentNote').value.trim()};try{await apiFetch(`/api/tarjetas/cuotas/${pendingCardPaymentId}/pagar`,{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify(payload)});$('#cardPaymentDialog')?.close();pendingCardPaymentId=null;showToast('Pago enviado a Revisiones para aprobación.','Tarjetas');await Promise.allSettled([refreshCards({silent:true}),refreshMainReviews({silent:true}),refreshCuadreNotifications({silent:true})])}catch(err){showToast(err.message,'No se pudo registrar el pago')}}
 
@@ -5631,14 +5635,17 @@ $('#cardAdminForm')?.addEventListener('submit',submitCardAdmin);
 on('newCardBtn','click',()=>openCardAdminForm());
 on('closeCardAdminForm','click',()=>{$('#cardAdminForm').hidden=true});
 on('cancelCardAdmin','click',()=>{$('#cardAdminForm').hidden=true});
-['cardName','cardHolder','cardLast4','cardExpiry','cardMonthlyAmount','cardInstallments','cardInfo','cardColor1','cardColor2'].forEach(id=>$('#'+id)?.addEventListener('input',renderCardAdminPreview));
+['cardBank','cardHolder','cardLast4','cardExpiry','cardMonthlyAmount','cardInstallments','cardInfo','cardColor1','cardColor2'].forEach(id=>$('#'+id)?.addEventListener('input',renderCardAdminPreview));
+$('#cardBankLogo')?.addEventListener('change',()=>{const f=$('#cardBankLogo')?.files?.[0];if(!f)return;const r=new FileReader();r.onload=()=>{$('#cardBankLogoUrl').value=String(r.result||'');renderCardAdminPreview()};r.readAsDataURL(f)});
 $('#cardsAdminList')?.addEventListener('click',async(e)=>{const detail=e.target.closest('[data-card-detail]'),edit=e.target.closest('[data-card-edit]'),del=e.target.closest('[data-card-delete]');if(detail){openCardDetail(detail.dataset.cardDetail);return;}if(edit){const c=cardsData.find(x=>String(x.id)===String(edit.dataset.cardEdit));if(c)openCardAdminForm(c)}if(del){const ok=await themedConfirm({title:'Desactivar tarjeta',message:'La tarjeta dejará de aparecer, pero se conservará su historial.',confirmText:'Desactivar'});if(!ok)return;try{await apiFetch(`/api/tarjetas/${del.dataset.cardDelete}`,{method:'DELETE'});await refreshCards({silent:true})}catch(err){showToast(err.message,'Tarjetas')}}});
 $('#homeCardsCarousel')?.addEventListener('click',(e)=>{const reveal=e.target.closest('[data-card-reveal]');if(reveal){e.stopPropagation();if(currentUser?.rol!=='admin')return;const id=Number(reveal.dataset.cardReveal);revealedCardIds.has(id)?revealedCardIds.delete(id):revealedCardIds.add(id);renderHomeCards();return;}const card=e.target.closest('[data-card-detail]');if(card)openCardDetail(card.dataset.cardDetail)});
 on('closeCardDetail','click',()=>$('#cardDetailDialog')?.close());
 $('#cardsAdminSearch')?.addEventListener('input',(e)=>{cardsAdminSearch=e.target.value;renderCardsAdmin()});
 $('#cardsAdminStatusFilter')?.addEventListener('change',(e)=>{cardsAdminStatus=e.target.value;renderCardsAdmin()});
+$('#cardsAdminBankFilter')?.addEventListener('change',(e)=>{cardsAdminBank=e.target.value;renderCardsAdmin()});
 $('#financeCardsSearch')?.addEventListener('input',(e)=>{financeCardsSearch=e.target.value;renderFinanceCards()});
 $('#financeCardsStatusFilter')?.addEventListener('change',(e)=>{financeCardsStatus=e.target.value;renderFinanceCards()});
+$('#financeCardsBankFilter')?.addEventListener('change',(e)=>{financeCardsBank=e.target.value;renderFinanceCards()});
 $('#financeCardsList')?.addEventListener('click',(e)=>{const b=e.target.closest('[data-card-pay]');if(b)openCardPayment(b.dataset.cardPay)});
 $('#cardPaymentDialogForm')?.addEventListener('submit',submitCardPayment);
 on('cardPaymentCancel','click',()=>{$('#cardPaymentDialog')?.close();pendingCardPaymentId=null});
