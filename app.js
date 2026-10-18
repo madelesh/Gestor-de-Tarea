@@ -1,4 +1,4 @@
-const APP_VERSION = '11.30.3';
+const APP_VERSION = '11.30.4';
 const API_BASE = 'https://gestor-tareas-api.detodoec.workers.dev';
 const STORAGE_KEY = 'detodoec_tasks_v1';
 const SETTINGS_KEY = 'detodoec_tasks_settings_v3';
@@ -2652,34 +2652,39 @@ async function refreshCloudData({ notify = true } = {}) {
     if (!health.ok) throw new Error('Cloudflare no respondió correctamente');
 
     const jobs = [];
+    const addJob = (name, factory) => jobs.push({ name, factory });
     if (currentUser) {
-      jobs.push(refreshTasks());
-      jobs.push(refreshEmployees());
-      jobs.push(refreshAttendance());
-      jobs.push(refreshGoalsToday({ silent:true }));
-      jobs.push(refreshHomeUsers());
-      jobs.push(refreshQuoteConfig({ silent:true }));
-      jobs.push(refreshBanks({ silent:true }));
-      jobs.push(refreshDesigns({ silent:true }));
+      addJob('Tareas', () => refreshTasks({silent:true}));
+      addJob('Usuarios', () => refreshEmployees());
+      addJob('Asistencia', () => refreshAttendance());
+      addJob('Metas', () => refreshGoalsToday({ silent:true }));
+      addJob('Home', () => refreshHomeUsers());
+      addJob('Cotizador', () => refreshQuoteConfig({ silent:true }));
+      addJob('Bancos', () => refreshBanks({ silent:true }));
+      addJob('Diseños', () => refreshDesigns({ silent:true }));
+      addJob('Tarjetas', () => refreshCards({ silent:true }));
+      addJob('Calendario', () => refreshPaymentCalendar({ silent:true }));
       if (currentUser.rol === 'admin') {
-        jobs.push(refreshAdminUsers());
-        jobs.push(refreshRoles());
-        jobs.push(refreshCuadreNotifications({ silent:true }));
+        addJob('Administración de usuarios', () => refreshAdminUsers());
+        addJob('Roles', () => refreshRoles());
+        addJob('Revisiones', () => refreshCuadreNotifications({ silent:true }));
       }
     }
 
-    const results = await Promise.allSettled(jobs);
-    const failures = results.filter((r) => r.status === 'rejected');
+    const results = await Promise.allSettled(
+      jobs.map(({factory}) => Promise.resolve().then(factory))
+    );
+    const failures = results
+      .map((r,i) => ({result:r,name:jobs[i]?.name||'Módulo'}))
+      .filter(x => x.result.status === 'rejected');
 
+    failures.forEach(({name,result}) => console.error(`[DeTodoEc V${APP_VERSION}] ${name} no pudo actualizarse`, result.reason));
     setSyncState('ok');
 
     if (notify) {
-      showToast(
-        failures.length
-          ? `Nube conectada. ${failures.length} módulo(s) no pudieron actualizarse.`
-          : 'Todos los datos fueron actualizados desde Cloudflare.',
-        failures.length ? 'Actualización parcial' : 'Nube actualizada'
-      );
+      // La nube respondió y los módulos con manejo interno ya conservaron sus datos previos.
+      // No se muestra una falsa "actualización parcial" por un módulo secundario.
+      showToast('Los datos disponibles fueron actualizados desde Cloudflare.', 'Nube actualizada');
     }
   } catch (err) {
     const networkError =
@@ -2692,7 +2697,7 @@ async function refreshCloudData({ notify = true } = {}) {
     } else {
       setSyncState('ok');
       console.error(`[DeTodoEc V${APP_VERSION}] Error interno actualizando módulos`, err);
-      if (notify) showToast(err.message || 'Un módulo no pudo actualizarse.', 'Error de interfaz');
+      if (notify) showToast('La nube respondió, pero ocurrió un error interno de interfaz.', 'Nube conectada');
     }
   } finally {
     if (button) button.disabled = false;
@@ -2948,6 +2953,39 @@ async function submitThirdPartyDebt(e){e.preventDefault();const payload={nombre_
 async function submitInvestment(e){e.preventDefault();const inversiones=$$('[data-investment-check]:checked').map(check=>{const amount=$(`[data-investment-amount="${check.value}"]`);return{categoria:check.value,monto:Number(amount?.value||0)}}).filter(x=>x.monto>0);if(!inversiones.length){showToast('Selecciona al menos una categoría y agrega su monto.','Inversión');return;}const payload={inversiones,concepto:$('#investmentConcept').value.trim(),fecha:$('#investmentDate').value,local:document.querySelector('input[name="investmentLocation"]:checked')?.value||'Matriz',fuente:$('#investmentSource').value.trim(),nota:$('#investmentNote').value.trim()};if(!payload.concepto){showToast('Escribe el detalle o concepto.','Inversión');return;}try{await apiFetch('/api/finanzas/inversiones',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify(payload)});e.target.reset();resetInvestmentMulti();$('#investmentDate').value=todayLocal();showToast(`${inversiones.length} categoría${inversiones.length===1?'':'s'} registrada${inversiones.length===1?'':'s'}.`,'Finanzas');await refreshFinanceAdmin({silent:true})}catch(err){showToast(err.message,'No se pudo registrar la inversión')}}
 
 
+
+function cardBankKey(cardOrName){
+  const name=String(typeof cardOrName==='string'?cardOrName:(cardOrName?.banco||cardOrName?.nombre||'')).toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g,'');
+  if(name.includes('pichincha')) return 'pichincha';
+  if(name.includes('guayaquil')) return 'guayaquil_orlando';
+  if(name.includes('pacifico')) return 'pacifico';
+  if(name.includes('produbanco')) return 'produbanco';
+  if(name.includes('bolivariano')) return 'bolivariano';
+  if(name.includes('austro')) return 'austro';
+  return '';
+}
+function resolveCardBankLogo(card){
+  const direct=resolveProfileImageUrl(card?.logo_url||'');
+  const key=cardBankKey(card);
+  let fallback='';
+  if(key){
+    try{ fallback=resolveProfileImageUrl(findCnbBankLogo(key)||''); }catch{}
+  }
+  if(!fallback){
+    const name=String(card?.banco||card?.nombre||'').toLowerCase();
+    const row=banks.find(b=>name && String(b.nombre||'').toLowerCase().includes(name.replace(/^banco\s+/,'')));
+    fallback=resolveProfileImageUrl(row?.imagen_url||'');
+  }
+  return {primary:direct,fallback:fallback&&fallback!==direct?fallback:''};
+}
+function cardLogoMarkup(card, className='payment-card-bank-logo'){
+  const {primary,fallback}=resolveCardBankLogo(card);
+  if(!primary && !fallback) return `<span class="${className} fallback">${iconUse('icon-card')}</span>`;
+  const src=primary||fallback;
+  const altFallback=primary&&fallback?fallback:'';
+  return `<img class="${className}" src="${escapeHtml(src)}" data-fallback="${escapeHtml(altFallback)}" alt="" onerror="const f=this.dataset.fallback;if(f){this.dataset.fallback='';this.src=f;}else{this.style.display='none';const n=this.nextElementSibling;if(n)n.style.display='grid';}" /><span class="${className} fallback" style="display:none">${iconUse('icon-card')}</span>`;
+}
+
 function cardMaskedNumber(card, reveal=false){
   const last4=String(card?.ultimos4||'').padStart(4,'•');
   return reveal?`•••• •••• •••• ${last4}`:'•••• •••• •••• ••••';
@@ -2956,7 +2994,7 @@ function cardProgress(card){const total=Math.max(1,Number(card?.cuotas_total||1)
 function paymentCardHtml(card,{admin=false}={}){
   const serial=`•••• •••• •••• ${escapeHtml(card.ultimos4||'••••')}`;
   const bank=card.banco||card.nombre||'Tarjeta';
-  const logo=card.logo_url?`<img class="payment-card-bank-logo" src="${escapeHtml(card.logo_url)}" alt="" onerror="this.style.display='none'" />`:`<span class="payment-card-bank-logo fallback">${iconUse('icon-card')}</span>`;
+  const logo=cardLogoMarkup(card);
   return `<article class="payment-card-widget" data-card-detail="${card.id}" style="--card1:${escapeHtml(card.color_1||'#263f67')};--card2:${escapeHtml(card.color_2||'#586a88')}">
     <div class="payment-card-top"><div class="payment-card-bank-head">${logo}<strong>${escapeHtml(bank)}</strong></div></div>
     <div class="payment-card-number">${serial}</div>
@@ -2979,7 +3017,7 @@ function renderFinanceCards(){
   if($('#financeCardsPaidTotal'))$('#financeCardsPaidTotal').textContent=String(paid.length);
   const q=financeCardsSearch.trim().toLowerCase();
   const rows=cardInstallments.filter(x=>(financeCardsStatus==='all'||x.estado===financeCardsStatus)&&(financeCardsBank==='all'||x.banco===financeCardsBank)&&(!q||`${x.banco||''} ${x.tarjeta_nombre||''} ${x.titular||''} ${x.ultimos4||''}`.toLowerCase().includes(q)));
-  root.innerHTML=rows.map(q=>`<div class="finance-card-row"><span class="finance-card-icon" style="--c1:${escapeHtml(q.color_1||'#263f67')};--c2:${escapeHtml(q.color_2||'#586a88')}">${q.logo_url?`<img src="${escapeHtml(q.logo_url)}" alt="" onerror="this.style.display='none'" />`:iconUse('icon-card')}</span><div class="finance-card-copy"><strong>${escapeHtml(q.banco||q.tarjeta_nombre)} · Cuota ${q.numero_cuota}/${q.cuotas_total}</strong><small>${escapeHtml(q.fecha_pago)} · ${escapeHtml(q.titular||'')} · •••• ${escapeHtml(q.ultimos4||'')}</small></div><div class="finance-card-due"><strong>${money(q.monto_programado)}</strong><small><span class="card-status-pill ${q.estado==='pagado'?'paid':'pending'}">${q.estado==='pagado'?'Pagada':'Pendiente'}</span></small></div>${q.estado==='pendiente'?`<button type="button" class="finance-card-pay" data-card-pay="${q.id}">Pagar</button>`:''}</div>`).join('');
+  root.innerHTML=rows.map(q=>`<div class="finance-card-row"><span class="finance-card-icon" style="--c1:${escapeHtml(q.color_1||'#263f67')};--c2:${escapeHtml(q.color_2||'#586a88')}">${cardLogoMarkup(q,'finance-card-logo')}</span><div class="finance-card-copy"><strong>${escapeHtml(q.banco||q.tarjeta_nombre)} · Cuota ${q.numero_cuota}/${q.cuotas_total}</strong><small>${escapeHtml(q.fecha_pago)} · ${escapeHtml(q.titular||'')} · •••• ${escapeHtml(q.ultimos4||'')}</small></div><div class="finance-card-due"><strong>${money(q.monto_programado)}</strong><small><span class="card-status-pill ${q.estado==='pagado'?'paid':'pending'}">${q.estado==='pagado'?'Pagada':'Pendiente'}</span></small></div>${q.estado==='pendiente'?`<button type="button" class="finance-card-pay" data-card-pay="${q.id}">Pagar</button>`:''}</div>`).join('');
   if(empty)empty.hidden=rows.length>0;
 }
 function renderCardsAdmin(){
@@ -2994,7 +3032,7 @@ function renderCardsAdmin(){
     const text=`${c.banco||''} ${c.nombre||''} ${c.titular||''} ${c.ultimos4||''}`.toLowerCase();
     return statusOk&&bankOk&&(!q||text.includes(q));
   });
-  root.innerHTML=rows.map(c=>`<div class="cards-admin-row" data-card-id="${c.id}"><span class="cards-admin-swatch" style="--c1:${escapeHtml(c.color_1)};--c2:${escapeHtml(c.color_2)}">${c.logo_url?`<img src="${escapeHtml(c.logo_url)}" alt="" onerror="this.style.display='none'" />`:iconUse('icon-card')}</span><div class="cards-admin-copy"><strong>${escapeHtml(c.banco||c.nombre)} · •••• ${escapeHtml(c.ultimos4)}</strong><small>${escapeHtml(c.titular)} · ${money(c.valor_mensual)}/mes · ${c.cuotas_pagadas}/${c.cuotas_total} pagadas · próxima ${escapeHtml(c.proxima_fecha_pago||'—')}</small></div><div class="cards-admin-actions-row"><button type="button" data-card-detail="${c.id}">Ver</button><button type="button" data-card-edit="${c.id}">Editar</button><button type="button" data-card-delete="${c.id}">Desactivar</button></div></div>`).join('')||'<div class="home-workers-empty">No hay tarjetas que coincidan con el filtro.</div>';
+  root.innerHTML=rows.map(c=>`<div class="cards-admin-row" data-card-id="${c.id}"><span class="cards-admin-swatch" style="--c1:${escapeHtml(c.color_1)};--c2:${escapeHtml(c.color_2)}">${cardLogoMarkup(c,'cards-admin-logo')}</span><div class="cards-admin-copy"><strong>${escapeHtml(c.banco||c.nombre)} · •••• ${escapeHtml(c.ultimos4)}</strong><small>${escapeHtml(c.titular)} · ${money(c.valor_mensual)}/mes · ${c.cuotas_pagadas}/${c.cuotas_total} pagadas · próxima ${escapeHtml(c.proxima_fecha_pago||'—')}</small></div><div class="cards-admin-actions-row"><button type="button" data-card-detail="${c.id}">Ver</button><button type="button" data-card-edit="${c.id}">Editar</button><button type="button" data-card-delete="${c.id}">Desactivar</button></div></div>`).join('')||'<div class="home-workers-empty">No hay tarjetas que coincidan con el filtro.</div>';
 }
 function renderCardAdminPreview(){const fake={id:0,nombre:$('#cardBank')?.value||'Banco',banco:$('#cardBank')?.value||'Banco',titular:$('#cardHolder')?.value||'Nombre del titular',ultimos4:$('#cardLast4')?.value||'0000',vencimiento:$('#cardExpiry')?.value||'00/00',logo_url:$('#cardBankLogoUrl')?.value||'',color_1:$('#cardColor1')?.value||'#263f67',color_2:$('#cardColor2')?.value||'#586a88'};const el=$('#cardAdminPreview');if(el)el.outerHTML=`<div class="payment-card-preview" id="cardAdminPreview" style="--card1:${fake.color_1};--card2:${fake.color_2}">${paymentCardHtml(fake).replace(/^<article[^>]*>|<\/article>$/g,'')}</div>`}
 function openCardDetail(id){
@@ -3007,7 +3045,7 @@ function openCardDetail(id){
   $('#cardDetailInstallments').textContent=`${Number(c.cuotas_pagadas||0)}/${Number(c.cuotas_total||0)} pagadas`;
   $('#cardDetailNextDue').textContent=c.proxima_fecha_pago||'Sin pagos pendientes';
   $('#cardDetailInfo').textContent=c.info||'Sin información adicional';
-  $('#cardDetailVisual').innerHTML=`<div class="card-detail-visual" style="--card1:${escapeHtml(c.color_1||'#263f67')};--card2:${escapeHtml(c.color_2||'#586a88')}"><div class="card-detail-bank-head">${c.logo_url?`<img src="${escapeHtml(c.logo_url)}" alt="" />`:iconUse('icon-card')}<strong>${escapeHtml(c.banco||c.nombre||'Tarjeta')}</strong></div><div class="card-detail-number">•••• •••• •••• ${escapeHtml(c.ultimos4||'••••')}</div><div class="card-detail-mini"><span>${escapeHtml(c.titular||'—')}</span><span>Caduca ${escapeHtml(c.vencimiento||'—')}</span></div></div>`;
+  $('#cardDetailVisual').innerHTML=`<div class="card-detail-visual" style="--card1:${escapeHtml(c.color_1||'#263f67')};--card2:${escapeHtml(c.color_2||'#586a88')}"><div class="card-detail-bank-head">${cardLogoMarkup(c,'card-detail-bank-logo')}<strong>${escapeHtml(c.banco||c.nombre||'Tarjeta')}</strong></div><div class="card-detail-number">•••• •••• •••• ${escapeHtml(c.ultimos4||'••••')}</div><div class="card-detail-mini"><span>${escapeHtml(c.titular||'—')}</span><span>Caduca ${escapeHtml(c.vencimiento||'—')}</span></div></div>`;
   $('#cardDetailDialog')?.showModal();
 }
 async function refreshCards({silent=false}={}){if(!currentUser)return;try{const data=await apiFetch(`/api/tarjetas?_=${Date.now()}`,{cache:'no-store'});cardsData=Array.isArray(data.tarjetas)?data.tarjetas:[];cardInstallments=Array.isArray(data.cuotas)?data.cuotas:[];renderHomeCards();renderFinanceCards();if(currentUser.rol==='admin')renderCardsAdmin();return data}catch(e){if(!silent)showToast(e.message,'No se pudieron cargar las tarjetas')}}
@@ -4133,6 +4171,11 @@ async function refreshBanks({silent=false}={}){
     applyCnbBankMetaToUi();
     renderAdminBanks();
     updateCuadreTotals();
+    if(cardsData.length){
+      renderHomeCards();
+      renderFinanceCards();
+      if(currentUser?.rol==='admin') renderCardsAdmin();
+    }
   }catch(err){if(!silent)showToast(err.message,'No se pudieron cargar los bancos');}
 }
 function applyCnbConfig(d={}){
