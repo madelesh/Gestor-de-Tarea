@@ -1,4 +1,4 @@
-const APP_VERSION = '11.29';
+const APP_VERSION = '11.29.1';
 const API_BASE = 'https://gestor-tareas-api.detodoec.workers.dev';
 const STORAGE_KEY = 'detodoec_tasks_v1';
 const SETTINGS_KEY = 'detodoec_tasks_settings_v3';
@@ -83,6 +83,8 @@ let financeAdminData={employee_debts:[],third_party_debts:[],investments:[]};
 let financeAdminTab='empleados';
 let financeCalendarItems=[];
 let expenseApprovalItems=[];
+let expenseReviewApproved=[];
+let expenseReviewRejected=[];
 let financeCalendarMonth=todayLocal().slice(0,7);
 let paymentCalendarItems=[];
 let calendarMonthlyExpenses=[];
@@ -2467,7 +2469,7 @@ function updateCurrentUserUI() {
   if (currentUser.rol === 'admin') {
     refreshCuadreNotifications({ silent:true });
     if (notificationPollTimer) clearInterval(notificationPollTimer);
-    notificationPollTimer=setInterval(()=>refreshCuadreNotifications({silent:true}),30000);
+    notificationPollTimer=setInterval(()=>refreshCuadreNotifications({silent:true}),10000);
   } else if (notificationPollTimer) { clearInterval(notificationPollTimer); notificationPollTimer=null; }
 
   updateNavigationPermissions();
@@ -2849,10 +2851,10 @@ function expenseApprovalLabel(t=''){return ({deuda_empleado:'Deuda de empleado',
 function expenseApprovalSummary(item={}){let p={};try{p=JSON.parse(item.payload_json||'{}')}catch{};const a=Number(p.monto_pagado??p.monto??0),parts=[];if(p.concepto)parts.push(p.concepto);if(p.nombre_tercero)parts.push(p.nombre_tercero);if(p.titulo)parts.push(p.titulo);if(a>0)parts.push(money(a));if(p.local)parts.push(p.local);if(p.plataforma_pago)parts.push(p.plataforma_pago);return parts.join(' · ')||'Sin detalle';}
 function renderExpenseApprovals(){const root=$('#expenseApprovalList'),empty=$('#expenseApprovalEmpty'),badge=$('#financeApprovalPendingCount');if(!root)return;if(badge){badge.textContent=String(expenseApprovalItems.length);badge.hidden=!expenseApprovalItems.length}root.innerHTML=expenseApprovalItems.map(i=>{const n=i.usuario_nombre||i.usuario||'Usuario',av=i.usuario_foto?`<img src="${escapeHtml(i.usuario_foto)}" alt="" />`:`<span>${escapeHtml(n.slice(0,1).toUpperCase())}</span>`;return `<article class="expense-approval-card"><div class="expense-approval-avatar">${av}</div><div class="expense-approval-copy"><strong>${escapeHtml(expenseApprovalLabel(i.tipo))}</strong><span>${escapeHtml(expenseApprovalSummary(i))}</span><small>Solicitado por ${escapeHtml(n)} · ${formatTime(i.creado_en)}</small></div><div class="expense-approval-actions"><button class="reject" data-reject-expense="${i.id}">Rechazar</button><button class="approve" data-approve-expense="${i.id}">Aprobar</button></div></article>`}).join('');if(empty)empty.hidden=expenseApprovalItems.length>0;}
 async function refreshExpenseApprovals({silent=false}={}){if(currentUser?.rol!=='admin')return;try{const r=await apiFetch(`/api/finanzas/solicitudes?estado=pendiente&_=${Date.now()}`,{cache:'no-store'});expenseApprovalItems=Array.isArray(r)?r:[];renderExpenseApprovals()}catch(e){if(!silent)showToast(e.message,'Aprobaciones')}}
-async function resolveExpenseApproval(id,accion){try{await apiFetch(`/api/finanzas/solicitudes/${id}/${accion}`,{method:'POST',headers:{'Content-Type':'application/json'},body:'{}'});showToast(accion==='aprobar'?'Movimiento aprobado.':'Movimiento rechazado.','Egresos');await Promise.allSettled([refreshExpenseApprovals({silent:true}),refreshFinanceAdmin({silent:true}),refreshPaymentCalendar({silent:true}),refreshCuadreNotifications({silent:true})])}catch(e){showToast(e.message,'No se pudo resolver')}}
+async function resolveExpenseApproval(id,accion){try{await apiFetch(`/api/finanzas/solicitudes/${id}/${accion}`,{method:'POST',headers:{'Content-Type':'application/json'},body:'{}'});showToast(accion==='aprobar'?'Movimiento aprobado.':'Movimiento rechazado.','Egresos');await Promise.allSettled([refreshMainReviews({silent:true}),refreshAdminReviews({silent:true}),refreshFinanceAdmin({silent:true}),refreshPaymentCalendar({silent:true}),refreshCuadreNotifications({silent:true})])}catch(e){showToast(e.message,'No se pudo resolver')}}
 async function refreshFinanceAdmin({silent=false}={}){if(!currentUser||!(currentUser.rol==='admin'||userCan('expenses')))return;try{if(!adminUsers.length){if(currentUser.rol==='admin')await refreshAdminUsers();else{const rows=await apiFetch(`/api/usuarios/activos?_=${Date.now()}`,{cache:'no-store'});adminUsers=Array.isArray(rows)?rows:[];}}const data=await apiFetch(`/api/finanzas/registros?_=${Date.now()}`,{cache:'no-store'});financeAdminData=data||financeAdminData;renderEmployeeDebtPicker();const today=todayLocal();['employeeDebtAdminDate','thirdPartyDebtDate','investmentDate'].forEach(id=>{if($('#'+id)&&!$('#'+id).value)$('#'+id).value=today});renderFinanceAdmin();updateEmployeeDebtLimitHint();await refreshFinanceCalendarPayments({silent:true})}catch(err){if(!silent)showToast(err.message,'No se pudo cargar Finanzas')}}
-async function submitEmployeeDebtAdmin(e){e.preventDefault();const payload={usuario_id:Number($('#employeeDebtAdminUser').value),monto:Number($('#employeeDebtAdminAmount').value||0),fecha:$('#employeeDebtAdminDate').value,concepto:$('#employeeDebtAdminConcept').value.trim(),local:document.querySelector('input[name="employeeDebtLocation"]:checked')?.value||'Matriz',nota:$('#employeeDebtAdminNote').value.trim()};try{const result=await apiFetch('/api/finanzas/deudas-empleados',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify(payload)});e.target.reset();$('#employeeDebtAdminDate').value=todayLocal();$('#employeeDebtAdminUser').value='';$$('.employee-debt-user-option').forEach(x=>x.classList.remove('active'));updateEmployeeDebtLimitHint();showToast(result?.pendiente_aprobacion?'Deuda enviada al administrador para aprobación.':'Deuda agregada al empleado.','Egresos');await refreshFinanceAdmin({silent:true})}catch(err){showToast(err.message,'No se pudo agregar la deuda')}}
-async function submitThirdPartyDebt(e){e.preventDefault();const payload={nombre_tercero:$('#thirdPartyDebtName').value.trim(),contacto:$('#thirdPartyDebtContact').value.trim(),monto:Number($('#thirdPartyDebtAmount').value||0),fecha:$('#thirdPartyDebtDate').value,concepto:$('#thirdPartyDebtConcept').value.trim(),local:document.querySelector('input[name="thirdDebtLocation"]:checked')?.value||'Matriz',nota:$('#thirdPartyDebtNote').value.trim()};try{const result=await apiFetch('/api/finanzas/deudas-terceros',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify(payload)});e.target.reset();$('#thirdPartyDebtDate').value=todayLocal();showToast(result?.pendiente_aprobacion?'Deuda enviada al administrador para aprobación.':'Deuda de tercero registrada.','Egresos');await refreshFinanceAdmin({silent:true})}catch(err){showToast(err.message,'No se pudo registrar')}}
+async function submitEmployeeDebtAdmin(e){e.preventDefault();const payload={usuario_id:Number($('#employeeDebtAdminUser').value),monto:Number($('#employeeDebtAdminAmount').value||0),fecha:$('#employeeDebtAdminDate').value,concepto:$('#employeeDebtAdminConcept').value.trim(),local:document.querySelector('input[name="employeeDebtLocation"]:checked')?.value||'Matriz',nota:$('#employeeDebtAdminNote').value.trim()};try{const result=await apiFetch('/api/finanzas/deudas-empleados',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify(payload)});e.target.reset();$('#employeeDebtAdminDate').value=todayLocal();$('#employeeDebtAdminUser').value='';$$('.employee-debt-user-option').forEach(x=>x.classList.remove('active'));updateEmployeeDebtLimitHint();showToast('Deuda enviada a Revisiones para aprobación.','Egresos');await Promise.allSettled([refreshFinanceAdmin({silent:true}),refreshMainReviews({silent:true}),refreshCuadreNotifications({silent:true})])}catch(err){showToast(err.message,'No se pudo agregar la deuda')}}
+async function submitThirdPartyDebt(e){e.preventDefault();const payload={nombre_tercero:$('#thirdPartyDebtName').value.trim(),contacto:$('#thirdPartyDebtContact').value.trim(),monto:Number($('#thirdPartyDebtAmount').value||0),fecha:$('#thirdPartyDebtDate').value,concepto:$('#thirdPartyDebtConcept').value.trim(),local:document.querySelector('input[name="thirdDebtLocation"]:checked')?.value||'Matriz',nota:$('#thirdPartyDebtNote').value.trim()};try{const result=await apiFetch('/api/finanzas/deudas-terceros',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify(payload)});e.target.reset();$('#thirdPartyDebtDate').value=todayLocal();showToast('Deuda enviada a Revisiones para aprobación.','Egresos');await Promise.allSettled([refreshFinanceAdmin({silent:true}),refreshMainReviews({silent:true}),refreshCuadreNotifications({silent:true})])}catch(err){showToast(err.message,'No se pudo registrar')}}
 async function submitInvestment(e){e.preventDefault();const inversiones=$$('[data-investment-check]:checked').map(check=>{const amount=$(`[data-investment-amount="${check.value}"]`);return{categoria:check.value,monto:Number(amount?.value||0)}}).filter(x=>x.monto>0);if(!inversiones.length){showToast('Selecciona al menos una categoría y agrega su monto.','Inversión');return;}const payload={inversiones,concepto:$('#investmentConcept').value.trim(),fecha:$('#investmentDate').value,local:document.querySelector('input[name="investmentLocation"]:checked')?.value||'Matriz',fuente:$('#investmentSource').value.trim(),nota:$('#investmentNote').value.trim()};if(!payload.concepto){showToast('Escribe el detalle o concepto.','Inversión');return;}try{await apiFetch('/api/finanzas/inversiones',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify(payload)});e.target.reset();resetInvestmentMulti();$('#investmentDate').value=todayLocal();showToast(`${inversiones.length} categoría${inversiones.length===1?'':'s'} registrada${inversiones.length===1?'':'s'}.`,'Finanzas');await refreshFinanceAdmin({silent:true})}catch(err){showToast(err.message,'No se pudo registrar la inversión')}}
 
 function goalForUser(userId) {
@@ -3021,7 +3023,7 @@ function renderHomeMonthlyExpenses(){const body=$('#homeExpensesBody'),empty=$('
 async function refreshPaymentCalendar({silent=false,month=paymentCalendarMonth}={}){if(!currentUser)return;try{const rows=await apiFetch(`/api/calendario-pagos?month=${encodeURIComponent(month)}&_=${Date.now()}`,{cache:'no-store'});paymentCalendarItems=Array.isArray(rows)?rows:[];renderPaymentCalendar();renderAdminPaymentCalendar();await refreshCalendarMonthlyExpenses({silent:true,month});return paymentCalendarItems}catch(err){if(!silent)showToast(err.message,'No se pudo cargar el calendario');return[]}}
 function renderAdminPaymentCalendar(){const root=$('#calendarAdminList'),empty=$('#calendarAdminEmpty');if(!root)return;const total=paymentCalendarItems.length,paid=paymentCalendarItems.filter(i=>i.estado==='pagado').length,pending=total-paid;if($('#calendarAdminMonthLabel'))$('#calendarAdminMonthLabel').textContent=calendarMonthLabel(paymentCalendarMonth);if($('#calendarAdminTotal'))$('#calendarAdminTotal').textContent=String(total);if($('#calendarAdminPending'))$('#calendarAdminPending').textContent=String(pending);if($('#calendarAdminPaid'))$('#calendarAdminPaid').textContent=String(paid);root.innerHTML=paymentCalendarItems.map(item=>{const meta=calendarMeta(item.categoria),creatorName=item.creado_por_nombre||'Usuario',creatorAvatar=item.creado_por_foto?`<img src="${escapeHtml(item.creado_por_foto)}" alt="" />`:`<span>${escapeHtml(String(creatorName).slice(0,1).toUpperCase())}</span>`,due=calendarDueLabel(item);return `<div class="calendar-admin-row" data-calendar-id="${item.id}"><div class="calendar-admin-icon" style="--cat-color:${meta.color}">${String(meta.label).slice(0,1)}</div><div class="calendar-admin-main"><strong>${escapeHtml(item.titulo)}</strong><small>${escapeHtml(item.fecha_pago)} · ${escapeHtml(meta.label)}${item.notas?` · ${escapeHtml(item.notas)}`:''}</small><div class="calendar-created-by"><span class="calendar-created-avatar">${creatorAvatar}</span><span>Anotado por <b>${escapeHtml(creatorName)}</b></span></div></div><strong>${Number(item.monto||0)>0?money(item.monto):'—'}</strong><span class="calendar-admin-status ${item.estado==='pagado'?'paid':due.cls}">${due.text}</span><div class="calendar-admin-actions">${item.estado==='pagado'?`<button type="button" data-calendar-toggle="${item.id}">Reabrir</button>`:`<button type="button" data-calendar-pay="${item.id}">Registrar pago</button>`}<button type="button" class="danger" data-calendar-delete="${item.id}">Eliminar</button></div></div>`}).join('');if(empty)empty.hidden=paymentCalendarItems.length>0}
 function openCalendarPaymentDialog(id){const item=paymentCalendarItems.find(x=>String(x.id)===String(id))||financeCalendarItems.find(x=>String(x.id)===String(id));if(!item)return;pendingCalendarPaymentId=Number(id);if($('#calendarPaymentDialogTitle'))$('#calendarPaymentDialogTitle').textContent=`Pagar · ${item.titulo}`;if($('#calendarPaymentActualAmount'))$('#calendarPaymentActualAmount').value=Number(item.monto||0).toFixed(2);if($('#calendarPaymentPaidDate'))$('#calendarPaymentPaidDate').value=todayLocal();if($('#calendarPaymentPlatform'))$('#calendarPaymentPlatform').value='Efectivo';if($('#calendarPaymentNote'))$('#calendarPaymentNote').value='';$('#calendarPaymentDialog')?.showModal()}
-async function submitCalendarPayment(e){e.preventDefault();if(!pendingCalendarPaymentId)return;const payload={estado:'pagado',plataforma_pago:$('#calendarPaymentPlatform').value,monto_pagado:Number($('#calendarPaymentActualAmount').value||0),fecha_pagado:$('#calendarPaymentPaidDate').value,nota_pago:$('#calendarPaymentNote').value.trim()};try{const result=await apiFetch(`/api/calendario-pagos/${pendingCalendarPaymentId}`,{method:'PUT',headers:{'Content-Type':'application/json'},body:JSON.stringify(payload)});$('#calendarPaymentDialog')?.close();pendingCalendarPaymentId=null;showToast(result?.pendiente_aprobacion?'Pago enviado al administrador para aprobación.':'Pago registrado y guardado en Gastos del mes.','Servicios Básicos');await refreshPaymentCalendar({silent:true});await refreshFinanceCalendarPayments({silent:true});await refreshCuadreNotifications({silent:true})}catch(err){showToast(err.message,'No se pudo registrar el pago')}}
+async function submitCalendarPayment(e){e.preventDefault();if(!pendingCalendarPaymentId)return;const payload={estado:'pagado',plataforma_pago:$('#calendarPaymentPlatform').value,monto_pagado:Number($('#calendarPaymentActualAmount').value||0),fecha_pagado:$('#calendarPaymentPaidDate').value,nota_pago:$('#calendarPaymentNote').value.trim()};try{const result=await apiFetch(`/api/calendario-pagos/${pendingCalendarPaymentId}`,{method:'PUT',headers:{'Content-Type':'application/json'},body:JSON.stringify(payload)});$('#calendarPaymentDialog')?.close();pendingCalendarPaymentId=null;showToast('Pago enviado a Revisiones para aprobación.','Servicios Básicos');await refreshPaymentCalendar({silent:true});await refreshFinanceCalendarPayments({silent:true});await refreshCuadreNotifications({silent:true})}catch(err){showToast(err.message,'No se pudo registrar el pago')}}
 async function submitPaymentCalendar(e){e.preventDefault();const payload={titulo:$('#paymentCalendarTitle').value.trim(),categoria:$('#paymentCalendarCategory').value,fecha_pago:$('#paymentCalendarDate').value,monto:Number($('#paymentCalendarAmount').value||0),notas:$('#paymentCalendarNotes').value.trim()};try{await apiFetch('/api/calendario-pagos',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify(payload)});e.target.reset();$('#paymentCalendarDate').value=todayLocal();showToast('Pago agregado al calendario.','Calendario');const month=payload.fecha_pago.slice(0,7);if($('#calendarAdminMonth'))$('#calendarAdminMonth').value=month;paymentCalendarMonth=month;await refreshPaymentCalendar({silent:true,month})}catch(err){showToast(err.message,'No se pudo agregar')}}
 
 async function refreshHomeUsers() {
@@ -4367,15 +4369,33 @@ function reviewCardHtml(r,{history=false,status=null}={}){
   </article>`;
 }
 
+
+function expenseReviewPayload(item={}){try{return JSON.parse(item.payload_json||'{}')}catch{return {}}}
+function expenseReviewDate(item={}){const p=expenseReviewPayload(item);return String(p.fecha_pagado||p.fecha||item.creado_en||'').slice(0,10)}
+function expenseReviewCardHtml(item,{status='pendiente'}={}){
+  const p=expenseReviewPayload(item),name=item.usuario_nombre||item.usuario||'Usuario';
+  const avatar=item.usuario_foto?`<img src="${escapeHtml(item.usuario_foto)}" alt="" />`:`<span>${escapeHtml(name.slice(0,1).toUpperCase())}</span>`;
+  const amount=Number(p.monto_pagado??p.monto??0),label=expenseApprovalLabel(item.tipo),summary=expenseApprovalSummary(item);
+  const actions=status==='pendiente'?`<div class="expense-review-actions"><button type="button" class="reject" data-review-expense-reject="${item.id}">Rechazar</button><button type="button" class="approve" data-review-expense-approve="${item.id}">Aprobar</button></div>`:'';
+  return `<article class="review-card expense-review-card" data-expense-review-id="${item.id}">
+    <div class="review-card-user"><span class="review-card-avatar expense-avatar">${avatar}</span><span class="review-card-user-copy"><strong>${escapeHtml(name)}</strong><small>${escapeHtml(label)} · ${escapeHtml(expenseReviewDate(item)||'—')}</small></span></div>
+    <div class="review-card-metric"><small>Detalle</small><strong>${escapeHtml(summary)}</strong></div>
+    <div class="review-card-metric"><small>Valor</small><strong>${amount>0?money(amount):'—'}</strong></div>
+    <span class="review-status-pill ${status==='aprobado'?'ok':status==='rechazado'?'late':'apertura'}">${status==='pendiente'?'Egresos':status==='aprobado'?'Aprobado':'Rechazado'}</span>${actions}
+  </article>`;
+}
+async function loadExpenseReviewsByStatus(status='pendiente'){
+  try{const r=await apiFetch(`/api/finanzas/solicitudes?estado=${encodeURIComponent(status)}&_=${Date.now()}`,{cache:'no-store'});return Array.isArray(r)?r:[]}catch{return []}
+}
+
 function renderMainReviews(){
   const list=$('#mainReviewList');if(!list)return;
   const closureCards=pendingCuadreReviews.map(r=>reviewCardHtml(r,{status:'pendiente'})).join('');
-  const openingCards=openingReviewAlerts.map(a=>`<article class="review-card opening-alert" data-opening-alert-id="${a.id}">
-    <div class="review-card-user"><span class="review-card-avatar">${iconUse('icon-alert')}</span><span class="review-card-user-copy"><strong>${escapeHtml(a.usuario_nombre||a.usuario||'Usuario')}</strong><small>Apertura ${escapeHtml(a.fecha_local||'')} · cierre de ${escapeHtml(a.cierre_usuario_nombre||'usuario anterior')}</small></span></div>
-    <div class="review-card-metric"><small>Diferencia</small><strong>${Number(a.diferencia||0)<0?`Falta ${money(Math.abs(a.diferencia||0))}`:`Sobra ${money(a.diferencia||0)}`}</strong></div>
-    <div class="review-card-metric"><small>Estado</small><strong>Pendiente</strong></div><span class="review-status-pill apertura">Apertura</span></article>`).join('');
-  const total=pendingCuadreReviews.length+openingReviewAlerts.length;if($('#mainReviewsPending'))$('#mainReviewsPending').textContent=String(total);
-  list.innerHTML=(closureCards+openingCards)||'<div class="review-empty">No hay cierres ni aperturas pendientes de revisión.</div>';
+  const openingCards=openingReviewAlerts.map(a=>`<article class="review-card opening-alert" data-opening-alert-id="${a.id}"><div class="review-card-user"><span class="review-card-avatar">${iconUse('icon-alert')}</span><span class="review-card-user-copy"><strong>${escapeHtml(a.usuario_nombre||a.usuario||'Usuario')}</strong><small>Apertura ${escapeHtml(a.fecha_local||'')} · cierre de ${escapeHtml(a.cierre_usuario_nombre||'usuario anterior')}</small></span></div><div class="review-card-metric"><small>Diferencia</small><strong>${Number(a.diferencia||0)<0?`Falta ${money(Math.abs(a.diferencia||0))}`:`Sobra ${money(a.diferencia||0)}`}</strong></div><div class="review-card-metric"><small>Estado</small><strong>Pendiente</strong></div><span class="review-status-pill apertura">Apertura</span></article>`).join('');
+  const expenseCards=expenseApprovalItems.map(i=>expenseReviewCardHtml(i,{status:'pendiente'})).join('');
+  const total=pendingCuadreReviews.length+openingReviewAlerts.length+expenseApprovalItems.length;
+  if($('#mainReviewsPending'))$('#mainReviewsPending').textContent=String(total);
+  list.innerHTML=(closureCards+openingCards+expenseCards)||'<div class="review-empty">No hay movimientos pendientes de revisión.</div>';
 }
 
 function approvedReviewFilteredRows(){
@@ -4395,17 +4415,18 @@ function approvedReviewFilteredRows(){
 function renderAdminReviews(){
   const list=$('#adminReviewList');if(!list)return;
   const rows=approvedReviewFilteredRows();
+  const expenseRows=adminReviewActiveTab==='pendiente'?expenseApprovalItems:adminReviewActiveTab==='aprobado'?expenseReviewApproved:expenseReviewRejected;
   const labels={pendiente:'Revisiones en curso',aprobado:'Revisiones aprobadas',rechazado:'Revisiones no aprobadas'};
   if($('#adminReviewSummaryLabel'))$('#adminReviewSummaryLabel').textContent=labels[adminReviewActiveTab]||'Revisiones';
-  if($('#approvedReviewCount'))$('#approvedReviewCount').textContent=String(rows.length+(adminReviewActiveTab==='pendiente'?openingReviewAlerts.length:0));
-  if($('#reviewPendingCount'))$('#reviewPendingCount').textContent=String(pendingCuadreReviews.length+openingReviewAlerts.length);
-  if($('#reviewApprovedCount'))$('#reviewApprovedCount').textContent=String(adminReviewRows.length);
-  if($('#reviewRejectedCount'))$('#reviewRejectedCount').textContent=String(adminRejectedReviewRows.length);
+  const extraOpening=adminReviewActiveTab==='pendiente'?openingReviewAlerts.length:0;
+  if($('#approvedReviewCount'))$('#approvedReviewCount').textContent=String(rows.length+expenseRows.length+extraOpening);
+  if($('#reviewPendingCount'))$('#reviewPendingCount').textContent=String(pendingCuadreReviews.length+openingReviewAlerts.length+expenseApprovalItems.length);
+  if($('#reviewApprovedCount'))$('#reviewApprovedCount').textContent=String(adminReviewRows.length+expenseReviewApproved.length);
+  if($('#reviewRejectedCount'))$('#reviewRejectedCount').textContent=String(adminRejectedReviewRows.length+expenseReviewRejected.length);
   $$('.admin-review-tab').forEach(btn=>btn.classList.toggle('active',btn.dataset.adminReviewTab===adminReviewActiveTab));
   let cards=rows.map(r=>reviewCardHtml(r,{status:adminReviewActiveTab})).join('');
-  if(adminReviewActiveTab==='pendiente'){
-    cards+=openingReviewAlerts.map(a=>`<article class="review-card opening-alert" data-opening-alert-id="${a.id}"><div class="review-card-user"><span class="review-card-avatar">${iconUse('icon-alert')}</span><span class="review-card-user-copy"><strong>${escapeHtml(a.usuario_nombre||a.usuario||'Usuario')}</strong><small>Apertura ${escapeHtml(a.fecha_local||'')} · cierre de ${escapeHtml(a.cierre_usuario_nombre||'usuario anterior')}</small></span></div><div class="review-card-metric"><small>Diferencia</small><strong>${Number(a.diferencia||0)<0?`Falta ${money(Math.abs(a.diferencia||0))}`:`Sobra ${money(a.diferencia||0)}`}</strong></div><div class="review-card-metric"><small>Estado</small><strong>En curso</strong></div><span class="review-status-pill apertura">Apertura</span></article>`).join('');
-  }
+  cards+=expenseRows.map(r=>expenseReviewCardHtml(r,{status:adminReviewActiveTab})).join('');
+  if(adminReviewActiveTab==='pendiente')cards+=openingReviewAlerts.map(a=>`<article class="review-card opening-alert" data-opening-alert-id="${a.id}"><div class="review-card-user"><span class="review-card-avatar">${iconUse('icon-alert')}</span><span class="review-card-user-copy"><strong>${escapeHtml(a.usuario_nombre||a.usuario||'Usuario')}</strong><small>Apertura ${escapeHtml(a.fecha_local||'')} · cierre de ${escapeHtml(a.cierre_usuario_nombre||'usuario anterior')}</small></span></div><div class="review-card-metric"><small>Diferencia</small><strong>${Number(a.diferencia||0)<0?`Falta ${money(Math.abs(a.diferencia||0))}`:`Sobra ${money(a.diferencia||0)}`}</strong></div><div class="review-card-metric"><small>Estado</small><strong>En curso</strong></div><span class="review-status-pill apertura">Apertura</span></article>`).join('');
   const empty={pendiente:'No hay revisiones en curso.',aprobado:'No hay revisiones aprobadas que coincidan con los filtros.',rechazado:'No hay revisiones no aprobadas que coincidan con los filtros.'};
   list.innerHTML=cards||`<div class="review-empty">${empty[adminReviewActiveTab]}</div>`;
 }
@@ -4413,14 +4434,16 @@ function renderAdminReviews(){
 async function refreshMainReviews({silent=false}={}){
   if(!currentUser||currentUser.rol!=='admin')return[];
   try{
-    const [rows,alerts,notifications]=await Promise.all([
+    const [rows,alerts,notifications,expenses]=await Promise.all([
       apiFetch(`/api/cuadre/solicitudes?estado=pendiente&_=${Date.now()}`,{cache:'no-store'}),
       apiFetch(`/api/cuadre/aperturas-alertas?_=${Date.now()}`,{cache:'no-store'}),
-      apiFetch(`/api/cuadre/notificaciones?_=${Date.now()}`,{cache:'no-store'})
+      apiFetch(`/api/cuadre/notificaciones?_=${Date.now()}`,{cache:'no-store'}),
+      apiFetch(`/api/finanzas/solicitudes?estado=pendiente&_=${Date.now()}`,{cache:'no-store'})
     ]);
     pendingCuadreReviews=Array.isArray(rows)?rows:[];
     openingReviewAlerts=Array.isArray(alerts)?alerts:[];
     cuadreNotifications=Array.isArray(notifications)?notifications:[];
+    expenseApprovalItems=Array.isArray(expenses)?expenses:[];
     detectNewNotificationSound(cuadreNotifications);
     renderCuadreNotifications();renderMainReviews();
     return pendingCuadreReviews;
@@ -4445,12 +4468,16 @@ async function resolveOpeningAlert(){if(!activeOpeningAlert)return;const ok=awai
 async function refreshAdminReviews({silent=false}={}){
   if(!currentUser||currentUser.rol!=='admin')return[];
   try{
-    const [approved,rejected]=await Promise.all([
+    const [approved,rejected,expenseApproved,expenseRejected]=await Promise.all([
       apiFetch(`/api/cuadre/solicitudes?estado=aprobado&_=${Date.now()}`,{cache:'no-store'}),
-      apiFetch(`/api/cuadre/solicitudes?estado=rechazado&_=${Date.now()}`,{cache:'no-store'})
+      apiFetch(`/api/cuadre/solicitudes?estado=rechazado&_=${Date.now()}`,{cache:'no-store'}),
+      apiFetch(`/api/finanzas/solicitudes?estado=aprobado&_=${Date.now()}`,{cache:'no-store'}),
+      apiFetch(`/api/finanzas/solicitudes?estado=rechazado&_=${Date.now()}`,{cache:'no-store'})
     ]);
     adminReviewRows=Array.isArray(approved)?approved:[];
     adminRejectedReviewRows=Array.isArray(rejected)?rejected:[];
+    expenseReviewApproved=Array.isArray(expenseApproved)?expenseApproved:[];
+    expenseReviewRejected=Array.isArray(expenseRejected)?expenseRejected:[];
     await refreshMainReviews({silent:true});
     renderAdminReviews();
     return adminReviewActiveTab==='rechazado'?adminRejectedReviewRows:adminReviewActiveTab==='pendiente'?pendingCuadreReviews:adminReviewRows;
@@ -5241,13 +5268,16 @@ $('#notificationList')?.addEventListener('click',async(e)=>{
   const item=e.target.closest('[data-notification-id]');if(!item)return;
   $('#notificationPanel').hidden=true;await markCuadreNotificationRead(item.dataset.notificationId);
   if(item.dataset.notificationRefType==='calendario_pago'){requestFinancePanel();setFinanceAdminTab('calendario');refreshCuadreNotifications({silent:true});return;}
-  if(item.dataset.notificationRefType==='egreso_solicitud'){requestFinancePanel();setFinanceAdminTab('aprobaciones');refreshExpenseApprovals({silent:true});refreshCuadreNotifications({silent:true});return;}
+  if(item.dataset.notificationRefType==='egreso_solicitud'){showMainView('reviews');await refreshMainReviews({silent:true});refreshCuadreNotifications({silent:true});return;}
   showMainView('reviews');
   if(item.dataset.notificationRefType==='apertura')openOpeningAlert(item.dataset.notificationRefId);
   else openCuadreReview(item.dataset.notificationRefId);
   refreshMainReviews({silent:true});
 });
-$('#mainReviewList')?.addEventListener('click',(e)=>{
+$('#mainReviewList')?.addEventListener('click',async(e)=>{
+  const approve=e.target.closest('[data-review-expense-approve]'),reject=e.target.closest('[data-review-expense-reject]');
+  if(approve){const ok=await themedConfirm({title:'Aprobar movimiento',message:'¿Confirmas que este movimiento de Egresos es correcto?',confirmText:'Aprobar'});if(ok)await resolveExpenseApproval(approve.dataset.reviewExpenseApprove,'aprobar');return;}
+  if(reject){const ok=await themedConfirm({title:'Rechazar movimiento',message:'¿Confirmas que deseas rechazar este movimiento de Egresos?',confirmText:'Rechazar',danger:true});if(ok)await resolveExpenseApproval(reject.dataset.reviewExpenseReject,'rechazar');return;}
   const opening=e.target.closest('[data-opening-alert-id]');if(opening){openOpeningAlert(opening.dataset.openingAlertId);return;}
   const card=e.target.closest('[data-admin-review-id]');if(card)openCuadreReview(card.dataset.adminReviewId);
 });
@@ -5261,7 +5291,7 @@ on('editCuadreReview','click',()=>{if(!activeCuadreReviewData||activeCuadreRevie
 on('saveCuadreReviewEdit','click',saveCuadreReviewEdit);
 on('approveCuadreReview', 'click', () => resolveCuadreReview('aprobar'));
 on('rejectCuadreReview', 'click', () => resolveCuadreReview('rechazar'));
-$('#adminReviewList')?.addEventListener('click',(e)=>{const opening=e.target.closest('[data-opening-alert-id]');if(opening){openOpeningAlert(opening.dataset.openingAlertId);return;}const c=e.target.closest('[data-admin-review-id]');if(c)openCuadreReview(c.dataset.adminReviewId);});
+$('#adminReviewList')?.addEventListener('click',async(e)=>{const approve=e.target.closest('[data-review-expense-approve]'),reject=e.target.closest('[data-review-expense-reject]');if(approve){const ok=await themedConfirm({title:'Aprobar movimiento',message:'¿Confirmas que este movimiento de Egresos es correcto?',confirmText:'Aprobar'});if(ok)await resolveExpenseApproval(approve.dataset.reviewExpenseApprove,'aprobar');return;}if(reject){const ok=await themedConfirm({title:'Rechazar movimiento',message:'¿Confirmas que deseas rechazar este movimiento de Egresos?',confirmText:'Rechazar',danger:true});if(ok)await resolveExpenseApproval(reject.dataset.reviewExpenseReject,'rechazar');return;}const opening=e.target.closest('[data-opening-alert-id]');if(opening){openOpeningAlert(opening.dataset.openingAlertId);return;}const c=e.target.closest('[data-admin-review-id]');if(c)openCuadreReview(c.dataset.adminReviewId);});
 
 
 on('checkinStartDate', 'change', refreshAttendance);
@@ -5974,3 +6004,5 @@ document.addEventListener('click', (e) => { if (!e.target.closest('.admin-user-c
 /* V11.28.2: sonido de campana para nuevas notificaciones (Web Audio API) */
 
 // V11.29 force-change: Servicios Básicos y aprobaciones de Egresos.
+
+// V11.29.1: Egresos requiere aprobación del administrador desde Revisiones.
