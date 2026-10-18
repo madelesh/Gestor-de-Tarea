@@ -1,4 +1,4 @@
-const APP_VERSION = '11.30.4';
+const APP_VERSION = '11.30.5';
 const API_BASE = 'https://gestor-tareas-api.detodoec.workers.dev';
 const STORAGE_KEY = 'detodoec_tasks_v1';
 const SETTINGS_KEY = 'detodoec_tasks_settings_v3';
@@ -93,6 +93,8 @@ let pendingCalendarPaymentId=null;
 let paymentCalendarMonth=todayLocal().slice(0,7);
 let cardsData=[];
 let cardInstallments=[];
+let cardLogoUploadPromise=null;
+let cardLogoObjectUrl='';
 let pendingCardPaymentId=null;
 let revealedCardIds=new Set();
 let cardsAdminSearch='';
@@ -3049,8 +3051,80 @@ function openCardDetail(id){
   $('#cardDetailDialog')?.showModal();
 }
 async function refreshCards({silent=false}={}){if(!currentUser)return;try{const data=await apiFetch(`/api/tarjetas?_=${Date.now()}`,{cache:'no-store'});cardsData=Array.isArray(data.tarjetas)?data.tarjetas:[];cardInstallments=Array.isArray(data.cuotas)?data.cuotas:[];renderHomeCards();renderFinanceCards();if(currentUser.rol==='admin')renderCardsAdmin();return data}catch(e){if(!silent)showToast(e.message,'No se pudieron cargar las tarjetas')}}
-function openCardAdminForm(card=null){if(currentUser?.rol!=='admin')return;$('#cardAdminForm').hidden=false;$('#cardAdminId').value=card?.id||'';$('#cardAdminFormTitle').textContent=card?'Editar tarjeta':'Nueva tarjeta';$('#cardBank').value=card?.banco||card?.nombre||'';$('#cardName').value=card?.banco||card?.nombre||'';$('#cardHolder').value=card?.titular||'';$('#cardLast4').value=card?.ultimos4||'';$('#cardExpiry').value=card?.vencimiento||'';$('#cardMonthlyAmount').value=card?.valor_mensual||'';$('#cardInstallments').value=card?.cuotas_total||1;$('#cardFirstDue').value=card?.primera_fecha_pago||todayLocal();$('#cardInfo').value=card?.info||'';$('#cardColor1').value=card?.color_1||'#263f67';$('#cardColor2').value=card?.color_2||'#586a88';$('#cardBankLogoUrl').value=card?.logo_url||'';$('#cardBankLogo').value='';renderCardAdminPreview()}
-async function submitCardAdmin(e){e.preventDefault();const id=Number($('#cardAdminId').value||0);let logo_url=$('#cardBankLogoUrl').value||'';const logoFile=$('#cardBankLogo')?.files?.[0];try{if(logoFile)logo_url=await uploadImage(logoFile);const banco=$('#cardBank').value.trim();const payload={nombre:banco,banco,titular:$('#cardHolder').value.trim(),ultimos4:$('#cardLast4').value.trim(),vencimiento:$('#cardExpiry').value.trim(),valor_mensual:Number($('#cardMonthlyAmount').value||0),cuotas_total:Number($('#cardInstallments').value||1),primera_fecha_pago:$('#cardFirstDue').value,info:$('#cardInfo').value.trim(),color_1:$('#cardColor1').value,color_2:$('#cardColor2').value,logo_url};await apiFetch(id?`/api/tarjetas/${id}`:'/api/tarjetas',{method:id?'PUT':'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify(payload)});$('#cardAdminForm').hidden=true;showToast(id?'Tarjeta actualizada.':'Tarjeta creada.','Tarjetas');await Promise.allSettled([refreshCards({silent:true}),refreshPaymentCalendar({silent:true})])}catch(err){showToast(err.message,'No se pudo guardar la tarjeta')}}
+function setCardLogoStatus(message='',state=''){
+  const el=$('#cardBankLogoStatus');
+  if(!el)return;
+  el.textContent=message;
+  el.dataset.state=state;
+}
+function resetCardLogoTransient(){
+  cardLogoUploadPromise=null;
+  if(cardLogoObjectUrl){try{URL.revokeObjectURL(cardLogoObjectUrl)}catch{} cardLogoObjectUrl='';}
+}
+function openCardAdminForm(card=null){
+  if(currentUser?.rol!=='admin')return;
+  resetCardLogoTransient();
+  $('#cardAdminForm').hidden=false;
+  $('#cardAdminId').value=card?.id||'';
+  $('#cardAdminFormTitle').textContent=card?'Editar tarjeta':'Nueva tarjeta';
+  $('#cardBank').value=card?.banco||card?.nombre||'';
+  $('#cardName').value=card?.banco||card?.nombre||'';
+  $('#cardHolder').value=card?.titular||'';
+  $('#cardLast4').value=card?.ultimos4||'';
+  $('#cardExpiry').value=card?.vencimiento||'';
+  $('#cardMonthlyAmount').value=card?.valor_mensual||'';
+  $('#cardInstallments').value=card?.cuotas_total||1;
+  $('#cardFirstDue').value=card?.primera_fecha_pago||todayLocal();
+  $('#cardInfo').value=card?.info||'';
+  $('#cardColor1').value=card?.color_1||'#263f67';
+  $('#cardColor2').value=card?.color_2||'#586a88';
+  $('#cardBankLogoUrl').value=card?.logo_url||'';
+  $('#cardBankLogo').value='';
+  setCardLogoStatus(card?.logo_url?'Logo guardado en la nube.':'Sin logo guardado.',card?.logo_url?'ok':'');
+  renderCardAdminPreview();
+}
+async function uploadCardLogoSelection(file){
+  if(!file)return '';
+  if(!String(file.type||'').startsWith('image/'))throw new Error('Selecciona una imagen PNG, JPG o WEBP.');
+  if(file.size>4*1024*1024)throw new Error('El logo no puede superar los 4 MB.');
+  if(cardLogoObjectUrl){try{URL.revokeObjectURL(cardLogoObjectUrl)}catch{}}
+  cardLogoObjectUrl=URL.createObjectURL(file);
+  $('#cardBankLogoUrl').value=cardLogoObjectUrl;
+  renderCardAdminPreview();
+  setCardLogoStatus('Subiendo logo a la nube…','loading');
+  const uploaded=await uploadImage(file);
+  const check=await fetch(uploaded,{method:'HEAD',cache:'no-store'});
+  if(!check.ok)throw new Error('El logo se subió, pero no se pudo verificar en la nube.');
+  $('#cardBankLogoUrl').value=uploaded;
+  setCardLogoStatus('Logo guardado en la nube.','ok');
+  renderCardAdminPreview();
+  return uploaded;
+}
+async function submitCardAdmin(e){
+  e.preventDefault();
+  const id=Number($('#cardAdminId').value||0);
+  const submitBtn=e.submitter||$('#cardAdminForm button[type="submit"]');
+  try{
+    if(cardLogoUploadPromise){
+      if(submitBtn)submitBtn.disabled=true;
+      await cardLogoUploadPromise;
+    }
+    let logo_url=String($('#cardBankLogoUrl').value||'').trim();
+    if(logo_url.startsWith('blob:')||logo_url.startsWith('data:'))throw new Error('Espera a que el logo termine de subirse antes de guardar.');
+    const banco=$('#cardBank').value.trim();
+    const payload={nombre:banco,banco,titular:$('#cardHolder').value.trim(),ultimos4:$('#cardLast4').value.trim(),vencimiento:$('#cardExpiry').value.trim(),valor_mensual:Number($('#cardMonthlyAmount').value||0),cuotas_total:Number($('#cardInstallments').value||1),primera_fecha_pago:$('#cardFirstDue').value,info:$('#cardInfo').value.trim(),color_1:$('#cardColor1').value,color_2:$('#cardColor2').value,logo_url};
+    const saved=await apiFetch(id?`/api/tarjetas/${id}`:'/api/tarjetas',{method:id?'PUT':'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify(payload)});
+    if(logo_url && String(saved?.tarjeta?.logo_url||'')!==logo_url)throw new Error('La tarjeta se guardó, pero el logo no quedó persistido. Intenta nuevamente.');
+    $('#cardAdminForm').hidden=true;
+    resetCardLogoTransient();
+    showToast(id?'Tarjeta actualizada con logo verificado.':'Tarjeta creada con logo verificado.','Tarjetas');
+    await Promise.allSettled([refreshCards({silent:true}),refreshPaymentCalendar({silent:true})]);
+  }catch(err){
+    showToast(err.message,'No se pudo guardar la tarjeta');
+  }finally{
+    if(submitBtn)submitBtn.disabled=false;
+  }
+}
 function openCardPayment(id){const q=cardInstallments.find(x=>String(x.id)===String(id));if(!q)return;pendingCardPaymentId=Number(id);$('#cardPaymentDialogTitle').textContent=`${q.tarjeta_nombre} · Cuota ${q.numero_cuota}/${q.cuotas_total}`;$('#cardPaymentAmount').value=Number(q.monto_programado||0).toFixed(2);$('#cardPaymentDate').value=todayLocal();$('#cardPaymentPlatform').value='Efectivo';$('#cardPaymentNote').value='';$('#cardPaymentDialog')?.showModal()}
 async function submitCardPayment(e){e.preventDefault();if(!pendingCardPaymentId)return;const payload={monto:Number($('#cardPaymentAmount').value||0),fecha:$('#cardPaymentDate').value,plataforma:$('#cardPaymentPlatform').value,nota:$('#cardPaymentNote').value.trim()};try{await apiFetch(`/api/tarjetas/cuotas/${pendingCardPaymentId}/pagar`,{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify(payload)});$('#cardPaymentDialog')?.close();pendingCardPaymentId=null;showToast('Pago enviado a Revisiones para aprobación.','Tarjetas');await Promise.allSettled([refreshCards({silent:true}),refreshMainReviews({silent:true}),refreshCuadreNotifications({silent:true})])}catch(err){showToast(err.message,'No se pudo registrar el pago')}}
 
@@ -5679,7 +5753,17 @@ on('newCardBtn','click',()=>openCardAdminForm());
 on('closeCardAdminForm','click',()=>{$('#cardAdminForm').hidden=true});
 on('cancelCardAdmin','click',()=>{$('#cardAdminForm').hidden=true});
 ['cardBank','cardHolder','cardLast4','cardExpiry','cardMonthlyAmount','cardInstallments','cardInfo','cardColor1','cardColor2'].forEach(id=>$('#'+id)?.addEventListener('input',renderCardAdminPreview));
-$('#cardBankLogo')?.addEventListener('change',()=>{const f=$('#cardBankLogo')?.files?.[0];if(!f)return;const r=new FileReader();r.onload=()=>{$('#cardBankLogoUrl').value=String(r.result||'');renderCardAdminPreview()};r.readAsDataURL(f)});
+$('#cardBankLogo')?.addEventListener('change',()=>{
+  const f=$('#cardBankLogo')?.files?.[0];
+  if(!f)return;
+  cardLogoUploadPromise=uploadCardLogoSelection(f).catch(err=>{
+    $('#cardBankLogoUrl').value='';
+    setCardLogoStatus(err.message||'No se pudo subir el logo.','error');
+    renderCardAdminPreview();
+    showToast(err.message,'Logo del banco');
+    throw err;
+  }).finally(()=>{cardLogoUploadPromise=null;});
+});
 $('#cardsAdminList')?.addEventListener('click',async(e)=>{const detail=e.target.closest('[data-card-detail]'),edit=e.target.closest('[data-card-edit]'),del=e.target.closest('[data-card-delete]');if(detail){openCardDetail(detail.dataset.cardDetail);return;}if(edit){const c=cardsData.find(x=>String(x.id)===String(edit.dataset.cardEdit));if(c)openCardAdminForm(c)}if(del){const ok=await themedConfirm({title:'Desactivar tarjeta',message:'La tarjeta dejará de aparecer, pero se conservará su historial.',confirmText:'Desactivar'});if(!ok)return;try{await apiFetch(`/api/tarjetas/${del.dataset.cardDelete}`,{method:'DELETE'});await refreshCards({silent:true})}catch(err){showToast(err.message,'Tarjetas')}}});
 $('#homeCardsCarousel')?.addEventListener('click',(e)=>{const reveal=e.target.closest('[data-card-reveal]');if(reveal){e.stopPropagation();if(currentUser?.rol!=='admin')return;const id=Number(reveal.dataset.cardReveal);revealedCardIds.has(id)?revealedCardIds.delete(id):revealedCardIds.add(id);renderHomeCards();return;}const card=e.target.closest('[data-card-detail]');if(card)openCardDetail(card.dataset.cardDetail)});
 on('closeCardDetail','click',()=>$('#cardDetailDialog')?.close());
