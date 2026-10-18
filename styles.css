@@ -8153,3 +8153,120 @@ textarea{
     grid-template-columns:1fr;
   }
 }
+
+
+/* =========================================================
+   V11.27.4 · Egresos en formato horizontal organizado
+   ========================================================= */
+.finance-admin-section .admin-section-head{
+  margin-bottom:14px;
+}
+
+.finance-admin-tabs{
+  display:grid;
+  grid-template-columns:repeat(3,minmax(0,1fr));
+  gap:10px;
+  margin:14px 0 18px;
+}
+.finance-admin-tabs button{
+  min-height:48px;
+  justify-content:center;
+  font-size:12px;
+  border-radius:14px;
+  background:var(--surface-2);
+}
+.finance-admin-tabs button.active{
+  background:var(--surface);
+  color:var(--ink);
+  border-color:var(--accent);
+  box-shadow:0 0 0 1px color-mix(in srgb,var(--accent) 28%, transparent) inset;
+}
+
+.finance-admin-panel .finance-entry-layout{
+  grid-template-columns:1fr !important;
+  gap:14px;
+}
+.finance-admin-records-wide,
+.employee-debt-records{
+  width:100%;
+}
+.finance-admin-records-card{
+  padding:16px 18px;
+}
+
+/* Empleados */
+.employee-debt-horizontal-form{
+  display:grid;
+  grid-template-columns: minmax(0,1.35fr) minmax(340px,.95fr);
+  gap:14px 16px;
+  align-items:start;
+}
+.employee-debt-horizontal-form > .finance-form-head,
+.employee-debt-horizontal-form > .finance-submit-wide{grid-column:1 / -1;}
+.employee-debt-pick-block{grid-column:1;}
+.employee-debt-main-grid,
+.employee-debt-location,
+.employee-debt-note{grid-column:2;}
+.employee-debt-concept{grid-column:1;}
+.employee-debt-horizontal-form .employee-debt-user-picker{grid-template-columns:repeat(3,minmax(0,1fr));}
+
+/* Terceros */
+.third-party-horizontal-form{
+  display:grid;
+  grid-template-columns:repeat(4,minmax(0,1fr));
+  gap:14px 16px;
+  align-items:start;
+}
+.third-party-horizontal-form > .finance-form-head,
+.third-party-horizontal-form > .finance-submit-wide{grid-column:1 / -1;}
+.third-party-main-grid{grid-column:1 / -1;grid-template-columns:1.25fr 1fr .7fr .7fr;}
+.third-party-location{grid-column:1 / span 2;}
+.third-party-concept{grid-column:3 / -1;}
+.third-party-note{grid-column:1 / -1;}
+
+/* Inversión */
+.investment-horizontal-form{
+  display:grid;
+  grid-template-columns:minmax(0,1.45fr) minmax(360px,.9fr);
+  gap:14px 16px;
+  align-items:start;
+}
+.investment-horizontal-form > .finance-form-head,
+.investment-horizontal-form > .finance-submit-wide{grid-column:1 / -1;}
+.investment-block-main{grid-column:1;}
+.investment-side-grid,
+.investment-location,
+.investment-source{grid-column:2;}
+.investment-concept,
+.investment-note{grid-column:1;}
+.investment-category-amount-list{grid-template-columns:repeat(3,minmax(0,1fr));gap:10px;}
+.investment-category-amount-row{grid-template-columns:22px minmax(0,1fr) minmax(120px,.85fr);min-height:56px;}
+.investment-row-amount{min-height:40px;}
+
+.finance-entry-card .finance-full-field input,
+.finance-entry-card .finance-full-field textarea,
+.finance-entry-card .finance-date-card input{min-height:46px;}
+.finance-entry-card .finance-full-field textarea{min-height:98px;}
+
+@media (max-width: 1180px){
+  .employee-debt-horizontal-form,
+  .investment-horizontal-form{grid-template-columns:1fr;}
+  .employee-debt-main-grid,.employee-debt-location,.employee-debt-note,.employee-debt-concept,
+  .investment-block-main,.investment-side-grid,.investment-location,.investment-concept,.investment-source,.investment-note{grid-column:1;}
+  .third-party-horizontal-form{grid-template-columns:1fr;}
+  .third-party-main-grid{grid-column:1;grid-template-columns:1fr 1fr;}
+  .third-party-location,.third-party-concept,.third-party-note{grid-column:1;}
+}
+@media (max-width: 860px){
+  .finance-admin-tabs{grid-template-columns:1fr;}
+  .employee-debt-horizontal-form .employee-debt-user-picker,
+  .investment-category-amount-list{grid-template-columns:repeat(2,minmax(0,1fr));}
+}
+@media (max-width: 680px){
+  .third-party-main-grid,
+  .employee-debt-main-grid,
+  .investment-side-grid,
+  .finance-choice-row{grid-template-columns:1fr;}
+  .employee-debt-horizontal-form .employee-debt-user-picker,
+  .investment-category-amount-list{grid-template-columns:1fr;}
+}
