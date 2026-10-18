@@ -1,4 +1,4 @@
-const APP_VERSION = '11.28.1';
+const APP_VERSION = '11.28.2';
 const API_BASE = 'https://gestor-tareas-api.detodoec.workers.dev';
 const STORAGE_KEY = 'detodoec_tasks_v1';
 const SETTINGS_KEY = 'detodoec_tasks_settings_v3';
@@ -49,6 +49,10 @@ let activeCuadreReviewData = null;
 let cuadreOpeningState = null;
 let cuadreReviewEditing = false;
 let notificationPollTimer = null;
+let notificationSoundInitialized = false;
+let notificationKnownIds = new Set();
+let notificationAudioUnlocked = false;
+
 let adminReviewRows = [];
 let adminReviewFilter = 'pendiente';
 let goalsToday = [];
@@ -4210,6 +4214,47 @@ function notificationVisual(item={}){
   return {section:'Sistema',color:'#8e9bad',actor:item.actor_nombre||'',html:`<span class="notification-item-icon">${iconUse('icon-bell')}</span>`};
 }
 
+function unlockNotificationAudio(){
+  notificationAudioUnlocked=true;
+  document.removeEventListener('pointerdown',unlockNotificationAudio,true);
+  document.removeEventListener('keydown',unlockNotificationAudio,true);
+}
+document.addEventListener('pointerdown',unlockNotificationAudio,true);
+document.addEventListener('keydown',unlockNotificationAudio,true);
+
+function playNotificationSound(){
+  if(!notificationAudioUnlocked)return;
+  try{
+    const AudioCtx=window.AudioContext||window.webkitAudioContext;
+    if(!AudioCtx)return;
+    const ctx=new AudioCtx();
+    const now=ctx.currentTime;
+    const gain=ctx.createGain();
+    gain.gain.setValueAtTime(0.0001,now);
+    gain.gain.exponentialRampToValueAtTime(0.12,now+0.015);
+    gain.gain.exponentialRampToValueAtTime(0.0001,now+0.48);
+    gain.connect(ctx.destination);
+    const osc1=ctx.createOscillator();
+    osc1.type='sine';osc1.frequency.setValueAtTime(880,now);
+    osc1.connect(gain);osc1.start(now);osc1.stop(now+0.20);
+    const osc2=ctx.createOscillator();
+    osc2.type='sine';osc2.frequency.setValueAtTime(1175,now+0.16);
+    osc2.connect(gain);osc2.start(now+0.16);osc2.stop(now+0.46);
+    setTimeout(()=>ctx.close().catch(()=>{}),650);
+  }catch{}
+}
+function detectNewNotificationSound(items=[]){
+  const ids=new Set((items||[]).map(i=>String(i.id)));
+  if(!notificationSoundInitialized){
+    notificationKnownIds=ids;
+    notificationSoundInitialized=true;
+    return;
+  }
+  const hasNew=[...ids].some(id=>!notificationKnownIds.has(id));
+  notificationKnownIds=ids;
+  if(hasNew)playNotificationSound();
+}
+
 async function refreshCuadreNotifications({silent=false}={}){
   return refreshMainReviews({silent});
 }
@@ -4371,6 +4416,7 @@ async function refreshMainReviews({silent=false}={}){
     pendingCuadreReviews=Array.isArray(rows)?rows:[];
     openingReviewAlerts=Array.isArray(alerts)?alerts:[];
     cuadreNotifications=Array.isArray(notifications)?notifications:[];
+    detectNewNotificationSound(cuadreNotifications);
     renderCuadreNotifications();renderMainReviews();
     return pendingCuadreReviews;
   }catch(err){if(!silent)showToast(err.message,'No se pudieron cargar las revisiones');return[];}
@@ -5916,3 +5962,5 @@ function escapeHtml(value) {
 
 document.addEventListener('click', (e) => { if (!e.target.closest('.admin-user-card-v2')) closeAdminUserMenus(); });
 // GitHub refresh marker: V11.28.1-APP-R1
+
+/* V11.28.2: sonido de campana para nuevas notificaciones (Web Audio API) */
