@@ -1,4 +1,4 @@
-const APP_VERSION = '11.30.6';
+const APP_VERSION = '11.30.7';
 const API_BASE = 'https://gestor-tareas-api.detodoec.workers.dev';
 const STORAGE_KEY = 'detodoec_tasks_v1';
 const SETTINGS_KEY = 'detodoec_tasks_settings_v3';
@@ -2981,11 +2981,44 @@ function resolveCardBankLogo(card){
   return {primary:direct,fallback:fallback&&fallback!==direct?fallback:''};
 }
 function cardLogoMarkup(card, className='payment-card-bank-logo'){
+  const raw=String(card?.logo_url||'').trim();
+  const isLocalPreview=raw.startsWith('blob:')||raw.startsWith('data:image/');
+  if(isLocalPreview){
+    return `<img class="${className}" src="${escapeHtml(raw)}" alt="" /><span class="${className} fallback" style="display:none">${iconUse('icon-card')}</span>`;
+  }
+  const cardLogoId=Number(card?.tarjeta_id||card?.id||0);
+  if(cardLogoId && raw){
+    return `<img class="${className}" data-card-logo-id="${escapeHtml(String(cardLogoId))}" alt="" style="display:none" /><span class="${className} fallback">${iconUse('icon-card')}</span>`;
+  }
   const {primary,fallback}=resolveCardBankLogo(card);
   if(!primary && !fallback) return `<span class="${className} fallback">${iconUse('icon-card')}</span>`;
   const src=primary||fallback;
   const altFallback=primary&&fallback?fallback:'';
   return `<img class="${className}" src="${escapeHtml(src)}" data-fallback="${escapeHtml(altFallback)}" alt="" onerror="const f=this.dataset.fallback;if(f){this.dataset.fallback='';this.src=f;}else{this.style.display='none';const n=this.nextElementSibling;if(n)n.style.display='grid';}" /><span class="${className} fallback" style="display:none">${iconUse('icon-card')}</span>`;
+}
+
+async function hydrateCardLogos(root=document){
+  const imgs=[...root.querySelectorAll('img[data-card-logo-id]')];
+  await Promise.allSettled(imgs.map(async img=>{
+    if(img.dataset.logoLoading==='1'||img.dataset.logoLoaded==='1')return;
+    const id=Number(img.dataset.cardLogoId||0);if(!id)return;
+    img.dataset.logoLoading='1';
+    try{
+      const headers={};if(sessionToken)headers.Authorization=`Bearer ${sessionToken}`;
+      const res=await fetch(`${API_BASE}/api/tarjetas/${id}/logo?v=${encodeURIComponent(APP_VERSION)}&t=${Date.now()}`,{headers,cache:'no-store'});
+      if(!res.ok)throw new Error(`Logo ${res.status}`);
+      const blob=await res.blob();
+      if(!String(blob.type||'').startsWith('image/'))throw new Error('El logo recibido no es una imagen');
+      const objectUrl=URL.createObjectURL(blob);
+      img.onload=()=>{try{URL.revokeObjectURL(objectUrl)}catch{}};
+      img.onerror=()=>{try{URL.revokeObjectURL(objectUrl)}catch{};img.style.display='none';const f=img.nextElementSibling;if(f)f.style.display='grid';};
+      img.src=objectUrl;img.style.display='block';img.dataset.logoLoaded='1';
+      const f=img.nextElementSibling;if(f)f.style.display='none';
+    }catch(err){
+      img.style.display='none';const f=img.nextElementSibling;if(f)f.style.display='grid';
+      console.error(`[DeTodoEc V${APP_VERSION}] No se pudo cargar logo de tarjeta ${id}`,err);
+    }finally{img.dataset.logoLoading='0';}
+  }));
 }
 
 function cardMaskedNumber(card, reveal=false){
@@ -3006,6 +3039,7 @@ function paymentCardHtml(card,{admin=false}={}){
 function renderHomeCards(){
   const root=$('#homeCardsCarousel'),empty=$('#homeCardsEmpty');if(!root)return;
   root.innerHTML=cardsData.map(c=>paymentCardHtml(c,{admin:currentUser?.rol==='admin'})).join('');
+  hydrateCardLogos(root);
   if(empty)empty.hidden=cardsData.length>0;
   const due=cardInstallments.filter(x=>x.estado==='pendiente').sort((a,b)=>String(a.fecha_pago).localeCompare(String(b.fecha_pago)))[0];
   if($('#homeCardsNextDue'))$('#homeCardsNextDue').textContent=due?`${due.fecha_pago} · ${money(due.monto_programado)}`:'Sin pagos pendientes';
@@ -3020,6 +3054,7 @@ function renderFinanceCards(){
   const q=financeCardsSearch.trim().toLowerCase();
   const rows=cardInstallments.filter(x=>(financeCardsStatus==='all'||x.estado===financeCardsStatus)&&(financeCardsBank==='all'||x.banco===financeCardsBank)&&(!q||`${x.banco||''} ${x.tarjeta_nombre||''} ${x.titular||''} ${x.ultimos4||''}`.toLowerCase().includes(q)));
   root.innerHTML=rows.map(q=>`<div class="finance-card-row"><span class="finance-card-icon" style="--c1:${escapeHtml(q.color_1||'#263f67')};--c2:${escapeHtml(q.color_2||'#586a88')}">${cardLogoMarkup(q,'finance-card-logo')}</span><div class="finance-card-copy"><strong>${escapeHtml(q.banco||q.tarjeta_nombre)} · Cuota ${q.numero_cuota}/${q.cuotas_total}</strong><small>${escapeHtml(q.fecha_pago)} · ${escapeHtml(q.titular||'')} · •••• ${escapeHtml(q.ultimos4||'')}</small></div><div class="finance-card-due"><strong>${money(q.monto_programado)}</strong><small><span class="card-status-pill ${q.estado==='pagado'?'paid':'pending'}">${q.estado==='pagado'?'Pagada':'Pendiente'}</span></small></div>${q.estado==='pendiente'?`<button type="button" class="finance-card-pay" data-card-pay="${q.id}">Pagar</button>`:''}</div>`).join('');
+  hydrateCardLogos(root);
   if(empty)empty.hidden=rows.length>0;
 }
 function renderCardsAdmin(){
@@ -3034,9 +3069,10 @@ function renderCardsAdmin(){
     const text=`${c.banco||''} ${c.nombre||''} ${c.titular||''} ${c.ultimos4||''}`.toLowerCase();
     return statusOk&&bankOk&&(!q||text.includes(q));
   });
-  root.innerHTML=rows.map(c=>`<div class="cards-admin-row" data-card-id="${c.id}"><span class="cards-admin-swatch" style="--c1:${escapeHtml(c.color_1)};--c2:${escapeHtml(c.color_2)}">${cardLogoMarkup(c,'cards-admin-logo')}</span><div class="cards-admin-copy"><strong>${escapeHtml(c.banco||c.nombre)} · •••• ${escapeHtml(c.ultimos4)}</strong><small>${escapeHtml(c.titular)} · ${money(c.valor_mensual)}/mes · ${c.cuotas_pagadas}/${c.cuotas_total} pagadas · próxima ${escapeHtml(c.proxima_fecha_pago||'—')}</small></div><div class="cards-admin-actions-row"><button type="button" data-card-detail="${c.id}">Ver</button><button type="button" data-card-edit="${c.id}">Editar</button><button type="button" data-card-delete="${c.id}">Desactivar</button></div></div>`).join('')||'<div class="home-workers-empty">No hay tarjetas que coincidan con el filtro.</div>';
+  root.innerHTML=rows.map(c=>`<div class="cards-admin-row" data-card-id="${c.id}"><span class="cards-admin-swatch" style="--c1:${escapeHtml(c.color_1)};--c2:${escapeHtml(c.color_2)}">${cardLogoMarkup(c,'cards-admin-logo')}</span><div class="cards-admin-copy"><strong>${escapeHtml(c.banco||c.nombre)} · •••• ${escapeHtml(c.ultimos4)}</strong><small>${escapeHtml(c.titular)} · ${money(c.valor_mensual)}/mes · ${c.cuotas_pagadas}/${c.cuotas_total} pagadas · próxima ${escapeHtml(c.proxima_fecha_pago||'—')}</small></div><div class="cards-admin-actions-row"><button type="button" data-card-detail="${c.id}">Ver</button><button type="button" data-card-edit="${c.id}">Editar</button><button type="button" data-card-delete="${c.id}">Desactivar</button></div></div>`).join('')||'<div class="home-workers-empty">No hay tarjetas que coincidan con el filtro.</div>';  hydrateCardLogos(root);
 }
-function renderCardAdminPreview(){const fake={id:0,nombre:$('#cardBank')?.value||'Banco',banco:$('#cardBank')?.value||'Banco',titular:$('#cardHolder')?.value||'Nombre del titular',ultimos4:$('#cardLast4')?.value||'0000',vencimiento:$('#cardExpiry')?.value||'00/00',logo_url:$('#cardBankLogoUrl')?.value||'',color_1:$('#cardColor1')?.value||'#263f67',color_2:$('#cardColor2')?.value||'#586a88'};const el=$('#cardAdminPreview');if(el)el.outerHTML=`<div class="payment-card-preview" id="cardAdminPreview" style="--card1:${fake.color_1};--card2:${fake.color_2}">${paymentCardHtml(fake).replace(/^<article[^>]*>|<\/article>$/g,'')}</div>`}
+
+function renderCardAdminPreview(){const fake={id:Number($('#cardAdminId')?.value||0),nombre:$('#cardBank')?.value||'Banco',banco:$('#cardBank')?.value||'Banco',titular:$('#cardHolder')?.value||'Nombre del titular',ultimos4:$('#cardLast4')?.value||'0000',vencimiento:$('#cardExpiry')?.value||'00/00',logo_url:cardLogoObjectUrl||$('#cardBankLogoUrl')?.value||'',color_1:$('#cardColor1')?.value||'#263f67',color_2:$('#cardColor2')?.value||'#586a88'};const el=$('#cardAdminPreview');if(el){el.outerHTML=`<div class="payment-card-preview" id="cardAdminPreview" style="--card1:${fake.color_1};--card2:${fake.color_2}">${paymentCardHtml(fake).replace(/^<article[^>]*>|<\/article>$/g,'')}</div>`;hydrateCardLogos($('#cardAdminPreview'));}}
 function openCardDetail(id){
   const c=cardsData.find(x=>String(x.id)===String(id));if(!c)return;
   $('#cardDetailTitle').textContent=c.banco||c.nombre||'Detalle de tarjeta';
@@ -3048,6 +3084,7 @@ function openCardDetail(id){
   $('#cardDetailNextDue').textContent=c.proxima_fecha_pago||'Sin pagos pendientes';
   $('#cardDetailInfo').textContent=c.info||'Sin información adicional';
   $('#cardDetailVisual').innerHTML=`<div class="card-detail-visual" style="--card1:${escapeHtml(c.color_1||'#263f67')};--card2:${escapeHtml(c.color_2||'#586a88')}"><div class="card-detail-bank-head">${cardLogoMarkup(c,'card-detail-bank-logo')}<strong>${escapeHtml(c.banco||c.nombre||'Tarjeta')}</strong></div><div class="card-detail-number">•••• •••• •••• ${escapeHtml(c.ultimos4||'••••')}</div><div class="card-detail-mini"><span>${escapeHtml(c.titular||'—')}</span><span>Caduca ${escapeHtml(c.vencimiento||'—')}</span></div></div>`;
+  hydrateCardLogos($('#cardDetailVisual'));
   $('#cardDetailDialog')?.showModal();
 }
 async function refreshCards({silent=false}={}){if(!currentUser)return;try{const data=await apiFetch(`/api/tarjetas?_=${Date.now()}`,{cache:'no-store'});cardsData=Array.isArray(data.tarjetas)?data.tarjetas:[];cardInstallments=Array.isArray(data.cuotas)?data.cuotas:[];renderHomeCards();renderFinanceCards();if(currentUser.rol==='admin')renderCardsAdmin();return data}catch(e){if(!silent)showToast(e.message,'No se pudieron cargar las tarjetas')}}
