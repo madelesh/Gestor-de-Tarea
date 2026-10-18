@@ -1,4 +1,4 @@
-const APP_VERSION = '11.29.2';
+const APP_VERSION = '11.29.3';
 const API_BASE = 'https://gestor-tareas-api.detodoec.workers.dev';
 const STORAGE_KEY = 'detodoec_tasks_v1';
 const SETTINGS_KEY = 'detodoec_tasks_settings_v3';
@@ -2401,7 +2401,7 @@ function hideAuthGate() {
 }
 
 function userAvatarMarkup(user = currentUser) {
-  if (user?.foto_url) return `<img src="${escapeHtml(user.foto_url)}" alt="" />`;
+  if (user?.foto_url) return `${iconUse('icon-user')}<img src="${escapeHtml(user.foto_url)}" alt="" onerror="this.style.display='none'" />`;
   return iconUse('icon-user');
 }
 
@@ -2648,6 +2648,7 @@ function bindCoreNavigationEarly() {
   safeBind('navFinance', () => requestFinancePanel());
 
   safeBind('profileBtn', () => {
+    updateNavigationPermissions();
     const menu = $('#profileDropdown');
     if (menu) menu.hidden = !menu.hidden;
   });
@@ -3582,7 +3583,7 @@ function renderAdminUsers() {
     const canDelete = String(user.id) !== String(currentUser?.id);
     card.innerHTML = `
       <div class="admin-user-card-top">
-        <span class="admin-user-avatar-v2">${user.foto_url ? `<img src="${escapeHtml(user.foto_url)}" alt="" />` : iconUse('icon-user')}</span>
+        <span class="admin-user-avatar-v2">${iconUse('icon-user')}${user.foto_url ? `<img src="${escapeHtml(user.foto_url)}" alt="" onerror="this.style.display='none'" />` : ''}</span>
         ${canDelete ? `<button type="button" class="admin-user-delete-direct" data-delete-app-user="${user.id}" aria-label="Eliminar ${escapeHtml(user.nombre)}" title="Eliminar usuario">${iconUse('icon-trash')}</button>` : ''}
       </div>
       <div class="admin-user-card-body">
@@ -5571,6 +5572,7 @@ $('#profileForm')?.addEventListener('submit', async (e) => {
     currentUser = result.usuario;
     sessionStorage.setItem(SESSION_USER_KEY, JSON.stringify(currentUser));
     updateCurrentUserUI();
+    if(currentUser?.rol==='admin') await refreshAdminUsers().catch(()=>{});
     $('#profileDialog').close();
     showToast('Tus datos fueron actualizados.', 'Perfil actualizado');
     await refreshAttendance();
@@ -5580,6 +5582,8 @@ $('#profileForm')?.addEventListener('submit', async (e) => {
     submit.disabled = false;
   }
 });
+
+on('adminUserPasswordToggle','click',()=>{const input=$('#adminUserPassword'),btn=$('#adminUserPasswordToggle');if(!input||!btn)return;const show=input.type==='password';input.type=show?'text':'password';btn.textContent=show?'Ocultar':'Ver';btn.setAttribute('aria-label',show?'Ocultar contraseña':'Mostrar contraseña');});
 
 $('#adminUserPhoto')?.addEventListener('change', (e) => {
   const file = e.target.files?.[0];
@@ -5637,6 +5641,7 @@ $('#adminUserForm')?.addEventListener('submit', async (e) => {
     await apiFetch(id ? `/api/usuarios/${id}` : '/api/usuarios', { method:id ? 'PUT':'POST', headers:{'Content-Type':'application/json'}, body:JSON.stringify(payload) });
     clearAdminUserForm({ hide:true });
     await refreshAdminUsers();
+    if(id && String(id)===String(currentUser?.id)){try{const me=await apiFetch('/api/auth/me',{cache:'no-store'});currentUser=me.usuario;sessionStorage.setItem(SESSION_USER_KEY,JSON.stringify(currentUser));updateCurrentUserUI();}catch{}}
     showToast(id ? 'Usuario actualizado correctamente.' : 'Usuario creado correctamente.', id ? 'Usuario actualizado' : 'Usuario creado');
   } catch (err) {
     showToast(err.message, 'No se pudo guardar el usuario');
