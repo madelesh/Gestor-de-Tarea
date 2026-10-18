@@ -8074,3 +8074,6 @@ textarea{
   .brand-copy .brand-text{font-size:24px}
   .brand-location{font-size:8px}
 }
+
+/* V11.26.2 */
+.main-nav-finance{white-space:nowrap}.calendar-simple-head{align-items:center!important;margin-bottom:10px!important}.calendar-simple-head h2{margin:0!important;font-size:18px!important;line-height:1!important}.calendar-simple-head .calendar-head-actions{margin-left:auto}.calendar-simple-head .calendar-head-actions strong{min-width:126px!important;font-size:10px!important;text-transform:capitalize}.home-calendar-panel{padding-top:14px!important}@media(max-width:1200px){.main-nav-finance span{display:none}.main-nav-finance{min-width:44px!important;padding-inline:10px!important}}

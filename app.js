@@ -1,4 +1,4 @@
-const APP_VERSION = '11.26.1';
+const APP_VERSION = '11.26.2';
 const API_BASE = 'https://gestor-tareas-api.detodoec.workers.dev';
 const STORAGE_KEY = 'detodoec_tasks_v1';
 const SETTINGS_KEY = 'detodoec_tasks_settings_v3';
@@ -2425,6 +2425,8 @@ function updateNavigationPermissions() {
   if (adminMenu) adminMenu.hidden = currentUser?.rol !== 'admin';
   const reviewsNav = $('#navReviews');
   if (reviewsNav) reviewsNav.hidden = currentUser?.rol !== 'admin';
+  const financeNav = $('#navFinance');
+  if (financeNav) financeNav.hidden = currentUser?.rol !== 'admin';
 }
 
 function syncProfileThemeControl() {
@@ -2634,6 +2636,7 @@ function bindCoreNavigationEarly() {
   safeBind('navCuadre', () => showMainView('cuadre'));
   safeBind('navReviews', () => showMainView('reviews'));
   safeBind('navDesigns', () => showMainView('designs'));
+  safeBind('navFinance', () => requestAdminPanel('finanzas'));
 
   safeBind('profileBtn', () => {
     const menu = $('#profileDropdown');

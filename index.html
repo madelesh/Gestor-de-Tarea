@@ -9,7 +9,7 @@
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700;800&display=swap" rel="stylesheet">
   <link id="dynamicFavicon" rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 64 64'%3E%3Crect width='64' height='64' rx='16' fill='%23b9ff39'/%3E%3Cpath d='M18 33l9 9 19-22' fill='none' stroke='%23111' stroke-width='7' stroke-linecap='round' stroke-linejoin='round'/%3E%3C/svg%3E" />
-  <link rel="stylesheet" href="styles.css?v=11.26.1" />
+  <link rel="stylesheet" href="styles.css?v=11.26.2" />
 </head>
 <body>
   <svg xmlns="http://www.w3.org/2000/svg" style="display:none" aria-hidden="true" focusable="false">
@@ -114,6 +114,7 @@
         <button type="button" class="main-nav-btn" id="navCuadre"><svg class="icon"><use href="#icon-wallet"></use></svg><span>Cuadre</span></button>
         <button type="button" class="main-nav-btn" id="navReviews" hidden><svg class="icon"><use href="#icon-bell"></use></svg><span>Revisiones</span><span class="main-review-count" id="mainReviewCount" hidden>0</span></button>
         <button type="button" class="main-nav-btn" id="navDesigns"><svg class="icon"><use href="#icon-library"></use></svg><span>Diseños</span></button>
+        <button type="button" class="main-nav-btn main-nav-finance" id="navFinance" hidden><svg class="icon"><use href="#icon-dollar"></use></svg><span>Deudas e inversión</span></button>
       </nav>
 
       <div class="topbar-actions">
@@ -195,9 +196,9 @@
 
         <div class="home-widget-dashboard">
         <section class="home-calendar-panel home-widget-card">
-          <div class="home-panel-head compact-widget-head">
-            <div><span class="eyebrow">Calendario</span><h2>Próximos pagos</h2><p>Vencimientos y compromisos del local.</p></div>
-            <div class="calendar-head-actions"><button type="button" class="btn btn-outline small" id="calendarPrevMonth">‹</button><strong id="calendarMonthLabel">Mes actual</strong><button type="button" class="btn btn-outline small" id="calendarNextMonth">›</button></div>
+          <div class="home-panel-head compact-widget-head calendar-simple-head">
+            <div><h2>Calendario</h2></div>
+            <div class="calendar-head-actions"><button type="button" class="btn btn-outline small" id="calendarPrevMonth" aria-label="Mes anterior">‹</button><strong id="calendarMonthLabel">Mes actual</strong><button type="button" class="btn btn-outline small" id="calendarNextMonth" aria-label="Mes siguiente">›</button></div>
           </div>
           <div class="home-calendar-layout home-calendar-widget-layout">
             <div class="business-calendar" id="businessCalendar"></div>
@@ -1092,13 +1093,6 @@
             <article class="admin-tool-card" data-admin-category="caja" data-admin-search="revisiones cierre caja aprobadas rechazadas pendientes"><button type="button" class="admin-tool-open admin-nav-btn admin-review-nav" data-admin-target="revisiones"><span class="admin-tool-icon"><svg class="icon"><use href="#icon-bell"></use></svg></span><span class="admin-tool-copy"><strong>Revisiones</strong><small>Pendientes, aprobadas y rechazadas.</small></span><span class="admin-tool-badge admin-review-count" hidden>0</span><span class="admin-open-arrow">›</span></button></article>
             <article class="admin-tool-card" data-admin-category="caja" data-admin-search="bancos cuentas cnb colores iconos parámetros"><button type="button" class="admin-tool-open admin-nav-btn" data-admin-target="bancos"><span class="admin-tool-icon"><svg class="icon"><use href="#icon-wallet"></use></svg></span><span class="admin-tool-copy"><strong>Bancos</strong><small>Nombres, iconos, colores y parámetros.</small></span><span class="admin-open-arrow">›</span></button></article>
             <article class="admin-tool-card" data-admin-category="caja" data-admin-search="cuadre cierre efectivo margen transacción parámetros"><button type="button" class="admin-tool-open admin-nav-btn" data-admin-target="cuadre"><span class="admin-tool-icon"><svg class="icon"><use href="#icon-calculator"></use></svg></span><span class="admin-tool-copy"><strong>Configuración de cuadre</strong><small>Efectivo, transacciones y margen aceptable.</small></span><span class="admin-open-arrow">›</span></button></article>
-            <article class="admin-tool-card" data-admin-category="finanzas" data-admin-search="finanzas deuda empleados usuarios terceros inversión capital">
-              <button type="button" class="admin-tool-open admin-nav-btn" data-admin-target="finanzas">
-                <span class="admin-tool-icon"><svg class="icon"><use href="#icon-dollar"></use></svg></span>
-                <span class="admin-tool-copy"><strong>Deudas e inversión</strong><small>Deudas de empleados, terceros e inversiones del local.</small></span>
-                <span class="admin-open-arrow">›</span>
-              </button>
-            </article>
             <article class="admin-tool-card" data-admin-category="operacion" data-admin-search="cotizador precios materiales clientes"><button type="button" class="admin-tool-open admin-nav-btn" data-admin-target="cotizador"><span class="admin-tool-icon"><svg class="icon"><use href="#icon-calculator"></use></svg></span><span class="admin-tool-copy"><strong>Cotizador</strong><small>Precios, materiales y clientes.</small></span><span class="admin-open-arrow">›</span></button></article>
             <article class="admin-tool-card" data-admin-category="operacion" data-admin-search="diseños biblioteca materiales archivos precios"><button type="button" class="admin-tool-open admin-nav-btn" data-admin-target="disenos"><span class="admin-tool-icon"><svg class="icon"><use href="#icon-library"></use></svg></span><span class="admin-tool-copy"><strong>Diseños</strong><small>Biblioteca, materiales y precios.</small></span><span class="admin-open-arrow">›</span></button></article>
             <article class="admin-tool-card" data-admin-category="configuracion" data-admin-search="datos nube migración sincronización cloud"><button type="button" class="admin-tool-open admin-nav-btn" data-admin-target="datos"><span class="admin-tool-icon"><svg class="icon"><use href="#icon-cloud"></use></svg></span><span class="admin-tool-copy"><strong>Datos en la nube</strong><small>Migración y sincronización.</small></span><span class="admin-open-arrow">›</span></button></article>
@@ -1774,6 +1768,6 @@
     </article>
   </template>
 
-  <script src="app.js?v=11.26.1"></script>
+  <script src="app.js?v=11.26.2"></script>
 </body>
 </html>
