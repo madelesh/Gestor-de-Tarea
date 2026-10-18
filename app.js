@@ -1,4 +1,4 @@
-const APP_VERSION = '11.29.6';
+const APP_VERSION = '11.29.7';
 const API_BASE = 'https://gestor-tareas-api.detodoec.workers.dev';
 const STORAGE_KEY = 'detodoec_tasks_v1';
 const SETTINGS_KEY = 'detodoec_tasks_settings_v3';
@@ -3736,7 +3736,15 @@ async function confirmDeleteAdminUser() {
 
 
 function normalizeRolePermissions(value = {}) {
-  return {home:value.home !== false,tasks:value.tasks !== false,quote:value.quote !== false,cuadre:value.cuadre !== false,designs:value.designs !== false,checkin:Boolean(value.checkin),debts:Boolean(value.debts),investments:Boolean(value.investments)};
+  return {
+    home:value.home !== false,
+    tasks:value.tasks !== false,
+    quote:value.quote !== false,
+    cuadre:value.cuadre !== false,
+    designs:value.designs !== false,
+    checkin:Boolean(value.checkin),
+    expenses:Boolean(value.expenses ?? value.debts ?? value.investments)
+  };
 }
 
 function renderAdminRoleOptions() {
@@ -3835,8 +3843,10 @@ async function saveRole() {
       body:JSON.stringify(payload)
     });
     showToast(result.mensaje || 'Rol guardado.', id ? 'Rol actualizado' : 'Rol creado');
-    clearRoleEditor();
+    const savedRoleId = String(result.id || id || '');
     await refreshRoles();
+    if(savedRoleId && appRoles.some(r=>String(r.id)===savedRoleId)) editRole(savedRoleId);
+    else clearRoleEditor();
     await refreshAdminUsers();
   } catch (err) {
     showToast(err.message, 'No se pudo guardar el rol');
@@ -5645,7 +5655,15 @@ $('#profileForm')?.addEventListener('submit', async (e) => {
   }
 });
 
-on('adminUserPasswordToggle','click',()=>{const input=$('#adminUserPassword'),btn=$('#adminUserPasswordToggle');if(!input||!btn)return;const show=input.type==='password';input.type=show?'text':'password';btn.textContent=show?'Ocultar':'Ver';btn.setAttribute('aria-label',show?'Ocultar contraseña':'Mostrar contraseña');});
+on('adminUserPasswordToggle','click',()=>{
+  const input=$('#adminUserPassword'),btn=$('#adminUserPasswordToggle');
+  if(!input||!btn)return;
+  const show=input.type==='password';
+  input.type=show?'text':'password';
+  btn.classList.toggle('is-visible',show);
+  btn.setAttribute('aria-label',show?'Ocultar contraseña':'Mostrar contraseña');
+  btn.setAttribute('title',show?'Ocultar contraseña':'Mostrar contraseña');
+});
 
 $('#adminUserPhoto')?.addEventListener('change', (e) => {
   const file = e.target.files?.[0];
@@ -6082,3 +6100,5 @@ document.addEventListener('click', (e) => { if (!e.target.closest('.admin-user-c
 // V11.29 force-change: Servicios Básicos y aprobaciones de Egresos.
 
 // V11.29.1: Egresos requiere aprobación del administrador desde Revisiones.
+
+// GitHub refresh marker: V11.29.7-ROLES-PASSWORD-EYE-R1

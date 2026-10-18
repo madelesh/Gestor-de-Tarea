@@ -8675,3 +8675,22 @@ input[type="number"]::-webkit-inner-spin-button,input[type="number"]::-webkit-ou
   max-width:100%!important;
   max-height:100%!important;
 }
+
+
+/* V11.29.7 · Roles persistentes + ojo de contraseña */
+.password-visibility-btn.icon-only{
+  width:42px;
+  min-width:42px;
+  padding:0!important;
+  display:grid;
+  place-items:center;
+}
+.password-visibility-btn.icon-only .icon{
+  width:18px;
+  height:18px;
+}
+.password-visibility-btn.icon-only.is-visible{
+  border-color:var(--accent);
+  color:var(--accent);
+  background:color-mix(in srgb,var(--accent) 10%,var(--surface-2));
+}
