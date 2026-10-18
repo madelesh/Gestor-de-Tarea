@@ -9,7 +9,7 @@
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700;800&display=swap" rel="stylesheet">
   <link id="dynamicFavicon" rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 64 64'%3E%3Crect width='64' height='64' rx='16' fill='%23b9ff39'/%3E%3Cpath d='M18 33l9 9 19-22' fill='none' stroke='%23111' stroke-width='7' stroke-linecap='round' stroke-linejoin='round'/%3E%3C/svg%3E" />
-  <link rel="stylesheet" href="styles.css?v=11.25.8" />
+  <link rel="stylesheet" href="styles.css?v=11.25.9" />
 </head>
 <body>
   <svg xmlns="http://www.w3.org/2000/svg" style="display:none" aria-hidden="true" focusable="false">
@@ -1058,56 +1058,36 @@
       </header>
 
       <div class="admin-workspace">
-        <section class="admin-launchpad" id="adminLaunchpad" aria-label="Módulos del administrador">
-          <div class="admin-launchpad-head">
-            <span class="eyebrow">Centro de control</span>
-            <h3>¿Qué quieres administrar?</h3>
-            <p>Todo está organizado por áreas para que encuentres cada herramienta más rápido.</p>
+        <section class="admin-launchpad admin-launchpad-v2" id="adminLaunchpad" aria-label="Módulos del administrador">
+          <div class="admin-control-hero">
+            <div><span class="eyebrow">Centro de control</span><h3>Administración</h3><p>Encuentra rápidamente la herramienta que necesitas y administra el sistema desde un solo lugar.</p></div>
+            <label class="admin-control-search"><svg class="icon"><use href="#icon-search"></use></svg><input id="adminToolSearch" type="search" placeholder="Buscar herramienta..." autocomplete="off" /></label>
           </div>
-          <div class="admin-module-grid">
-            <article class="admin-module-card">
-              <div class="admin-module-title"><span class="admin-module-icon"><svg class="icon"><use href="#icon-users"></use></svg></span><div><strong>General</strong><small>Personal, acceso, metas y calendario</small></div></div>
-              <div class="admin-module-actions">
-                <button type="button" class="admin-nav-btn" data-admin-target="apariencia"><svg class="icon"><use href="#icon-image"></use></svg><span>Apariencia</span></button>
-                <button type="button" class="admin-nav-btn" data-admin-target="acceso"><svg class="icon"><use href="#icon-users"></use></svg><span>Usuarios</span></button>
-                <button type="button" class="admin-nav-btn" data-admin-target="roles"><svg class="icon"><use href="#icon-shield"></use></svg><span>Roles</span></button>
-                <button type="button" class="admin-nav-btn" data-admin-target="checkin"><svg class="icon"><use href="#icon-clock"></use></svg><span>Check-in</span></button>
-                <button type="button" class="admin-nav-btn" data-admin-target="calendario"><svg class="icon"><use href="#icon-calendar"></use></svg><span>Calendario</span></button>
-              </div>
-              <div class="admin-module-subgroup">
-                <button type="button" class="admin-nav-btn admin-module-wide" data-admin-target="metas"><svg class="icon"><use href="#icon-target"></use></svg><span>Metas</span></button>
-                <div class="admin-module-mini-actions">
-                  <button type="button" data-goals-subtarget="editor">Editor</button>
-                  <button type="button" data-goals-subtarget="history">Historial</button>
-                  <button type="button" data-goals-subtarget="banks">Bancos</button>
-                </div>
-              </div>
-            </article>
-
-            <article class="admin-module-card admin-module-card-cash">
-              <div class="admin-module-title"><span class="admin-module-icon"><svg class="icon"><use href="#icon-wallet"></use></svg></span><div><strong>Caja</strong><small>Cuadre, bancos y revisiones</small></div></div>
-              <div class="admin-module-actions">
-                <button type="button" class="admin-nav-btn admin-review-nav" data-admin-target="revisiones"><svg class="icon"><use href="#icon-bell"></use></svg><span>Revisiones</span><span class="admin-review-count" id="adminReviewCount" hidden>0</span></button>
-                <button type="button" class="admin-nav-btn" data-admin-target="bancos"><svg class="icon"><use href="#icon-wallet"></use></svg><span>Bancos</span></button>
-                <button type="button" class="admin-nav-btn" data-admin-target="cuadre"><svg class="icon"><use href="#icon-calculator"></use></svg><span>Cuadre</span></button>
-              </div>
-            </article>
-
-            <article class="admin-module-card">
-              <div class="admin-module-title"><span class="admin-module-icon"><svg class="icon"><use href="#icon-task"></use></svg></span><div><strong>Operación</strong><small>Herramientas del trabajo diario</small></div></div>
-              <div class="admin-module-actions">
-                <button type="button" class="admin-nav-btn" data-admin-target="cotizador"><svg class="icon"><use href="#icon-calculator"></use></svg><span>Cotizador</span></button>
-                <button type="button" class="admin-nav-btn" data-admin-target="disenos"><svg class="icon"><use href="#icon-library"></use></svg><span>Diseños</span></button>
-              </div>
-            </article>
-
-            <article class="admin-module-card">
-              <div class="admin-module-title"><span class="admin-module-icon"><svg class="icon"><use href="#icon-cloud"></use></svg></span><div><strong>Configuración</strong><small>Datos y herramientas del sistema</small></div></div>
-              <div class="admin-module-actions">
-                <button type="button" class="admin-nav-btn" data-admin-target="datos"><svg class="icon"><use href="#icon-cloud"></use></svg><span>Datos en la nube</span></button>
-                              </div>
-            </article>
+          <div class="admin-quick-section">
+            <div class="admin-section-label"><div><strong>Accesos rápidos</strong><small>Lo que normalmente necesitas revisar primero.</small></div></div>
+            <div class="admin-quick-grid">
+              <button type="button" class="admin-quick-card admin-nav-btn" data-admin-target="revisiones"><span class="admin-quick-icon quick-review"><svg class="icon"><use href="#icon-bell"></use></svg></span><span class="admin-quick-copy"><strong>Revisiones</strong><small>Cuadres que necesitan atención</small></span><span class="admin-review-count" id="adminReviewCount" hidden>0</span><span class="admin-open-arrow">›</span></button>
+              <button type="button" class="admin-quick-card admin-nav-btn" data-admin-target="cuadre"><span class="admin-quick-icon quick-cash"><svg class="icon"><use href="#icon-calculator"></use></svg></span><span class="admin-quick-copy"><strong>Cuadre</strong><small>Parámetros del cierre de caja</small></span><span class="admin-open-arrow">›</span></button>
+              <button type="button" class="admin-quick-card admin-nav-btn" data-admin-target="acceso"><span class="admin-quick-icon quick-users"><svg class="icon"><use href="#icon-users"></use></svg></span><span class="admin-quick-copy"><strong>Usuarios</strong><small>Cuentas, perfiles y valor por hora</small></span><span class="admin-open-arrow">›</span></button>
+              <button type="button" class="admin-quick-card admin-nav-btn" data-admin-target="calendario"><span class="admin-quick-icon quick-calendar"><svg class="icon"><use href="#icon-calendar"></use></svg></span><span class="admin-quick-copy"><strong>Calendario</strong><small>Pagos, servicios y vencimientos</small></span><span class="admin-open-arrow">›</span></button>
+            </div>
           </div>
+          <div class="admin-tools-header"><div class="admin-section-label"><div><strong>Todas las herramientas</strong><small>Organizadas por área.</small></div></div><div class="admin-category-tabs" role="tablist"><button type="button" class="active" data-admin-filter="all">Todas</button><button type="button" data-admin-filter="general">General</button><button type="button" data-admin-filter="caja">Caja</button><button type="button" data-admin-filter="operacion">Operación</button><button type="button" data-admin-filter="configuracion">Configuración</button></div></div>
+          <div class="admin-tools-grid" id="adminToolsGrid">
+            <article class="admin-tool-card" data-admin-category="general" data-admin-search="apariencia logo imagen personalización"><button type="button" class="admin-tool-open admin-nav-btn" data-admin-target="apariencia"><span class="admin-tool-icon"><svg class="icon"><use href="#icon-image"></use></svg></span><span class="admin-tool-copy"><strong>Apariencia</strong><small>Logo e imagen predeterminada del sistema.</small></span><span class="admin-open-arrow">›</span></button></article>
+            <article class="admin-tool-card" data-admin-category="general" data-admin-search="usuarios cuentas empleados valor hora"><button type="button" class="admin-tool-open admin-nav-btn" data-admin-target="acceso"><span class="admin-tool-icon"><svg class="icon"><use href="#icon-users"></use></svg></span><span class="admin-tool-copy"><strong>Usuarios</strong><small>Cuentas, perfiles y valor por hora.</small></span><span class="admin-open-arrow">›</span></button></article>
+            <article class="admin-tool-card" data-admin-category="general" data-admin-search="roles permisos acceso seguridad"><button type="button" class="admin-tool-open admin-nav-btn" data-admin-target="roles"><span class="admin-tool-icon"><svg class="icon"><use href="#icon-shield"></use></svg></span><span class="admin-tool-copy"><strong>Roles y permisos</strong><small>Controla qué puede ver y hacer cada rol.</small></span><span class="admin-open-arrow">›</span></button></article>
+            <article class="admin-tool-card" data-admin-category="general" data-admin-search="check-in asistencia horas trabajadores entrada salida"><button type="button" class="admin-tool-open admin-nav-btn" data-admin-target="checkin"><span class="admin-tool-icon"><svg class="icon"><use href="#icon-clock"></use></svg></span><span class="admin-tool-copy"><strong>Check-in y horas</strong><small>Entradas, salidas y horas acumuladas.</small></span><span class="admin-open-arrow">›</span></button></article>
+            <article class="admin-tool-card" data-admin-category="general" data-admin-search="calendario pagos vencimientos agua luz internet servicios"><button type="button" class="admin-tool-open admin-nav-btn" data-admin-target="calendario"><span class="admin-tool-icon"><svg class="icon"><use href="#icon-calendar"></use></svg></span><span class="admin-tool-copy"><strong>Calendario de pagos</strong><small>Servicios, gastos y fechas de vencimiento.</small></span><span class="admin-open-arrow">›</span></button></article>
+            <article class="admin-tool-card admin-tool-card-goals" data-admin-category="general" data-admin-search="metas ventas transacciones historial bancos objetivos"><button type="button" class="admin-tool-open admin-nav-btn" data-admin-target="metas"><span class="admin-tool-icon"><svg class="icon"><use href="#icon-target"></use></svg></span><span class="admin-tool-copy"><strong>Metas</strong><small>Objetivos mensuales de ventas y transacciones.</small></span><span class="admin-open-arrow">›</span></button><div class="admin-tool-shortcuts"><button type="button" data-goals-subtarget="editor">Editor</button><button type="button" data-goals-subtarget="history">Historial</button><button type="button" data-goals-subtarget="banks">Bancos</button></div></article>
+            <article class="admin-tool-card" data-admin-category="caja" data-admin-search="revisiones cierre caja aprobadas rechazadas pendientes"><button type="button" class="admin-tool-open admin-nav-btn admin-review-nav" data-admin-target="revisiones"><span class="admin-tool-icon"><svg class="icon"><use href="#icon-bell"></use></svg></span><span class="admin-tool-copy"><strong>Revisiones</strong><small>Pendientes, aprobadas y rechazadas.</small></span><span class="admin-tool-badge admin-review-count" hidden>0</span><span class="admin-open-arrow">›</span></button></article>
+            <article class="admin-tool-card" data-admin-category="caja" data-admin-search="bancos cuentas cnb colores iconos parámetros"><button type="button" class="admin-tool-open admin-nav-btn" data-admin-target="bancos"><span class="admin-tool-icon"><svg class="icon"><use href="#icon-wallet"></use></svg></span><span class="admin-tool-copy"><strong>Bancos</strong><small>Nombres, iconos, colores y parámetros.</small></span><span class="admin-open-arrow">›</span></button></article>
+            <article class="admin-tool-card" data-admin-category="caja" data-admin-search="cuadre cierre efectivo margen transacción parámetros"><button type="button" class="admin-tool-open admin-nav-btn" data-admin-target="cuadre"><span class="admin-tool-icon"><svg class="icon"><use href="#icon-calculator"></use></svg></span><span class="admin-tool-copy"><strong>Configuración de cuadre</strong><small>Efectivo, transacciones y margen aceptable.</small></span><span class="admin-open-arrow">›</span></button></article>
+            <article class="admin-tool-card" data-admin-category="operacion" data-admin-search="cotizador precios materiales clientes"><button type="button" class="admin-tool-open admin-nav-btn" data-admin-target="cotizador"><span class="admin-tool-icon"><svg class="icon"><use href="#icon-calculator"></use></svg></span><span class="admin-tool-copy"><strong>Cotizador</strong><small>Precios, materiales y clientes.</small></span><span class="admin-open-arrow">›</span></button></article>
+            <article class="admin-tool-card" data-admin-category="operacion" data-admin-search="diseños biblioteca materiales archivos precios"><button type="button" class="admin-tool-open admin-nav-btn" data-admin-target="disenos"><span class="admin-tool-icon"><svg class="icon"><use href="#icon-library"></use></svg></span><span class="admin-tool-copy"><strong>Diseños</strong><small>Biblioteca, materiales y precios.</small></span><span class="admin-open-arrow">›</span></button></article>
+            <article class="admin-tool-card" data-admin-category="configuracion" data-admin-search="datos nube migración sincronización cloud"><button type="button" class="admin-tool-open admin-nav-btn" data-admin-target="datos"><span class="admin-tool-icon"><svg class="icon"><use href="#icon-cloud"></use></svg></span><span class="admin-tool-copy"><strong>Datos en la nube</strong><small>Migración y sincronización.</small></span><span class="admin-open-arrow">›</span></button></article>
+          </div>
+          <div class="admin-tools-empty" id="adminToolsEmpty" hidden>No encontramos una herramienta con ese nombre.</div>
         </section>
         <main class="admin-content">
           <section class="admin-section admin-view active" data-admin-view="apariencia">
@@ -1719,6 +1699,6 @@
     </article>
   </template>
 
-  <script src="app.js?v=11.25.8"></script>
+  <script src="app.js?v=11.25.9"></script>
 </body>
 </html>

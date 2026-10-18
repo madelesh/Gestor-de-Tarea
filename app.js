@@ -1,4 +1,4 @@
-const APP_VERSION = '11.25.8';
+const APP_VERSION = '11.25.9';
 const API_BASE = 'https://gestor-tareas-api.detodoec.workers.dev';
 const STORAGE_KEY = 'detodoec_tasks_v1';
 const SETTINGS_KEY = 'detodoec_tasks_settings_v3';
@@ -5308,6 +5308,10 @@ $('#calendarPaymentDialogForm')?.addEventListener('submit',submitCalendarPayment
 on('calendarPaymentCancel','click',()=>{$('#calendarPaymentDialog')?.close();pendingCalendarPaymentId=null;});
 $('#calendarAdminList')?.addEventListener('click',async(e)=>{const pay=e.target.closest('[data-calendar-pay]'),toggle=e.target.closest('[data-calendar-toggle]'),del=e.target.closest('[data-calendar-delete]');try{if(pay){openCalendarPaymentDialog(pay.dataset.calendarPay);return;}if(toggle){const item=paymentCalendarItems.find(x=>String(x.id)===String(toggle.dataset.calendarToggle));if(!item)return;await apiFetch(`/api/calendario-pagos/${item.id}`,{method:'PUT',headers:{'Content-Type':'application/json'},body:JSON.stringify({estado:'pendiente'})});showToast('Pago reabierto.','Calendario');await refreshPaymentCalendar({silent:true})}if(del){const ok=await themedConfirm({title:'Eliminar pago del calendario',message:'¿Eliminar este recordatorio de pago?',confirmText:'Eliminar'});if(!ok)return;await apiFetch(`/api/calendario-pagos/${del.dataset.calendarDelete}`,{method:'DELETE'});showToast('Pago eliminado.','Calendario');await refreshPaymentCalendar({silent:true})}}catch(err){showToast(err.message,'Calendario')}});
 
+let adminToolFilter='all';
+function applyAdminToolFilters(){const query=String($('#adminToolSearch')?.value||'').trim().toLowerCase();const cards=$$('#adminToolsGrid .admin-tool-card');let visible=0;cards.forEach(card=>{const category=card.dataset.adminCategory||'';const haystack=((card.dataset.adminSearch||'')+' '+(card.textContent||'')).toLowerCase();const show=(adminToolFilter==='all'||category===adminToolFilter)&&(!query||haystack.includes(query));card.hidden=!show;if(show)visible++});if($('#adminToolsEmpty'))$('#adminToolsEmpty').hidden=visible>0}
+$('#adminToolSearch')?.addEventListener('input',applyAdminToolFilters);
+$$('[data-admin-filter]').forEach(btn=>btn.addEventListener('click',()=>{adminToolFilter=btn.dataset.adminFilter||'all';$$('[data-admin-filter]').forEach(x=>x.classList.toggle('active',x===btn));applyAdminToolFilters()}));
 $$('.admin-nav-btn').forEach((btn) => btn.addEventListener('click', () => showAdminSection(btn.dataset.adminTarget)));
 
 
