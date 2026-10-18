@@ -1,4 +1,4 @@
-const APP_VERSION = '11.27';
+const APP_VERSION = '11.27.1';
 const API_BASE = 'https://gestor-tareas-api.detodoec.workers.dev';
 const STORAGE_KEY = 'detodoec_tasks_v1';
 const SETTINGS_KEY = 'detodoec_tasks_settings_v3';
@@ -2426,7 +2426,7 @@ function updateNavigationPermissions() {
   const reviewsNav = $('#navReviews');
   if (reviewsNav) reviewsNav.hidden = currentUser?.rol !== 'admin';
   const financeNav = $('#navFinance');
-  if (financeNav) financeNav.hidden = currentUser?.rol !== 'admin';
+  if (financeNav) financeNav.hidden = !(currentUser?.rol === 'admin' || userCan('debts') || userCan('investments'));
 }
 
 function syncProfileThemeControl() {
@@ -2636,7 +2636,7 @@ function bindCoreNavigationEarly() {
   safeBind('navCuadre', () => showMainView('cuadre'));
   safeBind('navReviews', () => showMainView('reviews'));
   safeBind('navDesigns', () => showMainView('designs'));
-  safeBind('navFinance', () => requestAdminPanel('finanzas'));
+  safeBind('navFinance', () => requestFinancePanel());
 
   safeBind('profileBtn', () => {
     const menu = $('#profileDropdown');
@@ -2788,7 +2788,9 @@ async function refreshProfileDebt({silent=false}={}){
     if($('#profileDebtEmpty'))$('#profileDebtEmpty').hidden=rows.length>0;
   }catch(err){if(!silent)showToast(err.message,'No se pudo cargar tu deuda')}
 }
-function setFinanceAdminTab(tab='empleados'){financeAdminTab=tab;$$('[data-finance-admin-tab]').forEach(b=>b.classList.toggle('active',b.dataset.financeAdminTab===tab));$$('[data-finance-admin-panel]').forEach(p=>p.classList.toggle('active',p.dataset.financeAdminPanel===tab));}
+function financeTabAllowed(tab='empleados'){if(currentUser?.rol==='admin')return true;return tab==='inversion'?userCan('investments'):userCan('debts');}
+function setFinanceAdminTab(tab='empleados'){if(!financeTabAllowed(tab))tab=userCan('debts')?'empleados':(userCan('investments')?'inversion':'empleados');financeAdminTab=tab;$$('[data-finance-admin-tab]').forEach(b=>{const allowed=financeTabAllowed(b.dataset.financeAdminTab);b.hidden=!allowed;b.classList.toggle('active',allowed&&b.dataset.financeAdminTab===tab);});$$('[data-finance-admin-panel]').forEach(p=>p.classList.toggle('active',p.dataset.financeAdminPanel===tab));}
+function requestFinancePanel(){if(!currentUser||!(currentUser.rol==='admin'||userCan('debts')||userCan('investments'))){showToast('Tu rol no tiene permiso para Deudas o Inversión.','Sin permiso');return;}pendingAdminSection='finanzas';openAdminPanel('finanzas');setFinanceAdminTab(currentUser.rol==='admin'||userCan('debts')?'empleados':'inversion');}
 function financeUserAvatar(user){return user?.foto_url?`<img src="${escapeHtml(user.foto_url)}" alt="" />`:escapeHtml(String(user?.nombre||user?.usuario||'?').slice(0,1).toUpperCase())}
 function renderEmployeeDebtPicker(){const root=$('#employeeDebtUserPicker');if(!root)return;root.innerHTML=adminUsers.map(u=>`<button type="button" class="employee-debt-user-option" data-debt-user="${u.id}"><span class="employee-debt-avatar">${u.foto_url?`<img src="${escapeHtml(u.foto_url)}" alt="" />`:iconUse('icon-user')}</span><span><strong>${escapeHtml(u.nombre||u.usuario)}</strong><small>${escapeHtml(u.role_name||'Usuario')}</small></span></button>`).join('')}
 function updateEmployeeDebtLimitHint(){const uid=String($('#employeeDebtAdminUser')?.value||''),u=adminUsers.find(x=>String(x.id)===uid),hint=$('#employeeDebtLimitHint');if(!hint)return;if(!u){hint.textContent='Selecciona un usuario para ver su límite.';return}const limit=Number(u.deuda_limite_mensual||0);hint.textContent=limit>0?`Límite mensual: ${money(limit)} · reinicia al pagar ${Number(u.deuda_reset_pct||50)}%`:'Este usuario no tiene límite configurado.'}
@@ -2796,7 +2798,7 @@ function renderFinanceAdmin(){const emp=financeAdminData.employee_debts||[],thir
 async function refreshFinanceAdmin({silent=false}={}){if(currentUser?.rol!=='admin')return;try{if(!adminUsers.length)await refreshAdminUsers();const data=await apiFetch(`/api/finanzas/registros?_=${Date.now()}`,{cache:'no-store'});financeAdminData=data||financeAdminData;renderEmployeeDebtPicker();const today=todayLocal();['employeeDebtAdminDate','thirdPartyDebtDate','investmentDate'].forEach(id=>{if($('#'+id)&&!$('#'+id).value)$('#'+id).value=today});renderFinanceAdmin();updateEmployeeDebtLimitHint()}catch(err){if(!silent)showToast(err.message,'No se pudo cargar Finanzas')}}
 async function submitEmployeeDebtAdmin(e){e.preventDefault();const payload={usuario_id:Number($('#employeeDebtAdminUser').value),monto:Number($('#employeeDebtAdminAmount').value||0),fecha:$('#employeeDebtAdminDate').value,concepto:$('#employeeDebtAdminConcept').value.trim(),local:document.querySelector('input[name="employeeDebtLocation"]:checked')?.value||'Matriz',nota:$('#employeeDebtAdminNote').value.trim()};try{await apiFetch('/api/finanzas/deudas-empleados',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify(payload)});e.target.reset();$('#employeeDebtAdminDate').value=todayLocal();$('#employeeDebtAdminUser').value='';$$('.employee-debt-user-option').forEach(x=>x.classList.remove('active'));updateEmployeeDebtLimitHint();showToast('Deuda agregada al empleado.','Finanzas');await refreshFinanceAdmin({silent:true})}catch(err){showToast(err.message,'No se pudo agregar la deuda')}}
 async function submitThirdPartyDebt(e){e.preventDefault();const payload={nombre_tercero:$('#thirdPartyDebtName').value.trim(),contacto:$('#thirdPartyDebtContact').value.trim(),monto:Number($('#thirdPartyDebtAmount').value||0),fecha:$('#thirdPartyDebtDate').value,concepto:$('#thirdPartyDebtConcept').value.trim(),local:document.querySelector('input[name="thirdDebtLocation"]:checked')?.value||'Matriz',nota:$('#thirdPartyDebtNote').value.trim()};try{await apiFetch('/api/finanzas/deudas-terceros',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify(payload)});e.target.reset();$('#thirdPartyDebtDate').value=todayLocal();showToast('Deuda de tercero registrada.','Finanzas');await refreshFinanceAdmin({silent:true})}catch(err){showToast(err.message,'No se pudo registrar')}}
-async function submitInvestment(e){e.preventDefault();const payload={categoria:$('#investmentCategory').value,concepto:$('#investmentConcept').value.trim(),monto:Number($('#investmentAmount').value||0),fecha:$('#investmentDate').value,local:document.querySelector('input[name="investmentLocation"]:checked')?.value||'Matriz',fuente:$('#investmentSource').value.trim(),nota:$('#investmentNote').value.trim()};try{await apiFetch('/api/finanzas/inversiones',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify(payload)});e.target.reset();$('#investmentDate').value=todayLocal();$('#investmentCategory').value='Inversión';$$('[data-investment-category]').forEach((b,i)=>b.classList.toggle('active',i===0));showToast('Inversión registrada.','Finanzas');await refreshFinanceAdmin({silent:true})}catch(err){showToast(err.message,'No se pudo registrar la inversión')}}
+async function submitInvestment(e){e.preventDefault();const inversiones=$$('[data-investment-check]:checked').map(check=>{const amount=$(`[data-investment-amount="${check.value}"]`);return{categoria:check.value,monto:Number(amount?.value||0)}}).filter(x=>x.monto>0);if(!inversiones.length){showToast('Selecciona al menos una categoría y agrega su monto.','Inversión');return;}const payload={inversiones,concepto:$('#investmentConcept').value.trim(),fecha:$('#investmentDate').value,local:document.querySelector('input[name="investmentLocation"]:checked')?.value||'Matriz',fuente:$('#investmentSource').value.trim(),nota:$('#investmentNote').value.trim()};if(!payload.concepto){showToast('Escribe el detalle o concepto.','Inversión');return;}try{await apiFetch('/api/finanzas/inversiones',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify(payload)});e.target.reset();resetInvestmentMulti();$('#investmentDate').value=todayLocal();showToast(`${inversiones.length} categoría${inversiones.length===1?'':'s'} registrada${inversiones.length===1?'':'s'}.`,'Finanzas');await refreshFinanceAdmin({silent:true})}catch(err){showToast(err.message,'No se pudo registrar la inversión')}}
 
 function goalForUser(userId) {
   return goalsToday.find((goal) => String(goal.usuario_id) === String(userId)) || null;
@@ -3607,13 +3609,7 @@ async function confirmDeleteAdminUser() {
 
 
 function normalizeRolePermissions(value = {}) {
-  return {
-    home:value.home !== false,
-    tasks:value.tasks !== false,
-    quote:value.quote !== false,
-    designs:value.designs !== false,
-    checkin:Boolean(value.checkin)
-  };
+  return {home:value.home !== false,tasks:value.tasks !== false,quote:value.quote !== false,cuadre:value.cuadre !== false,designs:value.designs !== false,checkin:Boolean(value.checkin),debts:Boolean(value.debts),investments:Boolean(value.investments)};
 }
 
 function renderAdminRoleOptions() {
@@ -3634,7 +3630,7 @@ function clearRoleEditor() {
   $('#roleName').value = '';
   $('#roleIsAdmin').checked = false;
   $$('[data-role-permission]').forEach((input) => {
-    input.checked = input.dataset.rolePermission !== 'checkin';
+    input.checked = !['checkin','debts','investments'].includes(input.dataset.rolePermission);
   });
   $('#deleteRoleBtn').disabled = true;
 }
@@ -4955,7 +4951,9 @@ function showAdminSection(section = 'hub') {
 }
 
 function requestAdminPanel(section = 'hub') {
-  if (!currentUser || currentUser.rol !== 'admin') {
+  if (!currentUser) return;
+  if(section==='finanzas' && (currentUser.rol==='admin'||userCan('debts')||userCan('investments'))){pendingAdminSection='finanzas';openAdminPanel('finanzas');return;}
+  if (currentUser.rol !== 'admin') {
     showToast('Solo un administrador puede abrir este panel.', 'Acceso restringido');
     return;
   }
@@ -5348,7 +5346,10 @@ $('#adminToolSearch')?.addEventListener('input',applyAdminToolFilters);
 $$('[data-admin-filter]').forEach(btn=>btn.addEventListener('click',()=>{adminToolFilter=btn.dataset.adminFilter||'all';$$('[data-admin-filter]').forEach(x=>x.classList.toggle('active',x===btn));applyAdminToolFilters()}));
 $$('[data-finance-admin-tab]').forEach(btn=>btn.addEventListener('click',()=>setFinanceAdminTab(btn.dataset.financeAdminTab)));
 $('#employeeDebtUserPicker')?.addEventListener('click',(e)=>{const btn=e.target.closest('[data-debt-user]');if(!btn)return;$('#employeeDebtAdminUser').value=btn.dataset.debtUser;$$('.employee-debt-user-option').forEach(x=>x.classList.toggle('active',x===btn));updateEmployeeDebtLimitHint();});
-$('#investmentCategoryPicker')?.addEventListener('click',(e)=>{const btn=e.target.closest('[data-investment-category]');if(!btn)return;$('#investmentCategory').value=btn.dataset.investmentCategory;$$('[data-investment-category]').forEach(x=>x.classList.toggle('active',x===btn));});
+function updateInvestmentMultiTotal(){const total=$$('[data-investment-amount]').reduce((sum,input)=>sum+(input.disabled?0:Number(input.value||0)),0);if($('#investmentMultiTotal'))$('#investmentMultiTotal').textContent=money(total);}
+function resetInvestmentMulti(){$$('[data-investment-check]').forEach(check=>{check.checked=false;const input=$(`[data-investment-amount="${check.value}"]`);if(input){input.value='';input.disabled=true;}});updateInvestmentMultiTotal();}
+$$('[data-investment-check]').forEach(check=>check.addEventListener('change',()=>{const input=$(`[data-investment-amount="${check.value}"]`);if(input){input.disabled=!check.checked;if(!check.checked)input.value='';else input.focus();}updateInvestmentMultiTotal();}));
+$$('[data-investment-amount]').forEach(input=>input.addEventListener('input',updateInvestmentMultiTotal));
 $('#employeeDebtAdminForm')?.addEventListener('submit',submitEmployeeDebtAdmin);
 $('#thirdPartyDebtForm')?.addEventListener('submit',submitThirdPartyDebt);
 $('#investmentAdminForm')?.addEventListener('submit',submitInvestment);

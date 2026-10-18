@@ -9,7 +9,7 @@
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700;800&display=swap" rel="stylesheet">
   <link id="dynamicFavicon" rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 64 64'%3E%3Crect width='64' height='64' rx='16' fill='%23b9ff39'/%3E%3Cpath d='M18 33l9 9 19-22' fill='none' stroke='%23111' stroke-width='7' stroke-linecap='round' stroke-linejoin='round'/%3E%3C/svg%3E" />
-  <link rel="stylesheet" href="styles.css?v=11.27" />
+  <link rel="stylesheet" href="styles.css?v=11.27.1" />
 </head>
 <body>
   <svg xmlns="http://www.w3.org/2000/svg" style="display:none" aria-hidden="true" focusable="false">
@@ -1220,6 +1220,14 @@
                     <label class="discord-switch"><input type="checkbox" data-role-permission="cuadre" checked /><span></span></label>
                   </div>
                   <div class="role-permission-row">
+                    <div><strong>Deudas</strong><span>Acceder a deudas de empleados y de terceros.</span></div>
+                    <label class="discord-switch"><input type="checkbox" data-role-permission="debts" /><span></span></label>
+                  </div>
+                  <div class="role-permission-row">
+                    <div><strong>Inversión</strong><span>Registrar y consultar inversiones del negocio.</span></div>
+                    <label class="discord-switch"><input type="checkbox" data-role-permission="investments" /><span></span></label>
+                  </div>
+                  <div class="role-permission-row">
                     <div><strong>Diseños</strong><span>Acceder a la biblioteca de diseños.</span></div>
                     <label class="discord-switch"><input type="checkbox" data-role-permission="designs" checked /><span></span></label>
                   </div>
@@ -1671,10 +1679,23 @@
             <div class="finance-admin-panel" data-finance-admin-panel="inversion"><div class="finance-admin-layout finance-entry-layout">
               <form id="investmentAdminForm" class="finance-entry-card">
                 <div class="finance-form-head"><strong>Registrar inversión</strong><small>Elige una categoría y registra el capital destinado al negocio.</small></div>
-                <div><span class="finance-entry-label">Categoría</span><input id="investmentCategory" type="hidden" value="Inversión" required /><div id="investmentCategoryPicker" class="investment-category-picker">
-                  <button type="button" class="active" data-investment-category="Inversión">Inversión</button><button type="button" data-investment-category="Tecnología">Tecnología</button><button type="button" data-investment-category="Belleza">Belleza</button><button type="button" data-investment-category="Diseños">Diseños</button><button type="button" data-investment-category="Juguete">Juguete</button><button type="button" data-investment-category="Escolar">Escolar</button><button type="button" data-investment-category="Festividad">Festividad</button><button type="button" data-investment-category="Peluche">Peluche</button><button type="button" data-investment-category="Vinchas">Vinchas</button>
-                </div></div>
-                <div class="finance-entry-grid"><label class="finance-money-card"><span>Monto</span><div><b>$</b><input id="investmentAmount" type="number" min="0.01" step="0.01" required placeholder="0.00" /></div></label><label class="finance-date-card"><span>Fecha</span><input id="investmentDate" type="date" required /></label></div>
+                <div class="investment-multi-block">
+                  <span class="finance-entry-label">Categorías y montos</span>
+                  <p class="finance-entry-help">Selecciona una o varias categorías y asigna un monto diferente a cada una.</p>
+                  <div id="investmentCategoryRows" class="investment-category-amount-list">
+                    <label class="investment-category-amount-row"><input type="checkbox" value="Inversión" data-investment-check /><span>Inversión</span><div class="investment-row-amount"><b>$</b><input type="number" min="0.01" step="0.01" placeholder="Monto" data-investment-amount="Inversión" disabled /></div></label>
+                    <label class="investment-category-amount-row"><input type="checkbox" value="Tecnología" data-investment-check /><span>Tecnología</span><div class="investment-row-amount"><b>$</b><input type="number" min="0.01" step="0.01" placeholder="Monto" data-investment-amount="Tecnología" disabled /></div></label>
+                    <label class="investment-category-amount-row"><input type="checkbox" value="Belleza" data-investment-check /><span>Belleza</span><div class="investment-row-amount"><b>$</b><input type="number" min="0.01" step="0.01" placeholder="Monto" data-investment-amount="Belleza" disabled /></div></label>
+                    <label class="investment-category-amount-row"><input type="checkbox" value="Diseños" data-investment-check /><span>Diseños</span><div class="investment-row-amount"><b>$</b><input type="number" min="0.01" step="0.01" placeholder="Monto" data-investment-amount="Diseños" disabled /></div></label>
+                    <label class="investment-category-amount-row"><input type="checkbox" value="Juguete" data-investment-check /><span>Juguete</span><div class="investment-row-amount"><b>$</b><input type="number" min="0.01" step="0.01" placeholder="Monto" data-investment-amount="Juguete" disabled /></div></label>
+                    <label class="investment-category-amount-row"><input type="checkbox" value="Escolar" data-investment-check /><span>Escolar</span><div class="investment-row-amount"><b>$</b><input type="number" min="0.01" step="0.01" placeholder="Monto" data-investment-amount="Escolar" disabled /></div></label>
+                    <label class="investment-category-amount-row"><input type="checkbox" value="Festividad" data-investment-check /><span>Festividad</span><div class="investment-row-amount"><b>$</b><input type="number" min="0.01" step="0.01" placeholder="Monto" data-investment-amount="Festividad" disabled /></div></label>
+                    <label class="investment-category-amount-row"><input type="checkbox" value="Peluche" data-investment-check /><span>Peluche</span><div class="investment-row-amount"><b>$</b><input type="number" min="0.01" step="0.01" placeholder="Monto" data-investment-amount="Peluche" disabled /></div></label>
+                    <label class="investment-category-amount-row"><input type="checkbox" value="Vinchas" data-investment-check /><span>Vinchas</span><div class="investment-row-amount"><b>$</b><input type="number" min="0.01" step="0.01" placeholder="Monto" data-investment-amount="Vinchas" disabled /></div></label>
+                  </div>
+                  <div class="investment-multi-total"><span>Total seleccionado</span><strong id="investmentMultiTotal">$0,00</strong></div>
+                </div>
+                <div class="finance-entry-grid"><label class="finance-date-card"><span>Fecha</span><input id="investmentDate" type="date" required /></label></div>
                 <div class="finance-location-block"><span class="finance-entry-label">Local</span><div class="finance-choice-row"><label><input type="radio" name="investmentLocation" value="Matriz" checked /><span>Matriz</span></label><label><input type="radio" name="investmentLocation" value="Sucursal 1" /><span>Sucursal 1</span></label></div></div>
                 <label class="finance-full-field"><span>Detalle / concepto</span><input id="investmentConcept" required maxlength="120" placeholder="Ej. Compra de impresora" /></label>
                 <label class="finance-full-field"><span>Origen / fuente</span><input id="investmentSource" maxlength="120" placeholder="Ej. Capital propio / préstamo" /></label>
@@ -1759,6 +1780,6 @@
     </article>
   </template>
 
-  <script src="app.js?v=11.27"></script>
+  <script src="app.js?v=11.27.1"></script>
 </body>
 </html>
