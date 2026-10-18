@@ -1,4 +1,4 @@
-const APP_VERSION = '11.30.5';
+const APP_VERSION = '11.30.6';
 const API_BASE = 'https://gestor-tareas-api.detodoec.workers.dev';
 const STORAGE_KEY = 'detodoec_tasks_v1';
 const SETTINGS_KEY = 'detodoec_tasks_settings_v3';
@@ -3093,8 +3093,6 @@ async function uploadCardLogoSelection(file){
   renderCardAdminPreview();
   setCardLogoStatus('Subiendo logo a la nube…','loading');
   const uploaded=await uploadImage(file);
-  const check=await fetch(uploaded,{method:'HEAD',cache:'no-store'});
-  if(!check.ok)throw new Error('El logo se subió, pero no se pudo verificar en la nube.');
   $('#cardBankLogoUrl').value=uploaded;
   setCardLogoStatus('Logo guardado en la nube.','ok');
   renderCardAdminPreview();
