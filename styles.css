@@ -8694,3 +8694,9 @@ input[type="number"]::-webkit-inner-spin-button,input[type="number"]::-webkit-ou
   color:var(--accent);
   background:color-mix(in srgb,var(--accent) 10%,var(--surface-2));
 }
+
+/* V11.29.8 · Restablecimiento seguro de contraseña */
+.password-input-with-toggle{grid-template-columns:minmax(0,1fr) 44px auto!important}
+.password-generate-btn{min-height:42px;padding:0 12px;border:1px solid var(--line);border-radius:10px;background:var(--surface-2);color:var(--ink);font-size:9px;font-weight:800;cursor:pointer;white-space:nowrap}
+.password-generate-btn:hover{border-color:var(--accent)}
+@media(max-width:700px){.password-input-with-toggle{grid-template-columns:minmax(0,1fr) 44px!important}.password-generate-btn{grid-column:1/-1;width:100%}}

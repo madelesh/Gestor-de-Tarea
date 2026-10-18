@@ -1,4 +1,4 @@
-const APP_VERSION = '11.29.7';
+const APP_VERSION = '11.29.8';
 const API_BASE = 'https://gestor-tareas-api.detodoec.workers.dev';
 const STORAGE_KEY = 'detodoec_tasks_v1';
 const SETTINGS_KEY = 'detodoec_tasks_settings_v3';
@@ -5665,6 +5665,22 @@ on('adminUserPasswordToggle','click',()=>{
   btn.setAttribute('title',show?'Ocultar contraseña':'Mostrar contraseña');
 });
 
+on('adminUserGeneratePassword','click',()=>{
+  const input=$('#adminUserPassword');
+  if(!input)return;
+  const alphabet='ABCDEFGHJKLMNPQRSTUVWXYZabcdefghijkmnopqrstuvwxyz23456789!@#$%';
+  const bytes=new Uint32Array(14);
+  crypto.getRandomValues(bytes);
+  const generated=Array.from(bytes,n=>alphabet[n%alphabet.length]).join('');
+  input.value=generated;
+  input.type='text';
+  const btn=$('#adminUserPasswordToggle');
+  if(btn){btn.classList.add('is-visible');btn.setAttribute('aria-label','Ocultar contraseña');btn.setAttribute('title','Ocultar contraseña');}
+  input.focus();
+  input.select();
+  showToast('Contraseña temporal generada. Guarda los cambios para aplicarla.','Contraseña temporal');
+});
+
 $('#adminUserPhoto')?.addEventListener('change', (e) => {
   const file = e.target.files?.[0];
   if (!file) return;
@@ -6102,3 +6118,5 @@ document.addEventListener('click', (e) => { if (!e.target.closest('.admin-user-c
 // V11.29.1: Egresos requiere aprobación del administrador desde Revisiones.
 
 // GitHub refresh marker: V11.29.7-ROLES-PASSWORD-EYE-R1
+
+// BUILD_FORCE: V11.29.8-PASSWORD-RESET-R1
