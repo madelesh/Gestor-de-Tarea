@@ -9,7 +9,7 @@
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700;800&display=swap" rel="stylesheet">
   <link id="dynamicFavicon" rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 64 64'%3E%3Crect width='64' height='64' rx='16' fill='%23b9ff39'/%3E%3Cpath d='M18 33l9 9 19-22' fill='none' stroke='%23111' stroke-width='7' stroke-linecap='round' stroke-linejoin='round'/%3E%3C/svg%3E" />
-  <link rel="stylesheet" href="styles.css?v=11.26.2" />
+  <link rel="stylesheet" href="styles.css?v=11.27" />
 </head>
 <body>
   <svg xmlns="http://www.w3.org/2000/svg" style="display:none" aria-hidden="true" focusable="false">
@@ -1161,6 +1161,9 @@
                 <label>Año de nacimiento<input id="adminUserBirthYear" type="number" min="1900" max="2100" step="1" placeholder="Ej. 2002" /></label>
                 <label>Día que entró a trabajar<input id="adminUserHireDate" type="date" /></label>
                 <label>Valor por hora ($)<input id="adminUserHourlyRate" type="number" min="0" step="0.01" value="0" /></label>
+                <label>Límite de deuda mensual ($)<input id="adminUserDebtLimit" type="number" min="0" step="0.01" value="0" /><small class="field-help">Máximo que puede solicitar por ciclo mensual.</small></label>
+                <label>Pago para reiniciar límite (%)<input id="adminUserDebtResetPct" type="number" min="1" max="100" step="1" value="50" /><small class="field-help">Al pagar este porcentaje del límite, vuelve a disponer del límite completo.</small></label>
+                <label>Descuento mensual de deuda (%)<input id="adminUserPayrollDebtPct" type="number" min="0" max="100" step="1" value="30" /><small class="field-help">Porcentaje del sueldo mensual que se aplica automáticamente a la deuda.</small></label>
               </div>
 
               <div class="admin-user-editor-actions">
@@ -1636,62 +1639,50 @@
           </section>
 
           <section class="admin-section admin-view finance-admin-section" data-admin-view="finanzas" hidden>
-            <div class="admin-section-head">
-              <span class="eyebrow">Finanzas</span>
-              <h3>Deudas e inversión</h3>
-              <p>Registra obligaciones de colaboradores, deudas de terceros e inversiones sin mezclar los tipos de movimiento.</p>
-            </div>
-
+            <div class="admin-section-head"><span class="eyebrow">Finanzas</span><h3>Deudas e inversión</h3><p>Controla deudas de colaboradores, terceros e inversiones por local.</p></div>
             <div class="finance-admin-tabs">
               <button type="button" class="active" data-finance-admin-tab="empleados"><svg class="icon"><use href="#icon-users"></use></svg><span>Deuda empleados</span></button>
               <button type="button" data-finance-admin-tab="terceros"><svg class="icon"><use href="#icon-handshake"></use></svg><span>Deuda terceros</span></button>
               <button type="button" data-finance-admin-tab="inversion"><svg class="icon"><use href="#icon-dollar"></use></svg><span>Inversión</span></button>
             </div>
-
-            <div class="finance-admin-panel active" data-finance-admin-panel="empleados">
-              <div class="finance-admin-layout">
-                <form id="employeeDebtAdminForm" class="finance-admin-form">
-                  <div class="finance-form-head"><strong>Nueva deuda de empleado</strong><small>Esta deuda aparecerá automáticamente en el perfil del usuario.</small></div>
-                  <label>Empleado<select id="employeeDebtAdminUser" required></select></label>
-                  <div class="finance-form-row"><label>Monto<input id="employeeDebtAdminAmount" type="number" min="0.01" step="0.01" required placeholder="0.00" /></label><label>Fecha<input id="employeeDebtAdminDate" type="date" required /></label></div>
-                  <label>Concepto<input id="employeeDebtAdminConcept" maxlength="120" required placeholder="Ej. Adelanto de efectivo" /></label>
-                  <label>Vencimiento opcional<input id="employeeDebtAdminDue" type="date" /></label>
-                  <label>Nota<textarea id="employeeDebtAdminNote" rows="3" maxlength="240" placeholder="Información adicional"></textarea></label>
-                  <button type="submit" class="btn btn-accent"><svg class="icon"><use href="#icon-plus"></use></svg><span>Agregar deuda</span></button>
-                </form>
-                <div class="finance-admin-records-card"><div class="finance-records-head"><div><strong>Deudas de empleados</strong><small>Saldos pendientes y abonos registrados.</small></div><span id="employeeDebtAdminTotal">$0,00</span></div><div id="employeeDebtAdminList" class="finance-admin-list"></div></div>
-              </div>
-            </div>
-
-            <div class="finance-admin-panel" data-finance-admin-panel="terceros">
-              <div class="finance-admin-layout">
-                <form id="thirdPartyDebtForm" class="finance-admin-form">
-                  <div class="finance-form-head"><strong>Nueva deuda de tercero</strong><small>Para personas o entidades externas al equipo.</small></div>
-                  <label>Nombre del tercero<input id="thirdPartyDebtName" required maxlength="100" placeholder="Nombre o empresa" /></label>
-                  <label>Contacto<input id="thirdPartyDebtContact" maxlength="100" placeholder="Teléfono, correo o referencia" /></label>
-                  <div class="finance-form-row"><label>Monto<input id="thirdPartyDebtAmount" type="number" min="0.01" step="0.01" required placeholder="0.00" /></label><label>Fecha<input id="thirdPartyDebtDate" type="date" required /></label></div>
-                  <label>Concepto<input id="thirdPartyDebtConcept" maxlength="120" required placeholder="Ej. Préstamo / saldo pendiente" /></label>
-                  <label>Vencimiento opcional<input id="thirdPartyDebtDue" type="date" /></label>
-                  <label>Nota<textarea id="thirdPartyDebtNote" rows="3" maxlength="240"></textarea></label>
-                  <button type="submit" class="btn btn-accent"><svg class="icon"><use href="#icon-plus"></use></svg><span>Agregar deuda</span></button>
-                </form>
-                <div class="finance-admin-records-card"><div class="finance-records-head"><div><strong>Deudas de terceros</strong><small>Control de saldos externos.</small></div><span id="thirdPartyDebtTotal">$0,00</span></div><div id="thirdPartyDebtList" class="finance-admin-list"></div></div>
-              </div>
-            </div>
-
-            <div class="finance-admin-panel" data-finance-admin-panel="inversion">
-              <div class="finance-admin-layout">
-                <form id="investmentAdminForm" class="finance-admin-form">
-                  <div class="finance-form-head"><strong>Registrar inversión</strong><small>Registro informativo de capital invertido. Por ahora no modifica el cuadre de caja.</small></div>
-                  <label>Concepto<input id="investmentConcept" required maxlength="120" placeholder="Ej. Compra de maquinaria" /></label>
-                  <div class="finance-form-row"><label>Monto<input id="investmentAmount" type="number" min="0.01" step="0.01" required placeholder="0.00" /></label><label>Fecha<input id="investmentDate" type="date" required /></label></div>
-                  <label>Origen / fuente<input id="investmentSource" maxlength="120" placeholder="Ej. Capital propio / préstamo" /></label>
-                  <label>Nota<textarea id="investmentNote" rows="3" maxlength="240" placeholder="Detalle de la inversión"></textarea></label>
-                  <button type="submit" class="btn btn-accent"><svg class="icon"><use href="#icon-plus"></use></svg><span>Registrar inversión</span></button>
-                </form>
-                <div class="finance-admin-records-card"><div class="finance-records-head"><div><strong>Inversiones registradas</strong><small>Historial de capital destinado al negocio.</small></div><span id="investmentAdminTotal">$0,00</span></div><div id="investmentAdminList" class="finance-admin-list"></div></div>
-              </div>
-            </div>
+            <div class="finance-admin-panel active" data-finance-admin-panel="empleados"><div class="finance-admin-layout finance-entry-layout">
+              <form id="employeeDebtAdminForm" class="finance-entry-card">
+                <div class="finance-form-head"><strong>Nueva deuda de empleado</strong><small>Selecciona al colaborador, el local y el valor. La deuda aparecerá en su perfil.</small></div>
+                <div><span class="finance-entry-label">Empleado</span><input id="employeeDebtAdminUser" type="hidden" required /><div id="employeeDebtUserPicker" class="employee-debt-user-picker"></div></div>
+                <div class="finance-entry-grid"><label class="finance-money-card"><span>Monto</span><div><b>$</b><input id="employeeDebtAdminAmount" type="number" min="0.01" step="0.01" required placeholder="0.00" /></div><small id="employeeDebtLimitHint">Selecciona un usuario para ver su límite.</small></label><label class="finance-date-card"><span>Fecha</span><input id="employeeDebtAdminDate" type="date" required /></label></div>
+                <div class="finance-location-block"><span class="finance-entry-label">Local</span><div class="finance-choice-row"><label><input type="radio" name="employeeDebtLocation" value="Matriz" checked /><span>Matriz</span></label><label><input type="radio" name="employeeDebtLocation" value="Sucursal 1" /><span>Sucursal 1</span></label></div></div>
+                <label class="finance-full-field"><span>Concepto</span><input id="employeeDebtAdminConcept" maxlength="120" required placeholder="Ej. Adelanto de efectivo" /></label>
+                <label class="finance-full-field"><span>Nota</span><textarea id="employeeDebtAdminNote" rows="2" maxlength="240" placeholder="Información adicional"></textarea></label>
+                <button type="submit" class="btn btn-accent finance-submit-wide"><svg class="icon"><use href="#icon-plus"></use></svg><span>Agregar deuda</span></button>
+              </form>
+              <div class="finance-admin-records-card"><div class="finance-records-head"><div><strong>Deudas de empleados</strong><small>Saldos pendientes, local y abonos registrados.</small></div><span id="employeeDebtAdminTotal">$0,00</span></div><div id="employeeDebtAdminList" class="finance-admin-list"></div></div>
+            </div></div>
+            <div class="finance-admin-panel" data-finance-admin-panel="terceros"><div class="finance-admin-layout finance-entry-layout">
+              <form id="thirdPartyDebtForm" class="finance-entry-card">
+                <div class="finance-form-head"><strong>Nueva deuda de tercero</strong><small>Registra deudas de personas o entidades externas.</small></div>
+                <div class="finance-entry-grid"><label class="finance-full-field"><span>Nombre del tercero</span><input id="thirdPartyDebtName" required maxlength="100" placeholder="Nombre o empresa" /></label><label class="finance-full-field"><span>Contacto</span><input id="thirdPartyDebtContact" maxlength="100" placeholder="Teléfono o referencia" /></label><label class="finance-money-card"><span>Monto</span><div><b>$</b><input id="thirdPartyDebtAmount" type="number" min="0.01" step="0.01" required placeholder="0.00" /></div></label><label class="finance-date-card"><span>Fecha</span><input id="thirdPartyDebtDate" type="date" required /></label></div>
+                <div class="finance-location-block"><span class="finance-entry-label">Local</span><div class="finance-choice-row"><label><input type="radio" name="thirdDebtLocation" value="Matriz" checked /><span>Matriz</span></label><label><input type="radio" name="thirdDebtLocation" value="Sucursal 1" /><span>Sucursal 1</span></label></div></div>
+                <label class="finance-full-field"><span>Concepto</span><input id="thirdPartyDebtConcept" maxlength="120" required placeholder="Ej. Préstamo / saldo pendiente" /></label>
+                <label class="finance-full-field"><span>Nota</span><textarea id="thirdPartyDebtNote" rows="2" maxlength="240"></textarea></label>
+                <button type="submit" class="btn btn-accent finance-submit-wide"><svg class="icon"><use href="#icon-plus"></use></svg><span>Agregar deuda</span></button>
+              </form>
+              <div class="finance-admin-records-card"><div class="finance-records-head"><div><strong>Deudas de terceros</strong><small>Control de saldos externos por local.</small></div><span id="thirdPartyDebtTotal">$0,00</span></div><div id="thirdPartyDebtList" class="finance-admin-list"></div></div>
+            </div></div>
+            <div class="finance-admin-panel" data-finance-admin-panel="inversion"><div class="finance-admin-layout finance-entry-layout">
+              <form id="investmentAdminForm" class="finance-entry-card">
+                <div class="finance-form-head"><strong>Registrar inversión</strong><small>Elige una categoría y registra el capital destinado al negocio.</small></div>
+                <div><span class="finance-entry-label">Categoría</span><input id="investmentCategory" type="hidden" value="Inversión" required /><div id="investmentCategoryPicker" class="investment-category-picker">
+                  <button type="button" class="active" data-investment-category="Inversión">Inversión</button><button type="button" data-investment-category="Tecnología">Tecnología</button><button type="button" data-investment-category="Belleza">Belleza</button><button type="button" data-investment-category="Diseños">Diseños</button><button type="button" data-investment-category="Juguete">Juguete</button><button type="button" data-investment-category="Escolar">Escolar</button><button type="button" data-investment-category="Festividad">Festividad</button><button type="button" data-investment-category="Peluche">Peluche</button><button type="button" data-investment-category="Vinchas">Vinchas</button>
+                </div></div>
+                <div class="finance-entry-grid"><label class="finance-money-card"><span>Monto</span><div><b>$</b><input id="investmentAmount" type="number" min="0.01" step="0.01" required placeholder="0.00" /></div></label><label class="finance-date-card"><span>Fecha</span><input id="investmentDate" type="date" required /></label></div>
+                <div class="finance-location-block"><span class="finance-entry-label">Local</span><div class="finance-choice-row"><label><input type="radio" name="investmentLocation" value="Matriz" checked /><span>Matriz</span></label><label><input type="radio" name="investmentLocation" value="Sucursal 1" /><span>Sucursal 1</span></label></div></div>
+                <label class="finance-full-field"><span>Detalle / concepto</span><input id="investmentConcept" required maxlength="120" placeholder="Ej. Compra de impresora" /></label>
+                <label class="finance-full-field"><span>Origen / fuente</span><input id="investmentSource" maxlength="120" placeholder="Ej. Capital propio / préstamo" /></label>
+                <label class="finance-full-field"><span>Nota</span><textarea id="investmentNote" rows="2" maxlength="240" placeholder="Detalle de la inversión"></textarea></label>
+                <button type="submit" class="btn btn-accent finance-submit-wide"><svg class="icon"><use href="#icon-plus"></use></svg><span>Registrar inversión</span></button>
+              </form>
+              <div class="finance-admin-records-card"><div class="finance-records-head"><div><strong>Inversiones registradas</strong><small>Historial por categoría y local.</small></div><span id="investmentAdminTotal">$0,00</span></div><div id="investmentAdminList" class="finance-admin-list"></div></div>
+            </div></div>
           </section>
 
           <section class="admin-section admin-view" data-admin-view="datos" hidden>
@@ -1768,6 +1759,6 @@
     </article>
   </template>
 
-  <script src="app.js?v=11.26.2"></script>
+  <script src="app.js?v=11.27"></script>
 </body>
 </html>
