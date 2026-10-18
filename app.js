@@ -1,4 +1,4 @@
-const APP_VERSION = '11.29.3';
+const APP_VERSION = '11.29.4';
 const API_BASE = 'https://gestor-tareas-api.detodoec.workers.dev';
 const STORAGE_KEY = 'detodoec_tasks_v1';
 const SETTINGS_KEY = 'detodoec_tasks_settings_v3';
@@ -2400,9 +2400,14 @@ function hideAuthGate() {
   document.body.classList.remove('auth-locked');
 }
 
+function avatarMarkup(photoUrl='', fallback='U') {
+  const photo=String(photoUrl||'').trim();
+  const letter=escapeHtml(String(fallback||'U').trim().slice(0,1).toUpperCase()||'U');
+  if(!photo) return `<span class="avatar-fallback-letter">${letter}</span>`;
+  return `<span class="avatar-fallback-letter">${letter}</span><img src="${escapeHtml(photo)}" alt="" loading="lazy" referrerpolicy="no-referrer" onerror="this.style.display='none';this.parentElement?.classList.add('avatar-load-failed')" />`;
+}
 function userAvatarMarkup(user = currentUser) {
-  if (user?.foto_url) return `${iconUse('icon-user')}<img src="${escapeHtml(user.foto_url)}" alt="" onerror="this.style.display='none'" />`;
-  return iconUse('icon-user');
+  return avatarMarkup(user?.foto_url, user?.nombre || user?.usuario || 'U');
 }
 
 function userCan(view) {
@@ -2809,7 +2814,7 @@ function financeTabAllowed(tab='empleados'){if(tab==='aprobaciones')return curre
 function setFinanceAdminTab(tab='empleados'){if(!financeTabAllowed(tab))tab='empleados';financeAdminTab=tab;$$('[data-finance-admin-tab]').forEach(b=>{const allowed=financeTabAllowed(b.dataset.financeAdminTab);b.hidden=!allowed;b.classList.toggle('active',allowed&&b.dataset.financeAdminTab===tab);});$$('[data-finance-admin-panel]').forEach(p=>p.classList.toggle('active',p.dataset.financeAdminPanel===tab));if(tab==='calendario')refreshFinanceCalendarPayments({silent:true});if(tab==='aprobaciones')refreshExpenseApprovals({silent:true});}
 function requestFinancePanel(){if(!currentUser||!(currentUser.rol==='admin'||userCan('expenses'))){showToast('Tu rol no tiene permiso para Egresos.','Sin permiso');return;}pendingAdminSection='finanzas';openAdminPanel('finanzas');setFinanceAdminTab('empleados');}
 function financeUserAvatar(user){return user?.foto_url?`<img src="${escapeHtml(user.foto_url)}" alt="" />`:escapeHtml(String(user?.nombre||user?.usuario||'?').slice(0,1).toUpperCase())}
-function renderEmployeeDebtPicker(){const root=$('#employeeDebtUserPicker');if(!root)return;root.innerHTML=adminUsers.map(u=>`<button type="button" class="employee-debt-user-option" data-debt-user="${u.id}"><span class="employee-debt-avatar">${u.foto_url?`<img src="${escapeHtml(u.foto_url)}" alt="" />`:iconUse('icon-user')}</span><span><strong>${escapeHtml(u.nombre||u.usuario)}</strong><small>${escapeHtml(u.role_name||'Usuario')}</small></span></button>`).join('')}
+function renderEmployeeDebtPicker(){const root=$('#employeeDebtUserPicker');if(!root)return;root.innerHTML=adminUsers.map(u=>`<button type="button" class="employee-debt-user-option" data-debt-user="${u.id}"><span class="employee-debt-avatar">${avatarMarkup(u.foto_url,u.nombre||u.usuario||'U')}</span><span><strong>${escapeHtml(u.nombre||u.usuario)}</strong><small>${escapeHtml(u.role_name||'Usuario')}</small></span></button>`).join('')}
 function updateEmployeeDebtLimitHint(){const uid=String($('#employeeDebtAdminUser')?.value||''),u=adminUsers.find(x=>String(x.id)===uid),hint=$('#employeeDebtLimitHint');if(!hint)return;if(!u){hint.textContent='Selecciona un usuario para ver su límite.';return}const limit=Number(u.deuda_limite_mensual||0);hint.textContent=limit>0?`Límite mensual: ${money(limit)} · reinicia al pagar ${Number(u.deuda_reset_pct||50)}%`:'Este usuario no tiene límite configurado.'}
 
 function financeCalendarStatus(item){
@@ -3160,7 +3165,7 @@ function renderAttendanceRows(rows = []) {
       const exit = localDateTimeParts(row.salida);
       tr.classList.add('checkin-inline-editing');
       tr.innerHTML = `
-        <td><div class="attendance-table-user"><span class="attendance-table-avatar">${row.foto_url ? `<img src="${escapeHtml(row.foto_url)}" alt="" />` : iconUse('icon-user')}</span><span><strong>${escapeHtml(row.nombre || row.usuario)}</strong><small>@${escapeHtml(row.usuario)}</small></span></div></td>
+        <td><div class="attendance-table-user"><span class="attendance-table-avatar">${avatarMarkup(row.foto_url,row.nombre||row.usuario||'U')}</span><span><strong>${escapeHtml(row.nombre || row.usuario)}</strong><small>@${escapeHtml(row.usuario)}</small></span></div></td>
         <td><input class="checkin-inline-input" data-field="entrada" type="time" value="${escapeHtml(entry.time)}" /></td>
         <td><input class="checkin-inline-input" data-field="salida" type="time" value="${escapeHtml(row.salida ? exit.time : '')}" /></td>
         <td>
@@ -3182,7 +3187,7 @@ function renderAttendanceRows(rows = []) {
         </td>`;
     } else {
       tr.innerHTML = `
-        <td><div class="attendance-table-user"><span class="attendance-table-avatar">${row.foto_url ? `<img src="${escapeHtml(row.foto_url)}" alt="" />` : iconUse('icon-user')}</span><span><strong>${escapeHtml(row.nombre || row.usuario)}</strong><small>@${escapeHtml(row.usuario)}</small></span></div></td>
+        <td><div class="attendance-table-user"><span class="attendance-table-avatar">${avatarMarkup(row.foto_url,row.nombre||row.usuario||'U')}</span><span><strong>${escapeHtml(row.nombre || row.usuario)}</strong><small>@${escapeHtml(row.usuario)}</small></span></div></td>
         <td>${formatTime(row.entrada)}</td>
         <td>${formatTime(row.salida)}</td>
         <td><strong>${formatWorkedTime(minutes)}</strong></td>
@@ -4170,7 +4175,7 @@ function renderMonthlyPayroll(rows=[]){
     const g=grouped.get(id);g.minutes+=minutes;g.pay+=pay;g.days.add(row.fecha_local);allMinutes+=minutes;allPay+=pay;
   });
   const list=[...grouped.values()].sort((a,b)=>String(a.nombre).localeCompare(String(b.nombre),'es'));
-  body.innerHTML=list.map((g)=>`<tr><td><div class="attendance-table-user"><span class="attendance-table-avatar">${g.foto_url?`<img src="${escapeHtml(g.foto_url)}" alt="" />`:iconUse('icon-user')}</span><span><strong>${escapeHtml(g.nombre)}</strong><small>@${escapeHtml(g.usuario)}</small></span></div></td><td>${g.days.size}</td><td><strong>${formatWorkedTime(g.minutes)}</strong></td><td><strong>${money(g.pay)}</strong></td></tr>`).join('');
+  body.innerHTML=list.map((g)=>`<tr><td><div class="attendance-table-user"><span class="attendance-table-avatar">${avatarMarkup(g.foto_url,g.nombre||g.usuario||'U')}</span><span><strong>${escapeHtml(g.nombre)}</strong><small>@${escapeHtml(g.usuario)}</small></span></div></td><td>${g.days.size}</td><td><strong>${formatWorkedTime(g.minutes)}</strong></td><td><strong>${money(g.pay)}</strong></td></tr>`).join('');
   if($('#monthlyPayrollHours'))$('#monthlyPayrollHours').textContent=formatWorkedTime(allMinutes);
   if($('#monthlyPayrollPay'))$('#monthlyPayrollPay').textContent=money(allPay);
   if($('#monthlyPayrollEmpty'))$('#monthlyPayrollEmpty').hidden=list.length>0;
