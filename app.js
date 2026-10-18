@@ -1,4 +1,4 @@
-const APP_VERSION = '11.29.4';
+const APP_VERSION = '11.29.5';
 const API_BASE = 'https://gestor-tareas-api.detodoec.workers.dev';
 const STORAGE_KEY = 'detodoec_tasks_v1';
 const SETTINGS_KEY = 'detodoec_tasks_settings_v3';
@@ -824,7 +824,7 @@ function renderQuoteCustomerPicker() {
   const avatar = trigger.querySelector('.quote-customer-avatar');
   if (avatar) {
     if (current.foto_url) {
-      avatar.innerHTML = `<img src="${escapeHtml(current.foto_url)}" alt="" />`;
+      avatar.innerHTML = `<img src="${escapeHtml(resolveProfileImageUrl(current.foto_url))}" alt="" />`;
       avatar.classList.remove('public-avatar');
     } else {
       avatar.innerHTML = iconUse('icon-user');
@@ -1345,7 +1345,10 @@ async function uploadImage(file) {
   const fd = new FormData();
   fd.append('imagen', file);
   const data = await apiFetch('/api/imagenes', { method: 'POST', body: fd });
-  return data.url || '';
+  const raw=data?.key ? `${API_BASE}/api/imagenes/${encodeURIComponent(data.key)}` : (data?.url||'');
+  const imageUrl=resolveProfileImageUrl(raw);
+  if(!imageUrl) throw new Error('La imagen se subió pero no se recibió una URL válida.');
+  return imageUrl.replace(/\?pv=.*$/,'');
 }
 
 async function uploadDesignFile(file) {
@@ -2400,11 +2403,27 @@ function hideAuthGate() {
   document.body.classList.remove('auth-locked');
 }
 
+function resolveProfileImageUrl(photoUrl='') {
+  const raw=String(photoUrl||'').trim();
+  if(!raw) return '';
+  try{
+    const parsed=new URL(raw,API_BASE);
+    const match=parsed.pathname.match(/^\/api\/imagenes\/(.+)$/);
+    if(match){
+      // Fuerza siempre el dominio actual del Worker. Esto corrige fotos guardadas
+      // con dominios antiguos y añade un bust de caché para 404 previamente cacheados.
+      return `${API_BASE}/api/imagenes/${match[1]}?pv=${encodeURIComponent(APP_VERSION)}`;
+    }
+    return parsed.href;
+  }catch{
+    return raw;
+  }
+}
 function avatarMarkup(photoUrl='', fallback='U') {
-  const photo=String(photoUrl||'').trim();
+  const photo=resolveProfileImageUrl(photoUrl);
   const letter=escapeHtml(String(fallback||'U').trim().slice(0,1).toUpperCase()||'U');
   if(!photo) return `<span class="avatar-fallback-letter">${letter}</span>`;
-  return `<span class="avatar-fallback-letter">${letter}</span><img src="${escapeHtml(photo)}" alt="" loading="lazy" referrerpolicy="no-referrer" onerror="this.style.display='none';this.parentElement?.classList.add('avatar-load-failed')" />`;
+  return `<span class="avatar-fallback-letter">${letter}</span><img src="${escapeHtml(photo)}" alt="" loading="lazy" onerror="this.style.display='none';this.parentElement?.classList.add('avatar-load-failed')" />`;
 }
 function userAvatarMarkup(user = currentUser) {
   return avatarMarkup(user?.foto_url, user?.nombre || user?.usuario || 'U');
@@ -2813,7 +2832,7 @@ async function refreshProfileDebt({silent=false}={}){
 function financeTabAllowed(tab='empleados'){if(tab==='aprobaciones')return currentUser?.rol==='admin';return currentUser?.rol==='admin'||userCan('expenses');}
 function setFinanceAdminTab(tab='empleados'){if(!financeTabAllowed(tab))tab='empleados';financeAdminTab=tab;$$('[data-finance-admin-tab]').forEach(b=>{const allowed=financeTabAllowed(b.dataset.financeAdminTab);b.hidden=!allowed;b.classList.toggle('active',allowed&&b.dataset.financeAdminTab===tab);});$$('[data-finance-admin-panel]').forEach(p=>p.classList.toggle('active',p.dataset.financeAdminPanel===tab));if(tab==='calendario')refreshFinanceCalendarPayments({silent:true});if(tab==='aprobaciones')refreshExpenseApprovals({silent:true});}
 function requestFinancePanel(){if(!currentUser||!(currentUser.rol==='admin'||userCan('expenses'))){showToast('Tu rol no tiene permiso para Egresos.','Sin permiso');return;}pendingAdminSection='finanzas';openAdminPanel('finanzas');setFinanceAdminTab('empleados');}
-function financeUserAvatar(user){return user?.foto_url?`<img src="${escapeHtml(user.foto_url)}" alt="" />`:escapeHtml(String(user?.nombre||user?.usuario||'?').slice(0,1).toUpperCase())}
+function financeUserAvatar(user){return user?.foto_url?`<img src="${escapeHtml(resolveProfileImageUrl(user.foto_url))}" alt="" />`:escapeHtml(String(user?.nombre||user?.usuario||'?').slice(0,1).toUpperCase())}
 function renderEmployeeDebtPicker(){const root=$('#employeeDebtUserPicker');if(!root)return;root.innerHTML=adminUsers.map(u=>`<button type="button" class="employee-debt-user-option" data-debt-user="${u.id}"><span class="employee-debt-avatar">${avatarMarkup(u.foto_url,u.nombre||u.usuario||'U')}</span><span><strong>${escapeHtml(u.nombre||u.usuario)}</strong><small>${escapeHtml(u.role_name||'Usuario')}</small></span></button>`).join('')}
 function updateEmployeeDebtLimitHint(){const uid=String($('#employeeDebtAdminUser')?.value||''),u=adminUsers.find(x=>String(x.id)===uid),hint=$('#employeeDebtLimitHint');if(!hint)return;if(!u){hint.textContent='Selecciona un usuario para ver su límite.';return}const limit=Number(u.deuda_limite_mensual||0);hint.textContent=limit>0?`Límite mensual: ${money(limit)} · reinicia al pagar ${Number(u.deuda_reset_pct||50)}%`:'Este usuario no tiene límite configurado.'}
 
@@ -2966,7 +2985,7 @@ function renderHomeUsers() {
     card.innerHTML = `
       <div class="home-worker-main">
         <div class="home-worker-avatar">
-          ${user.foto_url ? `<img src="${escapeHtml(user.foto_url)}" alt="" />` : iconUse('icon-user')}
+          ${user.foto_url ? `<img src="${escapeHtml(resolveProfileImageUrl(user.foto_url))}" alt="" />` : iconUse('icon-user')}
           <span class="presence-dot" aria-hidden="true"></span>
         </div>
 
@@ -3018,7 +3037,7 @@ function renderHomeGoals() {
   const totalTx=goalsToday.reduce((s,g)=>s+Number(g.transacciones_mes||0),0),totalTxTarget=goalsToday.reduce((s,g)=>s+(Number(g.transacciones_activa??1)===1?Number(g.objetivo_transacciones||0):0),0);
   const salesGlobalPct=monthlyGoalPercent(totalSales,totalSalesTarget),txGlobalPct=monthlyGoalPercent(totalTx,totalTxTarget);
   const chart=document.createElement('section');chart.className='goals-readable-widget';
-  chart.innerHTML=`<div class="goals-readable-summary"><div><span>Avance general</span><strong>${Math.round(salesGlobalPct)}%</strong><small>${money(totalSales)} de ${money(totalSalesTarget)} en ventas</small></div><div class="goals-readable-legend"><span><i class="goals-dot sales"></i> Ventas <b>${Math.round(salesGlobalPct)}%</b></span><span><i class="goals-dot tx"></i> Transacciones <b>${Math.round(txGlobalPct)}%</b></span></div></div><div class="goals-readable-scroll"><div class="goals-readable-chart">${goalsToday.map(goal=>{const user=usersById.get(String(goal.usuario_id))||goal,salesActive=Number(goal.ventas_activa??1)===1,txActive=Number(goal.transacciones_activa??1)===1,sp=monthlyGoalPercent(goal.ventas_mes,goal.objetivo_ventas),tp=monthlyGoalPercent(goal.transacciones_mes,goal.objetivo_transacciones),sh=salesActive?(sp<=0?2:Math.max(8,Math.min(100,sp))):0,th=txActive?(tp<=0?2:Math.max(8,Math.min(100,tp))):0,avatar=user.foto_url?`<img src="${escapeHtml(user.foto_url)}" alt="" />`:`<span>${escapeHtml(String(user.nombre||user.usuario||'U').slice(0,1).toUpperCase())}</span>`;return `<article class="goal-readable-person"><div class="goal-readable-bars"><div class="goal-readable-bar"><b>${salesActive?`${Math.round(sp)}%`:'—'}</b><div class="goal-readable-track sales"><span style="height:${sh}%"></span></div><small>Ventas</small></div><div class="goal-readable-bar"><b>${txActive?`${Math.round(tp)}%`:'—'}</b><div class="goal-readable-track tx"><span style="height:${th}%"></span></div><small>Trans.</small></div></div><div class="goal-readable-user"><span class="goal-readable-avatar">${avatar}</span><div><strong>${escapeHtml(user.nombre||user.usuario||'Usuario')}</strong><small>${salesActive?`${money(Number(goal.ventas_mes||0))} / ${money(Number(goal.objetivo_ventas||0))}`:'Ventas desactivadas'}</small><small>${txActive?`${Math.round(Number(goal.transacciones_mes||0))} / ${Math.round(Number(goal.objetivo_transacciones||0))} trans.`:'Trans. desactivadas'}</small></div></div></article>`}).join('')}</div></div>`;
+  chart.innerHTML=`<div class="goals-readable-summary"><div><span>Avance general</span><strong>${Math.round(salesGlobalPct)}%</strong><small>${money(totalSales)} de ${money(totalSalesTarget)} en ventas</small></div><div class="goals-readable-legend"><span><i class="goals-dot sales"></i> Ventas <b>${Math.round(salesGlobalPct)}%</b></span><span><i class="goals-dot tx"></i> Transacciones <b>${Math.round(txGlobalPct)}%</b></span></div></div><div class="goals-readable-scroll"><div class="goals-readable-chart">${goalsToday.map(goal=>{const user=usersById.get(String(goal.usuario_id))||goal,salesActive=Number(goal.ventas_activa??1)===1,txActive=Number(goal.transacciones_activa??1)===1,sp=monthlyGoalPercent(goal.ventas_mes,goal.objetivo_ventas),tp=monthlyGoalPercent(goal.transacciones_mes,goal.objetivo_transacciones),sh=salesActive?(sp<=0?2:Math.max(8,Math.min(100,sp))):0,th=txActive?(tp<=0?2:Math.max(8,Math.min(100,tp))):0,avatar=user.foto_url?`<img src="${escapeHtml(resolveProfileImageUrl(user.foto_url))}" alt="" />`:`<span>${escapeHtml(String(user.nombre||user.usuario||'U').slice(0,1).toUpperCase())}</span>`;return `<article class="goal-readable-person"><div class="goal-readable-bars"><div class="goal-readable-bar"><b>${salesActive?`${Math.round(sp)}%`:'—'}</b><div class="goal-readable-track sales"><span style="height:${sh}%"></span></div><small>Ventas</small></div><div class="goal-readable-bar"><b>${txActive?`${Math.round(tp)}%`:'—'}</b><div class="goal-readable-track tx"><span style="height:${th}%"></span></div><small>Trans.</small></div></div><div class="goal-readable-user"><span class="goal-readable-avatar">${avatar}</span><div><strong>${escapeHtml(user.nombre||user.usuario||'Usuario')}</strong><small>${salesActive?`${money(Number(goal.ventas_mes||0))} / ${money(Number(goal.objetivo_ventas||0))}`:'Ventas desactivadas'}</small><small>${txActive?`${Math.round(Number(goal.transacciones_mes||0))} / ${Math.round(Number(goal.objetivo_transacciones||0))} trans.`:'Trans. desactivadas'}</small></div></div></article>`}).join('')}</div></div>`;
   grid.appendChild(chart);empty.hidden=true;
 }
 const PAYMENT_CATEGORY_META={agua:{label:'Agua',color:'#28a9ff'},luz:{label:'Luz',color:'#f2c94c'},internet:{label:'Internet',color:'#a47cff'},deuda:{label:'Deuda',color:'#ff6172'},alquiler:{label:'Alquiler',color:'#ff9f43'},nomina:{label:'Nómina',color:'#54e38e'},otro:{label:'Otro',color:'#8e9bad'}};
@@ -3588,7 +3607,7 @@ function renderAdminUsers() {
     const canDelete = String(user.id) !== String(currentUser?.id);
     card.innerHTML = `
       <div class="admin-user-card-top">
-        <span class="admin-user-avatar-v2">${iconUse('icon-user')}${user.foto_url ? `<img src="${escapeHtml(user.foto_url)}" alt="" onerror="this.style.display='none'" />` : ''}</span>
+        <span class="admin-user-avatar-v2">${avatarMarkup(user.foto_url,user.nombre||user.usuario||'U')}</span>
         ${canDelete ? `<button type="button" class="admin-user-delete-direct" data-delete-app-user="${user.id}" aria-label="Eliminar ${escapeHtml(user.nombre)}" title="Eliminar usuario">${iconUse('icon-trash')}</button>` : ''}
       </div>
       <div class="admin-user-card-body">
@@ -4373,7 +4392,7 @@ function reviewCardHtml(r,{history=false,status=null}={}){
   const meta=state==='pendiente'?'Pendiente':(r.revisado_en?formatTime(r.revisado_en):'—');
   return `<article class="review-card" data-admin-review-id="${r.id}">
     <div class="review-card-user">
-      <span class="review-card-avatar">${r.foto_url?`<img src="${escapeHtml(r.foto_url)}" alt="" />`:iconUse('icon-user')}</span>
+      <span class="review-card-avatar">${r.foto_url?`<img src="${escapeHtml(resolveProfileImageUrl(r.foto_url))}" alt="" />`:iconUse('icon-user')}</span>
       <span class="review-card-user-copy"><strong>${escapeHtml(r.usuario_nombre||r.usuario||'Usuario')}</strong><small>${escapeHtml(r.fecha_local)} · ${formatTime(r.enviado_en)}</small></span>
     </div>
     <div class="review-card-metric"><small>Diferencia</small><strong>${dt}</strong></div>
@@ -4588,7 +4607,7 @@ function renderGoalsConfig() {
     card.innerHTML = `
       <div class="goal-config-user">
         <span class="goal-user-avatar">
-          ${goal.foto_url ? `<img src="${escapeHtml(goal.foto_url)}" alt="" />` : iconUse('icon-user')}
+          ${goal.foto_url ? `<img src="${escapeHtml(resolveProfileImageUrl(goal.foto_url))}" alt="" />` : iconUse('icon-user')}
         </span>
         <span>
           <strong>${escapeHtml(goal.nombre || goal.usuario)}</strong>
@@ -4666,7 +4685,7 @@ function renderGoalsHistory() {
       <td>
         <div class="goal-table-user">
           <span class="goal-table-avatar">
-            ${row.foto_url ? `<img src="${escapeHtml(row.foto_url)}" alt="" />` : iconUse('icon-user')}
+            ${row.foto_url ? `<img src="${escapeHtml(resolveProfileImageUrl(row.foto_url))}" alt="" />` : iconUse('icon-user')}
           </span>
           <span>
             <strong>${escapeHtml(row.nombre || row.usuario)}</strong>

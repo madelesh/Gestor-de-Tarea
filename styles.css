@@ -8661,3 +8661,7 @@ input[type="number"]::-webkit-inner-spin-button,input[type="number"]::-webkit-ou
 
 /* V11.29.4 · Fotos de perfil robustas */
 .home-worker-avatar,.top-user-avatar,.profile-avatar,.admin-user-avatar-v2,.employee-debt-avatar,.attendance-table-avatar,.review-card-avatar,.goal-readable-avatar{position:relative;overflow:hidden}.avatar-fallback-letter{position:absolute;inset:0;display:grid;place-items:center;font-size:13px;font-weight:900;color:var(--muted);background:var(--surface-2);z-index:0}.home-worker-avatar img,.top-user-avatar img,.profile-avatar img,.admin-user-avatar-v2 img,.employee-debt-avatar img,.attendance-table-avatar img,.review-card-avatar img,.goal-readable-avatar img{position:relative;z-index:1;width:100%;height:100%;object-fit:cover;display:block}.avatar-load-failed .avatar-fallback-letter{color:var(--ink)}
+
+/* V11.29.5 · fallback visual de avatar */
+.avatar-load-failed img{display:none!important}
+.avatar-load-failed .avatar-fallback-letter{display:grid!important;z-index:2!important}
