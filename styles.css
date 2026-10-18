@@ -8613,3 +8613,23 @@ textarea{
 /* Mantener sin flechas blancas en campos numéricos */
 input[type="number"]{-moz-appearance:textfield!important;appearance:textfield!important}
 input[type="number"]::-webkit-inner-spin-button,input[type="number"]::-webkit-outer-spin-button{-webkit-appearance:none!important;appearance:none!important;display:none!important;margin:0!important}
+
+
+/* V11.28.1 · Calendario un poco más grande sin afectar Metas/Gastos */
+.home-widget-dashboard{grid-template-columns:390px minmax(0,1fr)!important;gap:14px!important}
+.home-calendar-panel{width:100%!important;max-width:390px!important;padding:15px!important}
+.home-calendar-panel .calendar-simple-head{margin-bottom:11px!important}
+.home-calendar-panel .calendar-simple-head h2{font-size:20px!important}
+.home-calendar-panel .calendar-head-actions strong{min-width:132px!important;font-size:10.5px!important}
+.home-calendar-panel .business-calendar{width:100%!important}
+.home-calendar-panel .calendar-weekday{padding:6px 2px!important;font-size:7.5px!important}
+.home-calendar-panel .calendar-day{min-height:54px!important;padding:5px 4px!important}
+.home-calendar-panel .calendar-day-number{font-size:9px!important}
+.home-calendar-panel .calendar-event-dot{width:8px!important;height:8px!important}
+.calendar-selected-day{min-height:105px!important;padding:11px!important}
+.calendar-selected-head strong{font-size:12px!important}
+.calendar-selected-item{padding:9px 0!important}
+.calendar-selected-item strong{font-size:9.5px!important}
+.calendar-selected-item small{font-size:7.5px!important}
+@media(max-width:1280px){.home-widget-dashboard{grid-template-columns:355px minmax(0,1fr)!important}.home-calendar-panel{max-width:355px!important}}
+@media(max-width:900px){.home-widget-dashboard{grid-template-columns:1fr!important}.home-calendar-panel{max-width:430px!important}}
