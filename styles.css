@@ -8083,4 +8083,14 @@ textarea{
 
 /* V11.27.1 · inversión múltiple */
 .investment-multi-block{display:flex;flex-direction:column;gap:8px}.finance-entry-help{margin:0 0 4px;color:var(--muted);font-size:10px}.investment-category-amount-list{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:8px}.investment-category-amount-row{min-height:52px;display:grid;grid-template-columns:24px minmax(0,1fr) minmax(130px,.7fr);align-items:center;gap:9px;padding:8px 10px;border:1px solid var(--line);border-radius:12px;background:var(--surface-2)}.investment-category-amount-row:has(input[data-investment-check]:checked){border-color:var(--accent);background:color-mix(in srgb,var(--accent) 9%,var(--surface-2))}.investment-category-amount-row>input[type=checkbox]{width:18px;height:18px;accent-color:var(--accent)}.investment-category-amount-row>span{font-size:11px;font-weight:800}.investment-row-amount{display:flex;align-items:center;gap:5px;min-height:38px;padding:0 8px;border:1px solid var(--line);border-radius:9px;background:var(--surface)}.investment-row-amount b{color:var(--accent);font-size:14px}.investment-row-amount input{width:100%;min-height:36px!important;height:36px!important;border:0!important;background:transparent!important;padding:0!important}.investment-row-amount input:disabled{opacity:.4}.investment-multi-total{display:flex;align-items:center;justify-content:space-between;padding:12px 14px;border:1px solid var(--line);border-radius:12px;background:var(--surface-2)}.investment-multi-total span{font-size:10px;color:var(--muted);font-weight:800}.investment-multi-total strong{font-size:20px;color:var(--accent)}@media(max-width:760px){.investment-category-amount-list{grid-template-columns:1fr}}
-/* GitHub refresh marker: V11.27.2-EGRESOS-R1 */
+
+/* V11.27.2 R2 · Ocultar controles nativos en campos numéricos */
+input[type="number"] {
+  -moz-appearance: textfield;
+  appearance: textfield;
+}
+input[type="number"]::-webkit-outer-spin-button,
+input[type="number"]::-webkit-inner-spin-button {
+  -webkit-appearance: none;
+  margin: 0;
+}
